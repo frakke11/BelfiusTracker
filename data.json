@@ -53,10 +53,10 @@
               "expectedOutcomes": "You can go through the entire quote, underwriting and issue policy flows for a new car policy entirely with an agent. This agent also must be able to ask for documents, and use it's content to pre-populate and validate information",
               "jobStories": [
                 {
-                  "story": "When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. I want to be able to generate a quote entirely conversation driven.",
-                  "painPoints": "Long response time\nWork in multiple systems\nIntegration between Core platform (Keylane Axon), Salesforce",
+                  "story": "When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. It should be able to generate a quote entirely conversation driven.",
+                  "painPoints": "Make sure all questions are asked in a natural way\nWork in multiple systems\nIntegration between Core platform (Keylane Axon), Salesforce",
                   "desiredOutcomes": "95% accuracy in responses",
-                  "kpis": "Time saved\nAverage handling time"
+                  "kpis": "Time savedAverage handling time"
                 },
                 {
                   "story": "When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and hand off to a customer agent.",
