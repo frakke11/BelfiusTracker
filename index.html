@@ -9,23 +9,75 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-/* ── THEMES ── */
+/* ══════════════════════════════════════════════════
+   THEME: SALESFORCE LIGHT (default)
+   Official SF palette: #0070D2 blue, #032D60 navy,
+   #1B96FF sky, #22BEF4 cloud, #F3F3F3 bg
+══════════════════════════════════════════════════ */
 body.theme-default{
-  --bg:#0a1628;--bg-mid:#112240;--bg-light:#1a3460;
-  --accent:#c9a84c;--accent-light:#e8c96a;--accent-dim:#8a6f30;
-  --text:#e6f1ff;--text-dim:#ccd6f6;--text-muted:#8892b0;--text-soft:#a8b2d8;
-  --border:rgba(201,168,76,.14);--border-hover:rgba(201,168,76,.32);
-  --card-bg:#112240;--card-grad:linear-gradient(135deg,#112240,rgba(26,52,96,.55));
-  --card-accent-bg:linear-gradient(135deg,rgba(201,168,76,.1),rgba(26,52,96,.4));
-  --card-accent-border:rgba(201,168,76,.28);
-  --sidebar-bg:rgba(17,34,64,.97);--sidebar-border:rgba(201,168,76,.12);
-  --btn-primary:linear-gradient(135deg,#c9a84c,#8a6f30);--btn-primary-text:#0a1628;
-  --nav-active-bg:rgba(201,168,76,.15);--nav-active-text:#e8c96a;
-  --nav-hover:rgba(201,168,76,.08);
-  --red:#e85d5d;--green:#4caf82;--amber:#f0a843;--blue:#4a9eff;
-  --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
-  --radius:12px;--radius-sm:8px;
+  --bg:#f3f2f2;--bg-mid:#ffffff;--bg-light:#eaf5fe;
+  --accent:#0070d2;--accent-light:#1b96ff;--accent-dim:#005fb2;
+  --text:#032d60;--text-dim:#16325c;--text-muted:#54698d;--text-soft:#3e3e3c;
+  --border:rgba(0,112,210,.15);--border-hover:rgba(0,112,210,.4);
+  --card-bg:#ffffff;--card-grad:linear-gradient(135deg,#ffffff,#eaf5fe);
+  --card-accent-bg:linear-gradient(135deg,#eaf5fe,#f8fcff);
+  --card-accent-border:rgba(0,112,210,.2);
+  --sidebar-bg:#032d60;--sidebar-border:rgba(255,255,255,.1);
+  --btn-primary:linear-gradient(135deg,#0070d2,#005fb2);--btn-primary-text:#ffffff;
+  --nav-active-bg:rgba(255,255,255,.15);--nav-active-text:#ffffff;
+  --nav-hover:rgba(255,255,255,.08);
+  --red:#c23934;--green:#2e844a;--amber:#dd7a01;--blue:#0070d2;
+  --font-head:'Salesforce Sans','Source Sans 3',sans-serif;
+  --font-body:'Salesforce Sans','Source Sans 3',sans-serif;
+  --radius:8px;--radius-sm:4px;
+  --shadow:0 2px 8px rgba(0,0,0,.12);
 }
+/* Sidebar text for SF light */
+body.theme-default .sidebar{color:#ffffff}
+body.theme-default .nav-item{color:rgba(255,255,255,.72)}
+body.theme-default .nav-item:hover{color:#ffffff;background:rgba(255,255,255,.1)}
+body.theme-default .nav-item.active{color:#ffffff;background:rgba(255,255,255,.18);border-left:3px solid #1b96ff}
+body.theme-default .sidebar .btn-ghost{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25)}
+body.theme-default .sidebar .btn-ghost:hover{color:#ffffff;border-color:rgba(255,255,255,.6)}
+body.theme-default .sidebar .btn-primary{background:linear-gradient(135deg,#1b96ff,#0070d2);color:#fff}
+body.theme-default .sidebar #gh-save-btn{background:linear-gradient(135deg,#1b96ff,#0070d2);color:#fff}
+body.theme-default .theme-btn{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25)}
+body.theme-default .theme-btn.active{background:rgba(255,255,255,.2);color:#ffffff;border-color:rgba(255,255,255,.5)}
+body.theme-default .sidebar #gh-status{color:rgba(255,255,255,.65)}
+body.theme-default .sidebar #role-badge-wrap .badge{background:rgba(27,150,255,.3);color:#ffffff;border-color:rgba(27,150,255,.5)}
+body.theme-default .label{color:#0070d2}
+body.theme-default .card{box-shadow:var(--shadow)}
+body.theme-default .bg-grid{background-image:linear-gradient(rgba(0,112,210,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,112,210,.04) 1px,transparent 1px)}
+
+/* ══════════════════════════════════════════════════
+   THEME: SALESFORCE DARK
+   Deep navy + electric blue + cloud teal
+══════════════════════════════════════════════════ */
+body.theme-sf-dark{
+  --bg:#0b1320;--bg-mid:#0e1f38;--bg-light:#112b4e;
+  --accent:#1b96ff;--accent-light:#22bef4;--accent-dim:#0070d2;
+  --text:#e8f4ff;--text-dim:#c9e0f5;--text-muted:#7899b8;--text-soft:#9bb8d4;
+  --border:rgba(27,150,255,.15);--border-hover:rgba(27,150,255,.4);
+  --card-bg:#0e1f38;--card-grad:linear-gradient(135deg,#0e1f38,rgba(17,43,78,.7));
+  --card-accent-bg:linear-gradient(135deg,rgba(27,150,255,.1),rgba(14,31,56,.8));
+  --card-accent-border:rgba(27,150,255,.25);
+  --sidebar-bg:#040d1a;--sidebar-border:rgba(27,150,255,.12);
+  --btn-primary:linear-gradient(135deg,#1b96ff,#0070d2);--btn-primary-text:#ffffff;
+  --nav-active-bg:rgba(27,150,255,.18);--nav-active-text:#22bef4;
+  --nav-hover:rgba(27,150,255,.08);
+  --red:#f07070;--green:#3dd68c;--amber:#ffb75e;--blue:#1b96ff;
+  --font-head:'Salesforce Sans','Source Sans 3',sans-serif;
+  --font-body:'Salesforce Sans','Source Sans 3',sans-serif;
+  --radius:8px;--radius-sm:4px;
+  --shadow:0 4px 20px rgba(0,0,0,.5);
+}
+body.theme-sf-dark .bg-grid{background-image:linear-gradient(rgba(27,150,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(27,150,255,.04) 1px,transparent 1px)}
+body.theme-sf-dark .label{color:#1b96ff}
+body.theme-sf-dark .card{box-shadow:var(--shadow)}
+
+/* ══════════════════════════════════════════════════
+   THEME: BELFIUS
+══════════════════════════════════════════════════ */
 body.theme-belfius{
   --bg:#ffffff;--bg-mid:#f4f6fa;--bg-light:#e8edf5;
   --accent:#cc0000;--accent-light:#e53333;--accent-dim:#990000;
@@ -196,28 +248,56 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 <body class="theme-default bg-grid">
 
 <!-- LOGIN -->
-<div id="login-screen" class="login-wrap" style="background:radial-gradient(ellipse at 20% 50%,rgba(26,52,96,.8),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(201,168,76,.1),transparent 50%),var(--bg)">
-  <div style="width:100%;max-width:400px" class="fade-up">
-    <div style="text-align:center;margin-bottom:44px">
-      <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:10px">
-        <div style="width:44px;height:44px;border-radius:10px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-size:20px;animation:glow 3s ease-in-out infinite">&#9889;</div>
-        <div style="text-align:left">
-          <div style="font-family:var(--font-head);font-weight:800;font-size:18px;color:var(--text)">BELFIUS</div>
-          <div style="font-size:10px;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-top:-2px">Agentic Transformation</div>
+<div id="login-screen" class="login-wrap" style="background:linear-gradient(160deg,#032d60 0%,#0b5cab 50%,#032d60 100%)">
+  <!-- SF decorative clouds background -->
+  <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
+    <svg style="position:absolute;top:-60px;right:-80px;opacity:.07" width="500" height="400" viewBox="0 0 500 400"><path d="M180 160C190 110 230 80 275 80c55 0 100 35 115 85 20-8 42-12 65-12 70 0 130 57 130 128s-60 128-130 128H120C55 409 0 356 0 290c0-58 43-107 100-116 8-20 24-35 43-42 16-6 33-6 49 2 6 2 11 5 15 9 3 3 5 6 5 9 7-5 15-9 23-13z" fill="white"/></svg>
+    <svg style="position:absolute;bottom:-40px;left:-60px;opacity:.05" width="400" height="300" viewBox="0 0 400 300"><path d="M140 120C148 88 178 65 213 65c43 0 79 28 91 67 16-7 33-10 51-10 55 0 103 45 103 101s-48 101-103 101H93C41 324 0 283 0 229c0-46 34-84 79-91 6-16 19-28 34-33 13-5 26-5 38 1z" fill="white"/></svg>
+    <svg style="position:absolute;top:30%;left:10%;opacity:.04" width="200" height="150" viewBox="0 0 200 150"><path d="M70 60C74 44 89 32 106 32c22 0 40 14 46 34 8-3 17-5 26-5 28 0 52 23 52 51s-24 51-52 51H47C21 163 0 142 0 115c0-23 17-42 40-46 3-8 10-14 17-17 6-2 13-2 19 1z" fill="white"/></svg>
+  </div>
+  <div style="width:100%;max-width:420px;position:relative;z-index:1" class="fade-up">
+    <!-- SF Logo + Agentforce header -->
+    <div style="text-align:center;margin-bottom:36px">
+      <!-- Salesforce logo -->
+      <div style="display:inline-flex;flex-direction:column;align-items:center;gap:12px">
+        <svg width="72" height="50" viewBox="0 0 72 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 9.2C32.5 6.3 36 4.5 40 4.5c5.7 0 10.5 3.2 12.9 8 2-.9 4.2-1.4 6.6-1.4 8.2 0 14.9 6.8 14.9 15.1S67.7 41.3 59.5 41.3H18.5C10.7 41.3 4.5 35.2 4.5 27.5c0-6.8 4.9-12.5 11.5-13.4.9-2.3 2.8-4.1 5.1-5 1.9-.7 3.9-.7 5.7.2.7.3 1.4.7 1.9 1.2.3.3.6.6.7.8.8-.8 1.7-1.4 2.6-1.9z" fill="white"/>
+        </svg>
+        <div>
+          <div style="font-family:'Source Sans 3',sans-serif;font-weight:700;font-size:22px;color:#ffffff;letter-spacing:-.01em">Salesforce</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:.12em;text-transform:uppercase;margin-top:2px">× Belfius Insurance</div>
         </div>
       </div>
-      <p style="font-size:13px;color:var(--text-muted);margin-top:10px">Program Tracking Portal &middot; Salesforce &times; Belfius</p>
-    </div>
-    <div class="card-el" style="padding:28px">
-      <h2 style="font-size:22px;font-weight:700;margin-bottom:22px">Sign in</h2>
-      <div class="col g16">
-        <div><label>Role / Username</label><input id="l-user" type="text" placeholder="salesforce &middot; belfius &middot; admin" autocomplete="off"/></div>
-        <div><label>Password</label><input id="l-pass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"/></div>
-        <div id="l-err" class="err hidden"></div>
-        <button id="l-btn" class="btn-primary" style="width:100%;padding:13px 24px;margin-top:4px;font-size:14px" onclick="doLogin()">Sign In &rarr;</button>
+      <!-- Agentforce pill -->
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(27,150,255,.25);border:1px solid rgba(27,150,255,.5);border-radius:20px;padding:6px 16px;margin-top:16px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(27,150,255,0.4)" stroke="#22bef4" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>
+        <span style="font-size:12px;color:#ffffff;font-weight:600;letter-spacing:.06em">Agentic Transformation Program</span>
       </div>
     </div>
-    <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:20px;opacity:.6">Confidential &middot; Salesforce &times; Belfius Insurance</p>
+    <!-- Login card -->
+    <div style="background:rgba(255,255,255,.97);border-radius:8px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:6px;color:#032d60;font-family:'Source Sans 3',sans-serif">Sign in to your account</h2>
+      <p style="font-size:13px;color:#54698d;margin-bottom:24px">Belfius Agentic Transformation Tracker</p>
+      <div class="col g16">
+        <div>
+          <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Username</label>
+          <input id="l-user" type="text" placeholder="salesforce · belfius · admin" autocomplete="off" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
+        </div>
+        <div>
+          <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Password</label>
+          <input id="l-pass" type="password" placeholder="••••••••" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
+        </div>
+        <div id="l-err" class="err hidden"></div>
+        <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick="doLogin()">Log In</button>
+      </div>
+    </div>
+    <!-- Footer logos -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-top:24px;opacity:.6">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="none"><path d="M9 4.5C9.6 3.7 10.6 3.2 11.7 3.2c1.6 0 2.9.9 3.6 2.2.6-.3 1.2-.4 1.8-.4 2.2 0 4 1.8 4 4s-1.8 4-4 4H5.2C3.1 13 1.5 11.4 1.5 9.3c0-1.9 1.4-3.4 3.2-3.7.3-.7.8-1.2 1.4-1.5.5-.2 1-.2 1.5.1.2.1.4.2.5.3.1.1.2.2.2.3.2-.2.4-.3.7-.4z" fill="white"/><text x="20" y="14" fill="white" font-size="9" font-family="sans-serif" font-weight="bold">Salesforce</text></svg>
+      <div style="width:1px;height:16px;background:rgba(255,255,255,.3)"></div>
+      <span style="color:white;font-size:11px;font-weight:600;letter-spacing:.05em">BELFIUS INSURANCE</span>
+    </div>
+    <p style="text-align:center;font-size:11px;color:rgba(255,255,255,.4);margin-top:12px">Confidential — Salesforce Professional Services</p>
   </div>
 </div>
 
@@ -225,22 +305,41 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 <div id="app-screen" class="hidden">
   <div class="app">
     <aside class="sidebar" id="sidebar">
-      <div style="padding:4px 8px 18px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
-        <div class="row center g8">
-          <div style="width:28px;height:28px;border-radius:6px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">&#9889;</div>
+      <!-- Salesforce brand header -->
+      <div style="padding:4px 8px 16px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
+        <!-- Salesforce cloud logo SVG -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13.3 4.1C14.4 2.8 16 2 17.8 2c2.5 0 4.6 1.4 5.7 3.5.9-.4 1.9-.6 2.9-.6 3.6 0 6.6 3 6.6 6.6 0 3.7-3 6.6-6.6 6.6H8.2C4.9 18.1 2 15.3 2 12c0-3 2.2-5.5 5.1-5.9.4-1 1.2-1.8 2.2-2.2.8-.3 1.7-.3 2.5.1.3.1.6.3.8.5.1.1.2.2.2.3.3-.3.7-.5 1.1-.7z" fill="white" opacity="0.95"/>
+          </svg>
           <div>
-            <div style="font-family:var(--font-head);font-weight:800;font-size:13px;color:var(--text)">BELFIUS</div>
-            <div style="font-size:9px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Agentic</div>
+            <div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#ffffff;letter-spacing:.01em">Salesforce</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.65);letter-spacing:.08em;text-transform:uppercase;margin-top:1px">× Belfius</div>
           </div>
+        </div>
+        <!-- Agentforce badge -->
+        <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.1);border-radius:6px;padding:6px 10px;border:1px solid rgba(255,255,255,.15)">
+          <!-- Astro/Agentforce icon -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="rgba(27,150,255,0.3)" stroke="#1b96ff" stroke-width="1.5"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#22bef4" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="9" cy="10" r="1.5" fill="#ffffff"/>
+            <circle cx="15" cy="10" r="1.5" fill="#ffffff"/>
+            <path d="M7 8c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-dasharray="2 2"/>
+          </svg>
+          <div style="font-size:10px;color:rgba(255,255,255,.85);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Agentforce</div>
         </div>
       </div>
       <div style="padding:4px 8px 8px" id="role-badge-wrap"></div>
-      <!-- Theme switcher in sidebar -->
+      <!-- Theme switcher -->
       <div style="padding:4px 8px 12px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
-        <div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Theme</div>
-        <div class="row g6 wrap">
-          <button class="theme-btn active" id="tb-default" onclick="setTheme('default')">Default</button>
-          <button class="theme-btn" id="tb-belfius" onclick="setTheme('belfius')">Belfius</button>
+        <div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Theme</div>
+        <div class="col g4">
+          <div class="row g4">
+            <button class="theme-btn active" id="tb-default" onclick="setTheme('default')" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
+            <button class="theme-btn" id="tb-sf-dark" onclick="setTheme('sf-dark')" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
+          </div>
+          <button class="theme-btn" id="tb-belfius" onclick="setTheme('belfius')" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
         </div>
       </div>
       <nav id="nav-items" class="col" style="gap:2px;flex:1"></nav>
@@ -395,11 +494,17 @@ function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))cl
 ═══════════════════════════════════════════════════ */
 function setTheme(t){
   currentTheme=t;
-  document.body.className='theme-'+t+(document.body.classList.contains('bg-grid')?' bg-grid':'');
+  var bodyClass='theme-'+t;
+  document.body.className=bodyClass+(document.body.classList.contains('bg-grid')?' bg-grid':'');
   document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.remove('active')});
   var el=document.getElementById('tb-'+t);
   if(el)el.classList.add('active');
-  // Re-render current page to pick up new theme colors
+  // Update bg-grid color for light theme
+  if(t==='default'||t==='belfius'){
+    document.body.classList.add('bg-grid');
+  } else {
+    document.body.classList.add('bg-grid');
+  }
   if(currentPage)navigate(currentPage);
 }
 
@@ -505,6 +610,44 @@ function renderPage(page){
 function rOverview(){
   var atRisk=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'}).length;
   var open=DATA.blockers.filter(function(b){return b.status==='Open'}).length;
+
+  // Hero banner with Astro character and SF cloud decorations
+  var heroBanner='<div style="background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border-radius:var(--radius);padding:28px 32px;position:relative;overflow:hidden">'
+    +'<div style="position:absolute;right:-20px;top:-30px;opacity:.12;pointer-events:none">'
+    +'<svg width="240" height="160" viewBox="0 0 240 160" fill="none"><path d="M78 64C83 44 101 29 122 29c25 0 46 15 57 37 9-4 19-5 30-5 37 0 66 30 66 66s-29 66-66 66H48C21 193 0 173 0 147c0-26 20-47 46-51 3-10 12-18 22-22 9-3 18-3 27 1z" fill="white"/></svg>'
+    +'</div>'
+    +'<div style="position:absolute;right:80px;bottom:0;pointer-events:none;opacity:.95">'
+    // Astro character
+    +'<svg width="68" height="85" viewBox="0 0 68 85" fill="none">'
+    +'<ellipse cx="34" cy="72" rx="16" ry="5" fill="rgba(0,0,0,.2)"/>'
+    +'<rect x="20" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
+    +'<rect x="40" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
+    +'<rect x="16" y="27" width="36" height="28" rx="6" fill="white"/>'
+    +'<circle cx="34" cy="19" r="17" fill="white"/>'
+    +'<circle cx="27" cy="17" r="3.5" fill="#0070d2"/>'
+    +'<circle cx="41" cy="17" r="3.5" fill="#0070d2"/>'
+    +'<circle cx="28" cy="18" r="1.2" fill="#032d60"/>'
+    +'<circle cx="42" cy="18" r="1.2" fill="#032d60"/>'
+    +'<path d="M28 25 Q34 29 40 25" stroke="#0070d2" stroke-width="1.8" stroke-linecap="round" fill="none"/>'
+    +'<rect x="8" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
+    +'<rect x="50" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
+    +'<rect x="18" y="3" width="32" height="4" rx="2" fill="rgba(255,255,255,.4)"/>'
+    +'</svg>'
+    +'</div>'
+    // Einstein cloud icon top right
+    +'<div style="position:absolute;right:20px;top:16px;pointer-events:none;opacity:.8">'
+    +'<svg width="36" height="26" viewBox="0 0 36 26" fill="none"><path d="M11 8.5C11.7 5.8 13.9 4 16.4 4c3.1 0 5.7 2 6.6 4.8 1.1-.5 2.3-.7 3.6-.7 4.4 0 8 3.6 8 8s-3.6 8-8 8H7C3.7 24.1 1 21.4 1 18c0-3.2 2.4-5.8 5.5-6.2.5-1.5 1.5-2.7 2.8-3.4.9-.5 1.9-.5 2.8.2z" fill="rgba(255,255,255,0.6)"/></svg>'
+    +'</div>'
+    +'<div style="position:relative;z-index:1;max-width:62%">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
+    +'<h1 style="font-size:26px;font-weight:700;color:#ffffff;line-height:1.2;margin-bottom:8px">Belfius Agentic<br>Transformation</h1>'
+    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">90-day POC &middot; Q1&ndash;Q2 2026 &middot; Salesforce Professional Services</p>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+    +['Agentforce','Einstein AI','Data Cloud','MuleSoft'].map(function(t){
+      return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+t+'</span>';
+    }).join('')
+    +'</div></div></div>';
+
   var ucHtml=DATA.useCases.map(function(uc){
     return '<div class="card" style="padding:20px">'
       +'<div class="row between center wrap" style="gap:10px;margin-bottom:12px">'
@@ -516,37 +659,36 @@ function rOverview(){
       +'<span style="font-size:11px;color:var(--text-muted)">Progress</span>'
       +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'%</span></div></div>';
   }).join('');
+
   var riskHtml=currentRole!=='belfius'?DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started'}).map(function(b){
     return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2)">'
       +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
       +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
       +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'+badge(b.status)+'</div>';
   }).join(''):'';
+
   var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
     var dates=['March-April 2026','April-May 2026','May-June 2026'][i];
     var ms=['Scope agreement, arch design, env access','Agent builds, iterative cycles','UAT, go-live, handover'][i];
-    return '<div class="card" style="padding:20px'+(i===0?';border-color:var(--border-hover)':'')+'">'
-      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">&#9679; CURRENT</div>':'')
+    var icons=['🏗','⚙️','🚀'];
+    return '<div class="card" style="padding:20px'+(i===0?';border-left:3px solid var(--accent)':'')+'">'
+      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
+      +'<div style="font-size:20px;margin-bottom:8px">'+icons[i]+'</div>'
       +'<div style="font-family:var(--font-head);font-weight:700;font-size:17px">'+ph+'</div>'
       +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+dates+'</div>'
       +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+ms+'</div></div>';
   }).join('');
+
   return '<div class="col g24">'
-    +'<div style="border-bottom:1px solid var(--border);padding-bottom:24px">'
-    +'<div class="row wrap between" style="gap:16px">'
-    +'<div><div class="label">Program Dashboard</div>'
-    +'<h1 style="font-size:28px;font-weight:800;line-height:1.1">Belfius Agentic<br>Transformation</h1>'
-    +'<p style="margin-top:8px;color:var(--text-muted);font-size:14px">90-day POC &middot; Salesforce &times; Belfius Insurance &middot; Q1-Q2 2026</p></div>'
+    +heroBanner
     +'<div class="row wrap g12">'
     +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+DATA.useCases.length+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(232,93,93,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:#e85d5d">'+atRisk+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(240,168,67,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:#f0a843">'+open+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div></div>'
-    +'</div></div></div>'
-    +'<div class="card-accent row center g16" style="padding:20px;flex-wrap:wrap">'
-    +'<div style="font-size:28px">&#128197;</div>'
-    +'<div style="flex:1"><div class="label" style="margin-bottom:4px">Key Exec Meeting</div>'
-    +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px">April 21, 2026 &mdash; F2F with Eran Agrios + Belfius C-suite</div>'
-    +'<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Eran Agrios &middot; Fabian Delava (CTO Group) &middot; Guillaume De Meus &middot; Hannes Heylen &middot; Pieter Bamps</div>'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(232,93,93,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div></div>'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(240,168,67,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div></div>'
+    +'<div class="card-accent f1" style="padding:16px 20px;min-width:220px">'
+    +'<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">&#128197; KEY EXEC MEETING</div>'
+    +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">April 21, 2026 &mdash; F2F Eran Agrios + BDI C-suite</div>'
+    +'<div style="font-size:12px;color:var(--text-muted);margin-top:3px">Fabian Delava &middot; Guillaume De Meus &middot; Hannes Heylen &middot; Pieter Bamps</div>'
     +'</div></div>'
     +'<div><div class="sec-title">Use Case Progress</div><div class="gridA">'+ucHtml+'</div></div>'
     +(currentRole!=='belfius'&&riskHtml?'<div><div class="sec-title">Active Risks &amp; Blockers</div><div class="col g8">'+riskHtml+'</div></div>':'')
