@@ -247,6 +247,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 var CREDS={salesforce:{password:'sf2026',role:'salesforce'},belfius:{password:'bel2026',role:'belfius'},admin:{password:'admin2026',role:'admin'}};
 var currentRole=null, currentPage='overview', currentTheme='default';
 
+/*DATA_START*/
 var DATA={
   useCases:[
     {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
@@ -323,6 +324,7 @@ var DATA={
   ],
   flowcharts:[]
 };
+/*DATA_END*/
 
 var KEY_DATES=[
   {date:'End of March 2026',label:'Belfius sandbox access deadline',owner:'Belfius',urgent:true},
@@ -1318,6 +1320,184 @@ function updateEdgeProp(eid,prop,val){
   if(edge){edge[prop]=val;saveCurrentFC();renderFCSVG();bindFCEvents();}
 }
 function initFC(){}
+
+/* ═══════════════════════════════════════════════════
+   GITHUB SYNC
+   Repo: frakke11/BelfiusTracker  file: index.html
+═══════════════════════════════════════════════════ */
+var GH = {
+  owner: 'frakke11',
+  repo:  'BelfiusTracker',
+  file:  'index.html',
+  branch:'main',
+  get token(){ return localStorage.getItem('gh_token')||'' },
+  set token(v){ localStorage.setItem('gh_token',v) },
+  sha: null   // current file SHA, needed for PUT
+};
+
+/* ── Marker that wraps the DATA blob inside the HTML ── */
+var DATA_START = '/*DATA_START*/';
+var DATA_END   = '/*DATA_END*/';
+
+/* ── On app load: fetch live data from GitHub ── */
+async function ghLoadData(){
+  var statusEl = document.getElementById('gh-status');
+  if(statusEl) statusEl.textContent = 'Syncing with GitHub…';
+  try {
+    var url = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file+'?ref='+GH.branch+'&t='+Date.now();
+    var headers = {'Accept':'application/vnd.github.v3+json'};
+    if(GH.token) headers['Authorization']='token '+GH.token;
+    var res = await fetch(url,{headers:headers});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var json = await res.json();
+    GH.sha = json.sha;
+    var content = atob(json.content.replace(/\n/g,''));
+    var s = content.indexOf(DATA_START);
+    var en = content.indexOf(DATA_END);
+    if(s!==-1 && en!==-1){
+      var raw = content.slice(s+DATA_START.length, en);
+      try {
+        var loaded = (new Function('return ('+raw+')'))();
+        DATA.useCases  = loaded.useCases  || DATA.useCases;
+        DATA.blockers  = loaded.blockers  || DATA.blockers;
+        DATA.kpis      = loaded.kpis      || DATA.kpis;
+        DATA.team      = loaded.team      || DATA.team;
+        DATA.raci      = loaded.raci      || DATA.raci;
+        DATA.meetings  = loaded.meetings  || DATA.meetings;
+        DATA.flowcharts= loaded.flowcharts|| DATA.flowcharts;
+      } catch(pe){ console.warn('DATA parse error',pe); }
+    }
+    if(statusEl){ statusEl.textContent='✓ Synced from GitHub'; statusEl.style.color='var(--green)'; setTimeout(function(){if(statusEl)statusEl.textContent=''},3000); }
+  } catch(err){
+    console.warn('GitHub load failed:',err);
+    if(statusEl){ statusEl.textContent='⚠ Offline — showing local data'; statusEl.style.color='var(--amber)'; }
+  }
+  // Re-render current page with fresh data
+  if(currentPage) navigate(currentPage);
+}
+
+/* ── Save: commit updated DATA back to the file ── */
+async function ghSaveData(){
+  if(!GH.token){
+    showGhTokenModal();
+    return;
+  }
+  var saveBtn = document.getElementById('gh-save-btn');
+  if(saveBtn){ saveBtn.textContent='Saving…'; saveBtn.disabled=true; }
+
+  try {
+    // 1. Get current file content + SHA
+    var getUrl = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file+'?ref='+GH.branch+'&t='+Date.now();
+    var getRes = await fetch(getUrl,{headers:{'Authorization':'token '+GH.token,'Accept':'application/vnd.github.v3+json'}});
+    if(!getRes.ok) throw new Error('GET failed: '+getRes.status);
+    var getJson = await getRes.json();
+    GH.sha = getJson.sha;
+    var currentContent = atob(getJson.content.replace(/\n/g,''));
+
+    // 2. Serialize DATA (without flowchart SVG state, keep it light)
+    var dataStr = JSON.stringify({
+      useCases:   DATA.useCases,
+      blockers:   DATA.blockers,
+      kpis:       DATA.kpis,
+      team:       DATA.team,
+      raci:       DATA.raci,
+      meetings:   DATA.meetings,
+      flowcharts: DATA.flowcharts
+    }, null, 2);
+
+    // 3. Replace or inject the DATA block
+    var s = currentContent.indexOf(DATA_START);
+    var en = currentContent.indexOf(DATA_END);
+    var newContent;
+    if(s!==-1 && en!==-1){
+      newContent = currentContent.slice(0,s+DATA_START.length) + '\n' + dataStr + '\n' + currentContent.slice(en);
+    } else {
+      // First time — inject marker right after "var DATA_END" line and wrap current DATA
+      // Fallback: append at end of script
+      newContent = currentContent.replace('function ghLoadData',
+        DATA_START+'\n'+dataStr+'\n'+DATA_END+'\nfunction ghLoadData');
+    }
+
+    // 4. PUT commit
+    var encoded = btoa(unescape(encodeURIComponent(newContent)));
+    var putRes = await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file,{
+      method:'PUT',
+      headers:{'Authorization':'token '+GH.token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body: JSON.stringify({
+        message: 'Update tracker data ['+new Date().toISOString().slice(0,16).replace('T',' ')+']',
+        content: encoded,
+        sha: GH.sha,
+        branch: GH.branch
+      })
+    });
+    if(!putRes.ok){
+      var err = await putRes.json();
+      throw new Error(err.message||putRes.status);
+    }
+    GH.sha = (await putRes.json()).content.sha;
+    if(saveBtn){ saveBtn.textContent='✓ Saved to GitHub'; saveBtn.disabled=false; setTimeout(function(){if(saveBtn)saveBtn.textContent='&#9729; Save to GitHub';},3000); }
+  } catch(err){
+    console.error('GitHub save failed:',err);
+    if(saveBtn){ saveBtn.textContent='✗ Save failed — see console'; saveBtn.disabled=false; }
+    alert('GitHub save failed:\n'+err.message+'\n\nCheck your token has repo write access.');
+  }
+}
+
+/* ── Token setup modal ── */
+function showGhTokenModal(){
+  showModal('<div class="modal"><h3>&#128273; GitHub Token Required</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">'
+    +'To save changes back to GitHub, you need a Personal Access Token with <strong>repo</strong> (write) permissions.<br><br>'
+    +'<strong>How to get one:</strong><br>'
+    +'1. Go to <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
+    +'2. Set expiry (e.g. 90 days)<br>'
+    +'3. Check <strong>repo</strong> scope<br>'
+    +'4. Click Generate &amp; copy the token</p>'
+    +'<div class="form-group"><label>Paste your token here</label>'
+    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"></div>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">&#128274; Stored only in your browser\'s localStorage — never sent anywhere except GitHub\'s API.</p>'
+    +'<div class="modal-actions">'
+    +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveGhToken()">Save Token &amp; Retry</button>'
+    +'</div></div>');
+}
+function saveGhToken(){
+  var t=document.getElementById('gh-tok-input').value.trim();
+  if(!t){alert('Please paste your token first');return;}
+  GH.token=t;
+  closeModal();
+  ghSaveData();
+}
+function clearGhToken(){
+  localStorage.removeItem('gh_token');
+  alert('Token cleared.');
+}
+
+/* ── Inject Save button + status into sidebar ── */
+function injectGhBar(){
+  var nav = document.getElementById('nav-items');
+  if(!nav) return;
+  var existing = document.getElementById('gh-bar');
+  if(existing) return;
+  var bar = document.createElement('div');
+  bar.id = 'gh-bar';
+  bar.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--sidebar-border)';
+  bar.innerHTML = '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding:0 4px">GitHub Sync</div>'
+    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData()">&#9729; Save to GitHub</button>'
+    +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;padding:0 4px;min-height:16px"></div>'
+    +(GH.token?'<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;margin-top:6px;padding:5px">Clear Token</button>':'');
+  nav.parentElement.insertBefore(bar, nav.nextSibling);
+}
+
+/* ── Hook into buildSidebar to inject GH bar for admin ── */
+var _origBuildSidebar = buildSidebar;
+buildSidebar = function(){
+  _origBuildSidebar();
+  if(currentRole==='admin'){
+    injectGhBar();
+    ghLoadData();
+  }
+};
 </script>
 </body>
 </html>
