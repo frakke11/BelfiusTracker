@@ -501,7 +501,7 @@ function av(name,company){
 function pb(pct){return '<div class="prog-bar"><div class="prog-fill" style="width:'+Math.min(100,pct)+'%"></div></div>'}
 function adminBar(txt){return isAdmin()?'<div class="admin-bar">&#9998; '+txt+'</div>':''}
 function closeModal(){document.getElementById('modal-container').innerHTML=''}
-function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick=\"closeModal()\">'+html+'</div>'}
+function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick="closeModalCheck(event)">'+html+'</div>'}
 function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))closeModal()}
 
 /* ═══════════════════════════════════════════════════
@@ -563,6 +563,8 @@ async function doLogin(){
   document.getElementById('app-screen').classList.remove('hidden');
   buildSidebar();
   navigate('overview');
+  // Load latest data from GitHub after login
+  if(isSuperAdmin()) ghLoadData();
 }
 
 async function ghFetchUsers(){
@@ -625,7 +627,7 @@ function buildSidebar(){
   var hdr=document.getElementById('sidebar-header');
   if(hdr){
     var cusDDHtml='<div style="position:relative;margin-bottom:8px">'
-      +'<div onclick="toggleCusDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)">'
+      +'<div id="cus-dropdown-btn" onclick="toggleCusDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)">'
       +'<span style="font-size:16px;flex-shrink:0">'+e(cus.logo||'🏢')+'</span>'
       +'<div style="flex:1;min-width:0"><div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(cus.name)+'</div>'
       +'<div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase">Customer</div></div>'
@@ -641,7 +643,7 @@ function buildSidebar(){
       +'</div></div>';
 
     var prjDDHtml='<div style="position:relative">'
-      +'<div onclick="togglePrjDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)">'
+      +'<div id="prj-dropdown-btn" onclick="togglePrjDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)">'
       +'<div style="width:20px;height:20px;border-radius:4px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
       +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.3)" stroke="#fff" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>'
       +'</div>'
@@ -695,8 +697,8 @@ function buildSidebar(){
   });
   nav.innerHTML=navHtml;
 
-  // GH bar for superadmin (inject once, skip if already present)
-  if(isSuperAdmin()) injectGhBar();
+  // GH bar for superadmin (inject once only)
+  if(isSuperAdmin()&&!document.getElementById('gh-bar')) injectGhBar();
 }
 
 // Only update the active state in nav — no full rebuild
@@ -721,12 +723,13 @@ function togglePrjDropdown(){
   if(d){ d.classList.toggle('hidden'); var cd=document.getElementById('cus-dropdown'); if(cd) cd.classList.add('hidden'); }
 }
 document.addEventListener('click',function(ev){
-  if(!ev.target.closest('[onclick="toggleCusDropdown()"]')&&!ev.target.closest('#cus-dropdown')){
-    var d=document.getElementById('cus-dropdown'); if(d) d.classList.add('hidden');
-  }
-  if(!ev.target.closest('[onclick="togglePrjDropdown()"]')&&!ev.target.closest('#prj-dropdown')){
-    var d=document.getElementById('prj-dropdown'); if(d) d.classList.add('hidden');
-  }
+  var t=ev.target;
+  // Close customer dropdown if click outside both button and dropdown
+  var cb=document.getElementById('cus-dropdown-btn'), cd=document.getElementById('cus-dropdown');
+  if(cd&&!cd.classList.contains('hidden')&&!(cb&&cb.contains(t))&&!(cd&&cd.contains(t))) cd.classList.add('hidden');
+  // Close project dropdown if click outside
+  var pb=document.getElementById('prj-dropdown-btn'), pd=document.getElementById('prj-dropdown');
+  if(pd&&!pd.classList.contains('hidden')&&!(pb&&pb.contains(t))&&!(pd&&pd.contains(t))) pd.classList.add('hidden');
 });
 
 function switchCustomer(idx){
@@ -1716,7 +1719,7 @@ function autoSave(){
   if(!canEdit()) return;
   var statusEl = document.getElementById('gh-status');
   if(statusEl){ statusEl.textContent='Unsaved changes…'; statusEl.style.color='var(--amber)'; }
-  if(!GH.token) return; // no token = no auto-save, user must click manually
+  if(typeof GH==='undefined'||!GH.token) return; // no token = no auto-save
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(function(){ ghSaveData(true); }, 1800);
 }
@@ -1776,8 +1779,9 @@ async function ghLoadData(){
     setStatus('✓ Synced — '+new Date().toLocaleTimeString(), 'var(--green)');
     setTimeout(function(){setStatus('');}, 4000);
     syncDATA();
-    buildSidebar();
-    if(currentPage) navigate(currentPage);
+    // Silently refresh current page content without rebuilding sidebar
+    var mc=document.getElementById('main-content');
+    if(mc && currentPage) mc.innerHTML=renderPage(currentPage);
   } catch(err){
     console.warn('GitHub load failed:', err);
     setStatus('⚠ Could not load — using defaults', 'var(--amber)');
