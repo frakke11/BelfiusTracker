@@ -49,8 +49,8 @@
               "status": "In Progress",
               "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
               "businessPriority": "High – value driver = productivity / target KPIs = minutes saved",
-              "targetUsers": "Customers aev ",
-              "expectedOutcomes": "100% of new car policy required documents and data gathered by an AI agent",
+              "targetUsers": "Customers",
+              "expectedOutcomes": "You can go through the entire quote, underwriting and issue policy flows for a new car policy entirely with an agent. This agent also must be able to ask for documents, and use it's content to pre-populate and validate information",
               "jobStories": [
                 {
                   "story": "When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. I want to be able to generate a quote entirely conversation driven.",
