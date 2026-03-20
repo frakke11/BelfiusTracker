@@ -455,8 +455,8 @@
       "projects": [
         {
           "id": "iris-1774038157416",
-          "name": "IRIS",
-          "description": "",
+          "name": "IRIS migration",
+          "description": "Move the IRIS agent to a agency agent in Salesforce",
           "technologies": [
             "Agentforce",
             "Data Cloud"
