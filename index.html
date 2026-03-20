@@ -9,7 +9,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ THEMES ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── THEMES ── */
 body.theme-default{
   --bg:#0a1628;--bg-mid:#112240;--bg-light:#1a3460;
   --accent:#c9a84c;--accent-light:#e8c96a;--accent-dim:#8a6f30;
@@ -153,7 +153,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 .theme-btn{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);transition:all .2s;font-family:var(--font-body)}
 .theme-btn.active{background:var(--btn-primary);color:var(--btn-primary-text);border-color:transparent}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ FLOWCHART ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── FLOWCHART ── */
 #fc-canvas-wrap{position:relative;overflow:auto;flex:1;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius);cursor:default}
 #fc-svg{display:block}
 .fc-node{cursor:move;user-select:none}
@@ -241,430 +241,88 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 <div id="modal-container"></div>
 
 <script>
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    DATA
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 var CREDS={salesforce:{password:'sf2026',role:'salesforce'},belfius:{password:'bel2026',role:'belfius'},admin:{password:'admin2026',role:'admin'}};
 var currentRole=null, currentPage='overview', currentTheme='default';
 
-/*DATA_START*/
-{
-  "useCases": [
-    {
-      "id": "UC1",
-      "title": "New Car Policy Onboarding",
-      "subtitle": "Virtual Broker + IDP",
-      "progress": 25,
-      "status": "In Progress",
-      "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
-      "milestones": [
-        {
-          "label": "Architecture design (Robin + Jeroen)",
-          "date": "Before mid-April",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "Integration design (Koen + Belfius)",
-          "date": "Mid-April",
-          "done": false,
-          "atRisk": true
-        },
-        {
-          "label": "Test execution",
-          "date": "Mid-June",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "UAT & sign-off",
-          "date": "Mid-June",
-          "done": false,
-          "atRisk": false
-        }
-      ]
-    },
-    {
-      "id": "UC2",
-      "title": "FAQ Agent",
-      "subtitle": "Multi-Channel Scale-Up",
-      "progress": 10,
-      "status": "Planning",
-      "description": "Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.",
-      "milestones": [
-        {
-          "label": "Authentication approach decision (D1)",
-          "date": "Open",
-          "done": false,
-          "atRisk": true
-        },
-        {
-          "label": "Channel integration design",
-          "date": "April-May",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "Agent build & testing",
-          "date": "May",
-          "done": false,
-          "atRisk": false
-        }
-      ]
-    },
-    {
-      "id": "UC3",
-      "title": "Service Rep Assistant",
-      "subtitle": "Employee Agent",
-      "progress": 5,
-      "status": "Planning",
-      "description": "Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.",
-      "milestones": [
-        {
-          "label": "Process mapping & documentation",
-          "date": "April-May",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "Agent configuration",
-          "date": "May",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "Pilot with service reps",
-          "date": "June",
-          "done": false,
-          "atRisk": false
-        },
-        {
-          "label": "test",
-          "date": "",
-          "done": false,
-          "atRisk": false
-        }
-      ]
-    }
+var DATA={
+  useCases:[
+    {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
+      description:'Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.',
+      milestones:[
+        {label:'Architecture design (Robin + Jeroen)',date:'Before mid-April',done:false,atRisk:false},
+        {label:'Integration design (Koen + Belfius)',date:'Mid-April',done:false,atRisk:true},
+        {label:'Test execution',date:'Mid-June',done:false,atRisk:false},
+        {label:'UAT & sign-off',date:'Mid-June',done:false,atRisk:false}
+      ]},
+    {id:'UC2',title:'FAQ Agent',subtitle:'Multi-Channel Scale-Up',progress:10,status:'Planning',
+      description:'Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.',
+      milestones:[
+        {label:'Authentication approach decision (D1)',date:'Open',done:false,atRisk:true},
+        {label:'Channel integration design',date:'April-May',done:false,atRisk:false},
+        {label:'Agent build & testing',date:'May',done:false,atRisk:false}
+      ]},
+    {id:'UC3',title:'Service Rep Assistant',subtitle:'Employee Agent',progress:5,status:'Planning',
+      description:'Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.',
+      milestones:[
+        {label:'Process mapping & documentation',date:'April-May',done:false,atRisk:false},
+        {label:'Agent configuration',date:'May',done:false,atRisk:false},
+        {label:'Pilot with service reps',date:'June',done:false,atRisk:false}
+      ]}
   ],
-  "blockers": [
-    {
-      "id": "D1",
-      "type": "Decision",
-      "item": "Authentication approach for UC2 customer zone agent",
-      "owner": "Belfius (Jonas)",
-      "status": "Open"
-    },
-    {
-      "id": "D2",
-      "type": "Decision",
-      "item": "Scope alignment with BDI on 3 use cases (formal sign-off)",
-      "owner": "Gilles + Francis",
-      "status": "In Progress"
-    },
-    {
-      "id": "D3",
-      "type": "Decision",
-      "item": "Integration design for Keylane Axon",
-      "owner": "Koen + Belfius",
-      "status": "At Risk"
-    },
-    {
-      "id": "D4",
-      "type": "Decision",
-      "item": "AP (legal/compliance) pre-approval process start (~10 week lead time)",
-      "owner": "Belfius (Jonas)",
-      "status": "Not Started"
-    },
-    {
-      "id": "D5",
-      "type": "Decision",
-      "item": "Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)",
-      "owner": "Jonas to CISO",
-      "status": "Pending"
-    },
-    {
-      "id": "B1",
-      "type": "Blocker",
-      "item": "Belfius environment / sandbox access",
-      "owner": "Belfius",
-      "status": "Due end of March"
-    },
-    {
-      "id": "B2",
-      "type": "Blocker",
-      "item": "As-is process mapping for UC1 not started",
-      "owner": "Belfius primary",
-      "status": "Blocked"
-    }
+  blockers:[
+    {id:'D1',type:'Decision',item:'Authentication approach for UC2 customer zone agent',owner:'Belfius (Jonas)',status:'Open'},
+    {id:'D2',type:'Decision',item:'Scope alignment with BDI on 3 use cases (formal sign-off)',owner:'Gilles + Francis',status:'In Progress'},
+    {id:'D3',type:'Decision',item:'Integration design for Keylane Axon',owner:'Koen + Belfius',status:'At Risk'},
+    {id:'D4',type:'Decision',item:'AP (legal/compliance) pre-approval process start (~10 week lead time)',owner:'Belfius (Jonas)',status:'Not Started'},
+    {id:'D5',type:'Decision',item:'Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)',owner:'Jonas to CISO',status:'Pending'},
+    {id:'B1',type:'Blocker',item:'Belfius environment / sandbox access',owner:'Belfius',status:'Due end of March'},
+    {id:'B2',type:'Blocker',item:'As-is process mapping for UC1 not started',owner:'Belfius primary',status:'Blocked'}
   ],
-  "kpis": [
-    {
-      "label": "Policy Onboarding Time",
-      "baseline": "--",
-      "current": "--",
-      "target": "TBD",
-      "unit": "min"
-    },
-    {
-      "label": "FAQ Deflection Rate",
-      "baseline": "--",
-      "current": "--",
-      "target": "TBD",
-      "unit": "%"
-    },
-    {
-      "label": "Rep Assist Resolution Speed",
-      "baseline": "--",
-      "current": "--",
-      "target": "TBD",
-      "unit": "min"
-    },
-    {
-      "label": "CSAT Score",
-      "baseline": "--",
-      "current": "--",
-      "target": "TBD",
-      "unit": "/10"
-    }
+  kpis:[
+    {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min'},
+    {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%'},
+    {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min'},
+    {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10'}
   ],
-  "team": [
-    {
-      "name": "Francis Verscheure",
-      "role": "Solution Orchestrator / Coordinator",
-      "company": "Salesforce"
-    },
-    {
-      "name": "Robin De Bondt",
-      "role": "Implementation Lead (PS TA)",
-      "company": "Salesforce"
-    },
-    {
-      "name": "Koen Vermachelen",
-      "role": "Integration Advisor",
-      "company": "Salesforce"
-    },
-    {
-      "name": "Jeroen Tiekstra",
-      "role": "Industry Architect (Insurance)",
-      "company": "Salesforce"
-    },
-    {
-      "name": "Maarten Laukens",
-      "role": "Tech Executive Sponsor",
-      "company": "Salesforce"
-    },
-    {
-      "name": "Jonas Hubert",
-      "role": "IT Project Manager",
-      "company": "Belfius"
-    },
-    {
-      "name": "Rudi Meys",
-      "role": "Enterprise Architect",
-      "company": "Belfius"
-    },
-    {
-      "name": "Laure-Anne",
-      "role": "Business Lead AI",
-      "company": "Belfius"
-    },
-    {
-      "name": "Bart",
-      "role": "IT Contact / Architect",
-      "company": "Belfius"
-    },
-    {
-      "name": "Stijn",
-      "role": "IT Developer",
-      "company": "Belfius"
-    }
+  team:[
+    {name:'Francis Verscheure',role:'Solution Orchestrator / Coordinator',company:'Salesforce'},
+    {name:'Robin De Bondt',role:'Implementation Lead (PS TA)',company:'Salesforce'},
+    {name:'Koen Vermachelen',role:'Integration Advisor',company:'Salesforce'},
+    {name:'Jeroen Tiekstra',role:'Industry Architect (Insurance)',company:'Salesforce'},
+    {name:'Maarten Laukens',role:'Tech Executive Sponsor',company:'Salesforce'},
+    {name:'Jonas Hubert',role:'IT Project Manager',company:'Belfius'},
+    {name:'Rudi Meys',role:'Enterprise Architect',company:'Belfius'},
+    {name:'Laure-Anne',role:'Business Lead AI',company:'Belfius'},
+    {name:'Bart',role:'IT Contact / Architect',company:'Belfius'},
+    {name:'Stijn',role:'IT Developer',company:'Belfius'}
   ],
-  "raci": [
-    {
-      "a": "POC coordination & planning",
-      "M": "I",
-      "F": "R",
-      "J": "C",
-      "R": "C",
-      "K": "I",
-      "B": "C"
-    },
-    {
-      "a": "Use case & process documentation",
-      "M": "I",
-      "F": "A",
-      "J": "R",
-      "R": "C",
-      "K": "C",
-      "B": "R"
-    },
-    {
-      "a": "As-is / to-be process mapping",
-      "M": "I",
-      "F": "A",
-      "J": "C",
-      "R": "I",
-      "K": "I",
-      "B": "R"
-    },
-    {
-      "a": "Technical architecture & design",
-      "M": "I",
-      "F": "A",
-      "J": "C",
-      "R": "R",
-      "K": "C",
-      "B": "I"
-    },
-    {
-      "a": "Integration design & validation",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "C",
-      "K": "R",
-      "B": "C"
-    },
-    {
-      "a": "Agent build & configuration",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "R",
-      "K": "C",
-      "B": "I"
-    },
-    {
-      "a": "Data provisioning & test data",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "I",
-      "K": "C",
-      "B": "R"
-    },
-    {
-      "a": "Environment setup & access",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "C",
-      "K": "C",
-      "B": "R"
-    },
-    {
-      "a": "Test execution",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "C",
-      "K": "C",
-      "B": "R"
-    },
-    {
-      "a": "UAT & business sign-off",
-      "M": "I",
-      "F": "A",
-      "J": "I",
-      "R": "I",
-      "K": "I",
-      "B": "R"
-    },
-    {
-      "a": "Legal & compliance pre-approval",
-      "M": "I",
-      "F": "I",
-      "J": "I",
-      "R": "I",
-      "K": "I",
-      "B": "R"
-    },
-    {
-      "a": "Steering & go/no-go decisions",
-      "M": "A",
-      "F": "R",
-      "J": "I",
-      "R": "I",
-      "K": "I",
-      "B": "R"
-    },
-    {
-      "a": "Scope change management",
-      "M": "A",
-      "F": "R",
-      "J": "I",
-      "R": "I",
-      "K": "I",
-      "B": "C"
-    },
-    {
-      "a": "Executive alignment & escalation",
-      "M": "R",
-      "F": "I",
-      "J": "I",
-      "R": "I",
-      "K": "I",
-      "B": "R"
-    }
+  raci:[
+    {a:'POC coordination & planning',M:'I',F:'R',J:'C',R:'C',K:'I',B:'C'},
+    {a:'Use case & process documentation',M:'I',F:'A',J:'R',R:'C',K:'C',B:'R'},
+    {a:'As-is / to-be process mapping',M:'I',F:'A',J:'C',R:'I',K:'I',B:'R'},
+    {a:'Technical architecture & design',M:'I',F:'A',J:'C',R:'R',K:'C',B:'I'},
+    {a:'Integration design & validation',M:'I',F:'A',J:'I',R:'C',K:'R',B:'C'},
+    {a:'Agent build & configuration',M:'I',F:'A',J:'I',R:'R',K:'C',B:'I'},
+    {a:'Data provisioning & test data',M:'I',F:'A',J:'I',R:'I',K:'C',B:'R'},
+    {a:'Environment setup & access',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
+    {a:'Test execution',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
+    {a:'UAT & business sign-off',M:'I',F:'A',J:'I',R:'I',K:'I',B:'R'},
+    {a:'Legal & compliance pre-approval',M:'I',F:'I',J:'I',R:'I',K:'I',B:'R'},
+    {a:'Steering & go/no-go decisions',M:'A',F:'R',J:'I',R:'I',K:'I',B:'R'},
+    {a:'Scope change management',M:'A',F:'R',J:'I',R:'I',K:'I',B:'C'},
+    {a:'Executive alignment & escalation',M:'R',F:'I',J:'I',R:'I',K:'I',B:'R'}
   ],
-  "meetings": [
-    {
-      "name": "Internal SF Sync",
-      "freq": "Weekly",
-      "participants": "Francis, Robin, Koen, Jeroen, Maarten",
-      "purpose": "Blockers, capacity, progress"
-    },
-    {
-      "name": "Customer Working Session",
-      "freq": "Bi-weekly",
-      "participants": "SF team + Jonas, Bart, Stijn",
-      "purpose": "Use case delivery progress"
-    },
-    {
-      "name": "Monthly Governance",
-      "freq": "Monthly",
-      "participants": "Gilles + BDI leadership (Pieter, Hannes)",
-      "purpose": "Executive alignment, escalations"
-    },
-    {
-      "name": "BDI Bi-Weekly (Signature)",
-      "freq": "Bi-weekly",
-      "participants": "Manuel Rodriguez (CSM) + BDI",
-      "purpose": "Operational touchpoint"
-    }
+  meetings:[
+    {name:'Internal SF Sync',freq:'Weekly',participants:'Francis, Robin, Koen, Jeroen, Maarten',purpose:'Blockers, capacity, progress'},
+    {name:'Customer Working Session',freq:'Bi-weekly',participants:'SF team + Jonas, Bart, Stijn',purpose:'Use case delivery progress'},
+    {name:'Monthly Governance',freq:'Monthly',participants:'Gilles + BDI leadership (Pieter, Hannes)',purpose:'Executive alignment, escalations'},
+    {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
   ],
-  "flowcharts": [
-    {
-      "name": "test",
-      "nodes": [],
-      "edges": [],
-      "lanes": [
-        {
-          "id": "svdtztd",
-          "name": "Channel",
-          "y": 0,
-          "h": 233
-        },
-        {
-          "id": "486gm6b",
-          "name": "Agentforce",
-          "y": 233,
-          "h": 233
-        },
-        {
-          "id": "i7v0sz3",
-          "name": "Data 360",
-          "y": 466,
-          "h": 233
-        }
-      ],
-      "svgW": 1200,
-      "svgH": 700
-    }
-  ]
-}
-/*DATA_END*/
+  flowcharts:[]
+};
 
 var KEY_DATES=[
   {date:'End of March 2026',label:'Belfius sandbox access deadline',owner:'Belfius',urgent:true},
@@ -676,9 +334,9 @@ var KEY_DATES=[
   {date:'Mid-June',label:'UC1 UAT & sign-off',owner:'Belfius',urgent:false}
 ];
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    HELPERS
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function badge(status){
@@ -696,9 +354,9 @@ function closeModal(){document.getElementById('modal-container').innerHTML=''}
 function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick="closeModalCheck(event)">'+html+'</div>'}
 function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))closeModal()}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    THEME
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function setTheme(t){
   currentTheme=t;
   document.body.className='theme-'+t+(document.body.classList.contains('bg-grid')?' bg-grid':'');
@@ -709,9 +367,9 @@ function setTheme(t){
   if(currentPage)navigate(currentPage);
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    AUTH
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function doLogin(){
   var u=document.getElementById('l-user').value.trim().toLowerCase();
   var p=document.getElementById('l-pass').value;
@@ -733,9 +391,9 @@ document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.
 document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 function logout(){currentRole=null;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    NAV
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 var NAV_SF=[{id:'overview',icon:'&#9638;',label:'Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'raci',icon:'&#9633;',label:'RACI Matrix'},{id:'blockers',icon:'&#9888;',label:'Blockers'},{id:'meetings',icon:'&#9702;',label:'Cadences'},{id:'kpis',icon:'&#9650;',label:'KPIs'},{id:'flowchart',icon:'&#10136;',label:'Flowcharts'}];
 var NAV_BEL=[{id:'overview',icon:'&#9638;',label:'Program Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'kpis',icon:'&#9650;',label:'KPIs'}];
 
@@ -774,9 +432,9 @@ function renderPage(page){
   return (map[page]||rOverview)();
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    OVERVIEW
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rOverview(){
   var atRisk=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'}).length;
   var open=DATA.blockers.filter(function(b){return b.status==='Open'}).length;
@@ -829,9 +487,9 @@ function rOverview(){
     +'</div>';
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    USE CASES
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rUseCases(){
   var html=DATA.useCases.map(function(uc,idx){
     var mils=uc.milestones.map(function(m,mi){
@@ -951,9 +609,9 @@ function saveEditMilestone(ucIdx,mIdx){
 function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases')}
 function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    TIMELINE
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rTimeline(){
   var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
     var days=['0-30 days','31-60 days','61-90 days'][i];
@@ -986,9 +644,9 @@ function rTimeline(){
     +'<div><div class="sec-title">Key Dates &amp; Milestones</div>'+dates+'</div></div>';
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    TEAM
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rTeam(){
   var sfT=DATA.team.filter(function(t){return t.company==='Salesforce'});
   var bT=DATA.team.filter(function(t){return t.company==='Belfius'});
@@ -1044,9 +702,9 @@ function saveTeamMember(idx){
 }
 function deleteTeamMember(idx){if(confirm('Remove this team member?')){DATA.team.splice(idx,1);navigate('team')}}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    RACI
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rRaci(){
   var cols=[{k:'M',l:'Maarten'},{k:'F',l:'Francis'},{k:'J',l:'Jeroen'},{k:'R',l:'Robin'},{k:'K',l:'Koen'},{k:'B',l:'Belfius',g:true}];
   var vals=['R','A','C','I'];
@@ -1091,9 +749,9 @@ function saveRaciRow(){
 }
 function deleteRaciRow(idx){if(confirm('Delete this activity?')){DATA.raci.splice(idx,1);navigate('raci')}}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    BLOCKERS
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rBlockers(){
   var canEdit=currentRole==='admin'||currentRole==='salesforce';
   var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
@@ -1165,9 +823,9 @@ function saveEditBlocker(idx){
 }
 function deleteBlocker(idx){if(confirm('Delete this item?')){DATA.blockers.splice(idx,1);navigate('blockers')}}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    MEETINGS
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rMeetings(){
   var cards=DATA.meetings.map(function(m,i){
     return '<div class="card" style="padding:24px">'
@@ -1213,9 +871,9 @@ function saveMeeting(idx){
 }
 function deleteMeeting(idx){if(confirm('Delete this meeting?')){DATA.meetings.splice(idx,1);navigate('meetings')}}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    KPIs
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 function rKpis(){
   var cards=DATA.kpis.map(function(kpi,i){
     function vc(field,color){
@@ -1246,9 +904,9 @@ function rKpis(){
 function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis')}
 function deleteKpi(idx){if(confirm('Delete this KPI?')){DATA.kpis.splice(idx,1);navigate('kpis')}}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+/* ═══════════════════════════════════════════════════
    FLOWCHART BUILDER
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+═══════════════════════════════════════════════════ */
 var FC = {
   nodes:[],edges:[],lanes:[],
   selectedNode:null,selectedEdge:null,
@@ -1467,7 +1125,7 @@ function renderFCSVG(){
       g.appendChild(txt);
     });
 
-    // Connection handles (small circles) ÃÂ¢ÃÂÃÂ visible on select
+    // Connection handles (small circles) — visible on select
     if(FC.selectedNode===node.id){
       [[node.w/2,0,'top'],[node.w,node.h/2,'right'],[node.w/2,node.h,'bottom'],[0,node.h/2,'left']].forEach(function(pt){
         var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -1661,81 +1319,87 @@ function updateEdgeProp(eid,prop,val){
 }
 function initFC(){}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
-   GITHUB SYNC
-   Repo: frakke11/BelfiusTracker  file: index.html
-ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ═══════════════════════════════════════════════════
+   GITHUB SYNC  —  reads/writes data.json only
+   index.html is NEVER touched by saves
+   Repo: frakke11/BelfiusTracker
+═══════════════════════════════════════════════════ */
 var GH = {
-  owner: 'frakke11',
-  repo:  'BelfiusTracker',
-  file:  'index.html',
-  branch:'main',
-  get token(){ return localStorage.getItem('gh_token')||'' },
-  set token(v){ localStorage.setItem('gh_token',v) },
-  sha: null   // current file SHA, needed for PUT
+  owner:  'frakke11',
+  repo:   'BelfiusTracker',
+  branch: 'main',
+  file:   'data.json',
+  get token(){ return localStorage.getItem('belfius_gh_token')||''; },
+  set token(v){ localStorage.setItem('belfius_gh_token',v); },
+  sha: null
 };
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Marker that wraps the DATA blob inside the HTML ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
-var DATA_START = '/*DATA_START*/';
-var DATA_END   = '/*DATA_END*/';
+function ghApiHeaders(){
+  var h = {'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
+  if(GH.token) h['Authorization'] = 'token '+GH.token;
+  return h;
+}
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ On app load: fetch live data from GitHub ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── Load: fetch data.json from GitHub ── */
 async function ghLoadData(){
   var statusEl = document.getElementById('gh-status');
-  if(statusEl) statusEl.textContent = 'Syncing with GitHubÃÂ¢ÃÂÃÂ¦';
+  function setStatus(msg,col){ if(statusEl){statusEl.textContent=msg;statusEl.style.color=col||'var(--text-muted)';} }
+  setStatus('Syncing…');
   try {
-    var url = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file+'?ref='+GH.branch+'&t='+Date.now();
-    var headers = {'Accept':'application/vnd.github.v3+json'};
-    if(GH.token) headers['Authorization']='token '+GH.token;
-    var res = await fetch(url,{headers:headers});
+    var url = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file
+              +'?ref='+GH.branch+'&nocache='+Date.now();
+    var res = await fetch(url, {headers: ghApiHeaders()});
+    if(res.status === 404){
+      // data.json doesn't exist yet — that's fine, we'll create it on first save
+      setStatus('No saved data yet — using defaults', 'var(--amber)');
+      return;
+    }
     if(!res.ok) throw new Error('HTTP '+res.status);
     var json = await res.json();
     GH.sha = json.sha;
-    var content = atob(json.content.replace(/\n/g,''));
-    var s = content.indexOf(DATA_START);
-    var en = content.indexOf(DATA_END);
-    if(s!==-1 && en!==-1){
-      var raw = content.slice(s+DATA_START.length, en);
-      try {
-        var loaded = (new Function('return ('+raw+')'))();
-        DATA.useCases  = loaded.useCases  || DATA.useCases;
-        DATA.blockers  = loaded.blockers  || DATA.blockers;
-        DATA.kpis      = loaded.kpis      || DATA.kpis;
-        DATA.team      = loaded.team      || DATA.team;
-        DATA.raci      = loaded.raci      || DATA.raci;
-        DATA.meetings  = loaded.meetings  || DATA.meetings;
-        DATA.flowcharts= loaded.flowcharts|| DATA.flowcharts;
-      } catch(pe){ console.warn('DATA parse error',pe); }
-    }
-    if(statusEl){ statusEl.textContent='ÃÂ¢ÃÂÃÂ Synced from GitHub'; statusEl.style.color='var(--green)'; setTimeout(function(){if(statusEl)statusEl.textContent=''},3000); }
+    // GitHub returns base64 content with line breaks
+    var raw = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+    var loaded = JSON.parse(raw);
+    if(loaded.useCases)   DATA.useCases   = loaded.useCases;
+    if(loaded.blockers)   DATA.blockers   = loaded.blockers;
+    if(loaded.kpis)       DATA.kpis       = loaded.kpis;
+    if(loaded.team)       DATA.team       = loaded.team;
+    if(loaded.raci)       DATA.raci       = loaded.raci;
+    if(loaded.meetings)   DATA.meetings   = loaded.meetings;
+    if(loaded.flowcharts) DATA.flowcharts = loaded.flowcharts;
+    setStatus('✓ Synced — '+new Date().toLocaleTimeString(), 'var(--green)');
+    setTimeout(function(){setStatus('');}, 4000);
+    if(currentPage) navigate(currentPage);
   } catch(err){
-    console.warn('GitHub load failed:',err);
-    if(statusEl){ statusEl.textContent='ÃÂ¢ÃÂÃÂ  Offline ÃÂ¢ÃÂÃÂ showing local data'; statusEl.style.color='var(--amber)'; }
+    console.warn('GitHub load failed:', err);
+    setStatus('⚠ Could not load — using local data', 'var(--amber)');
   }
-  // Re-render current page with fresh data
-  if(currentPage) navigate(currentPage);
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Save: commit updated DATA back to the file ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── Save: write DATA as data.json to GitHub ── */
 async function ghSaveData(){
-  if(!GH.token){
-    showGhTokenModal();
-    return;
-  }
-  var saveBtn = document.getElementById('gh-save-btn');
-  if(saveBtn){ saveBtn.textContent='SavingÃÂ¢ÃÂÃÂ¦'; saveBtn.disabled=true; }
-
+  if(!GH.token){ showGhTokenModal(); return; }
+  var btn = document.getElementById('gh-save-btn');
+  var statusEl = document.getElementById('gh-status');
+  function setStatus(msg,col){ if(statusEl){statusEl.textContent=msg;statusEl.style.color=col||'var(--text-muted)';} }
+  if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
+  setStatus('Committing to GitHub…');
   try {
-    // 1. Get current file content + SHA
-    var getUrl = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file+'?ref='+GH.branch+'&t='+Date.now();
-    var getRes = await fetch(getUrl,{headers:{'Authorization':'token '+GH.token,'Accept':'application/vnd.github.v3+json'}});
-    if(!getRes.ok) throw new Error('GET failed: '+getRes.status);
-    var getJson = await getRes.json();
-    GH.sha = getJson.sha;
-    var currentContent = atob(getJson.content.replace(/\n/g,''));
+    // Always fetch fresh SHA before writing to avoid conflicts
+    var getUrl = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file
+                 +'?ref='+GH.branch+'&nocache='+Date.now();
+    var getRes = await fetch(getUrl, {headers: ghApiHeaders()});
+    if(getRes.ok){
+      var getJson = await getRes.json();
+      GH.sha = getJson.sha;
+    } else if(getRes.status === 404){
+      GH.sha = null; // new file
+    } else {
+      throw new Error('Could not read current file: HTTP '+getRes.status);
+    }
 
-    // 2. Serialize DATA (without flowchart SVG state, keep it light)
-    var dataStr = JSON.stringify({
+    // Serialize data as clean JSON
+    var payload = JSON.stringify({
       useCases:   DATA.useCases,
       blockers:   DATA.blockers,
       kpis:       DATA.kpis,
@@ -1745,95 +1409,100 @@ async function ghSaveData(){
       flowcharts: DATA.flowcharts
     }, null, 2);
 
-    // 3. Replace or inject the DATA block
-    var s = currentContent.indexOf(DATA_START);
-    var en = currentContent.indexOf(DATA_END);
-    var newContent;
-    if(s!==-1 && en!==-1){
-      newContent = currentContent.slice(0,s+DATA_START.length) + '\n' + dataStr + '\n' + currentContent.slice(en);
-    } else {
-      // First time ÃÂ¢ÃÂÃÂ inject marker right after "var DATA_END" line and wrap current DATA
-      // Fallback: append at end of script
-      newContent = currentContent.replace('function ghLoadData',
-        DATA_START+'\n'+dataStr+'\n'+DATA_END+'\nfunction ghLoadData');
-    }
+    // Base64 encode (handles unicode safely)
+    var encoded = btoa(unescape(encodeURIComponent(payload)));
 
-    // 4. PUT commit
-    var encoded = btoa(unescape(encodeURIComponent(newContent)));
-    var putRes = await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file,{
-      method:'PUT',
-      headers:{'Authorization':'token '+GH.token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
-      body: JSON.stringify({
-        message: 'Update tracker data ['+new Date().toISOString().slice(0,16).replace('T',' ')+']',
-        content: encoded,
-        sha: GH.sha,
-        branch: GH.branch
-      })
-    });
+    var body = {
+      message: 'Update tracker data — '+new Date().toISOString().slice(0,16).replace('T',' '),
+      content: encoded,
+      branch:  GH.branch
+    };
+    if(GH.sha) body.sha = GH.sha;
+
+    var putRes = await fetch(
+      'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file,
+      { method:'PUT', headers: ghApiHeaders(), body: JSON.stringify(body) }
+    );
     if(!putRes.ok){
-      var err = await putRes.json();
-      throw new Error(err.message||putRes.status);
+      var errJson = await putRes.json().catch(function(){return {};});
+      throw new Error(errJson.message || 'PUT failed: HTTP '+putRes.status);
     }
-    GH.sha = (await putRes.json()).content.sha;
-    if(saveBtn){ saveBtn.textContent='ÃÂ¢ÃÂÃÂ Saved to GitHub'; saveBtn.disabled=false; setTimeout(function(){if(saveBtn)saveBtn.textContent='&#9729; Save to GitHub';},3000); }
+    var putJson = await putRes.json();
+    GH.sha = putJson.content ? putJson.content.sha : GH.sha;
+    if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
+    setStatus('✓ Saved at '+new Date().toLocaleTimeString(), 'var(--green)');
+    setTimeout(function(){setStatus('');}, 5000);
   } catch(err){
-    console.error('GitHub save failed:',err);
-    if(saveBtn){ saveBtn.textContent='ÃÂ¢ÃÂÃÂ Save failed ÃÂ¢ÃÂÃÂ see console'; saveBtn.disabled=false; }
-    alert('GitHub save failed:\n'+err.message+'\n\nCheck your token has repo write access.');
+    console.error('GitHub save failed:', err);
+    if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
+    setStatus('✗ Save failed', 'var(--red)');
+    alert('Save failed:\n\n'+err.message+'\n\nMake sure your token has "repo" write permissions.');
   }
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Token setup modal ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── Token modal ── */
 function showGhTokenModal(){
   showModal('<div class="modal"><h3>&#128273; GitHub Token Required</h3>'
-    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">'
-    +'To save changes back to GitHub, you need a Personal Access Token with <strong>repo</strong> (write) permissions.<br><br>'
-    +'<strong>How to get one:</strong><br>'
-    +'1. Go to <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
-    +'2. Set expiry (e.g. 90 days)<br>'
-    +'3. Check <strong>repo</strong> scope<br>'
-    +'4. Click Generate &amp; copy the token</p>'
-    +'<div class="form-group"><label>Paste your token here</label>'
-    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"></div>'
-    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">&#128274; Stored only in your browser\'s localStorage ÃÂ¢ÃÂÃÂ never sent anywhere except GitHub\'s API.</p>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.7">'
+    +'To save changes, you need a GitHub Personal Access Token with <strong>repo</strong> write access.<br><br>'
+    +'<strong>How to create one:</strong><br>'
+    +'1. Open <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
+    +'2. Give it a name, set an expiry<br>'
+    +'3. Tick the <strong>repo</strong> checkbox<br>'
+    +'4. Click <strong>Generate token</strong> and copy it here</p>'
+    +'<div class="form-group">'
+    +'<label>Personal Access Token</label>'
+    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off">'
+    +'</div>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">'
+    +'&#128274; Saved only to <em>your</em> browser localStorage. Never written into the HTML file.</p>'
     +'<div class="modal-actions">'
     +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="btn-primary" onclick="saveGhToken()">Save Token &amp; Retry</button>'
+    +'<button class="btn-primary" onclick="saveGhToken()">Save Token &amp; Continue</button>'
     +'</div></div>');
 }
 function saveGhToken(){
-  var t=document.getElementById('gh-tok-input').value.trim();
-  if(!t){alert('Please paste your token first');return;}
-  GH.token=t;
+  var t = (document.getElementById('gh-tok-input').value||'').trim();
+  if(!t){ alert('Please paste your token first.'); return; }
+  GH.token = t;
   closeModal();
   ghSaveData();
 }
 function clearGhToken(){
-  localStorage.removeItem('gh_token');
-  alert('Token cleared.');
+  if(confirm('Remove saved GitHub token from this browser?')){
+    localStorage.removeItem('belfius_gh_token');
+    var bar = document.getElementById('gh-bar');
+    if(bar) injectGhBar(true); // rebuild without "clear" button
+  }
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Inject Save button + status into sidebar ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
-function injectGhBar(){
-  var nav = document.getElementById('nav-items');
-  if(!nav) return;
+/* ── Sidebar GitHub section ── */
+function injectGhBar(force){
   var existing = document.getElementById('gh-bar');
-  if(existing) return;
+  if(existing && !force){ return; }
+  if(existing) existing.remove();
+  var sidebar = document.querySelector('.sidebar');
+  if(!sidebar) return;
   var bar = document.createElement('div');
   bar.id = 'gh-bar';
-  bar.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--sidebar-border)';
-  bar.innerHTML = '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding:0 4px">GitHub Sync</div>'
+  bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
+  bar.innerHTML =
+    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">GitHub Sync</div>'
     +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData()">&#9729; Save to GitHub</button>'
-    +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;padding:0 4px;min-height:16px"></div>'
-    +(GH.token?'<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;margin-top:6px;padding:5px">Clear Token</button>':'');
-  nav.parentElement.insertBefore(bar, nav.nextSibling);
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghLoadData()">&#8635; Pull latest</button>'
+    +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
+    +(GH.token ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
+  // Insert before the sign-out button
+  var signOut = sidebar.querySelector('.btn-ghost[onclick="logout()"]');
+  if(signOut) sidebar.insertBefore(bar, signOut);
+  else sidebar.appendChild(bar);
 }
 
-/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Hook into buildSidebar to inject GH bar for admin ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
+/* ── Wire into buildSidebar ── */
 var _origBuildSidebar = buildSidebar;
 buildSidebar = function(){
   _origBuildSidebar();
-  if(currentRole==='admin'){
+  if(currentRole === 'admin'){
     injectGhBar();
     ghLoadData();
   }
