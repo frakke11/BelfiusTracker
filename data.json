@@ -452,7 +452,22 @@
       "id": "argenta",
       "name": "Argenta",
       "logo": "🏢",
-      "projects": []
+      "projects": [
+        {
+          "id": "iris-1774038157416",
+          "name": "IRIS",
+          "description": "",
+          "technologies": [],
+          "useCases": [],
+          "blockers": [],
+          "kpis": [],
+          "team": [],
+          "raci": [],
+          "meetings": [],
+          "flowcharts": [],
+          "execSponsors": []
+        }
+      ]
     }
   ]
 }
