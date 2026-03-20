@@ -437,7 +437,39 @@
               "purpose": "Operational touchpoint"
             }
           ],
-          "flowcharts": [],
+          "flowcharts": [
+            {
+              "name": "test",
+              "nodes": [],
+              "edges": [],
+              "lanes": [
+                {
+                  "id": "6lvu90c",
+                  "name": "Channel",
+                  "y": 0,
+                  "h": 170
+                },
+                {
+                  "id": "smybz4v",
+                  "name": "Agentforce",
+                  "y": 170,
+                  "h": 170
+                },
+                {
+                  "id": "jslxuqc",
+                  "name": "Data 360",
+                  "y": 340,
+                  "h": 170
+                },
+                {
+                  "id": "t9twehc",
+                  "name": "Data",
+                  "y": 510,
+                  "h": 170
+                }
+              ]
+            }
+          ],
           "execSponsors": [
             {
               "name": "Pieter Bamps",
