@@ -107,6 +107,40 @@ body.theme-customer .theme-btn.active{background:rgba(255,255,255,.2);color:#fff
 body.theme-customer .sidebar #gh-status{color:rgba(255,255,255,.7)}
 body.theme-customer .sidebar #role-badge-wrap .badge{background:rgba(255,255,255,.2);color:#ffffff;border-color:rgba(255,255,255,.3)}
 body.theme-customer .dot-red{background:#ffaaaa}
+/* ══════════════════════════════════════════════════
+   THEME: CUSTOMER DARK (dynamic — dark mode variant)
+══════════════════════════════════════════════════ */
+body.theme-customer-dark{
+  --bg:#0d0f14;--bg-mid:#131720;--bg-light:#1c2234;
+  --accent:#005fa3;--accent-light:#1b7fc4;--accent-dim:#004a82;
+  --text:#e8edf5;--text-dim:#c9d8eb;--text-muted:#7899b8;--text-soft:#9bb8d4;
+  --border:rgba(0,95,163,.2);--border-hover:rgba(0,95,163,.5);
+  --card-bg:#131720;--card-grad:linear-gradient(135deg,#131720,rgba(28,34,52,.8));
+  --card-accent-bg:linear-gradient(135deg,rgba(0,95,163,.12),rgba(19,23,32,.9));
+  --card-accent-border:rgba(0,95,163,.3);
+  --sidebar-bg:#005fa3;--sidebar-border:rgba(255,255,255,.15);
+  --btn-primary:linear-gradient(135deg,#005fa3,#004a82);--btn-primary-text:#ffffff;
+  --nav-active-bg:rgba(255,255,255,.22);--nav-active-text:#ffffff;
+  --nav-hover:rgba(255,255,255,.1);
+  --red:#f07070;--green:#3dd68c;--amber:#ffb75e;--blue:#4a9eff;
+  --font-head:'Source Sans 3',sans-serif;--font-body:'Source Sans 3',sans-serif;
+  --radius:6px;--radius-sm:4px;
+  --shadow:0 4px 20px rgba(0,0,0,.5);
+}
+body.theme-customer-dark .sidebar{color:#ffffff}
+body.theme-customer-dark .nav-item{color:rgba(255,255,255,.75)}
+body.theme-customer-dark .nav-item:hover{color:#ffffff;background:rgba(255,255,255,.12)}
+body.theme-customer-dark .nav-item.active{color:#ffffff;background:rgba(255,255,255,.22)}
+body.theme-customer-dark .sidebar .btn-ghost{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3)}
+body.theme-customer-dark .sidebar .btn-primary{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3)}
+body.theme-customer-dark .sidebar #gh-save-btn{background:rgba(255,255,255,.2);color:#fff}
+body.theme-customer-dark .theme-btn{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3)}
+body.theme-customer-dark .theme-btn.active{background:rgba(255,255,255,.2);color:#ffffff;border-color:rgba(255,255,255,.5)}
+body.theme-customer-dark .sidebar #gh-status{color:rgba(255,255,255,.7)}
+body.theme-customer-dark .sidebar #role-badge-wrap .badge{background:rgba(255,255,255,.2);color:#ffffff;border-color:rgba(255,255,255,.3)}
+body.theme-customer-dark .bg-grid{background-image:linear-gradient(rgba(0,95,163,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,95,163,.06) 1px,transparent 1px)}
+body.theme-customer-dark .label{color:var(--accent-light)}
+body.theme-customer-dark .card{box-shadow:var(--shadow)}
 html{scroll-behavior:smooth}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
 h1,h2,h3,h4{font-family:var(--font-head)}
@@ -337,7 +371,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
             <button class="theme-btn active" id="tb-default" onclick="setTheme('default')" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
             <button class="theme-btn" id="tb-sf-dark" onclick="setTheme('sf-dark')" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
           </div>
-          <button class="theme-btn" id="tb-customer" onclick="setTheme('customer')" style="width:100%;font-size:11px;padding:5px 8px">🎨 <span id="tb-customer-label">Customer</span></button>
+          <div class="row g4"><button class="theme-btn" id="tb-customer" onclick="setTheme('customer')" style="flex:1;font-size:11px;padding:5px 8px">🎨 <span id="tb-customer-label">Customer</span></button><button class="theme-btn" id="tb-customer-dark" onclick="setCustDark()" style="font-size:11px;padding:5px 8px" title="Customer dark mode">🌙</button></div>
         </div>
       </div>
       <nav id="nav-items" class="col" style="gap:2px;flex:1"></nav>
@@ -552,17 +586,27 @@ function applyCustomerTheme(){
     +'--sidebar-bg:'+sidebarBg+';'
     +'--btn-primary:linear-gradient(135deg,'+accent+','+accentDim+');'
     +'}';
-  // Update label
+  // Update label on both buttons
   var lbl=document.getElementById('tb-customer-label');
   if(lbl) lbl.textContent=cus.name||'Customer';
+  // Apply same accent to dark variant
+  var style2=document.getElementById('customer-dark-theme-vars');
+  if(!style2){style2=document.createElement('style');style2.id='customer-dark-theme-vars';document.head.appendChild(style2);}
+  style2.textContent='body.theme-customer-dark{'
+    +'--accent:'+accent+';--accent-light:'+accentLight+';--accent-dim:'+accentDim+';'
+    +'--sidebar-bg:'+sidebarBg+';'
+    +'--btn-primary:linear-gradient(135deg,'+accent+','+accentDim+');'
+    +'--border:rgba('+parseInt(base.slice(1,3),16)+','+parseInt(base.slice(3,5),16)+','+parseInt(base.slice(5,7),16)+',.2);'
+    +'}';
 }
+function setCustDark(){ setTheme('customer-dark'); }
 function setTheme(t){
   currentTheme=t;
   document.body.className='theme-'+t+' bg-grid';
   document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.remove('active');});
   var el=document.getElementById('tb-'+t);
   if(el) el.classList.add('active');
-  if(t==='customer') applyCustomerTheme();
+  if(t==='customer'||t==='customer-dark') applyCustomerTheme();
   if(currentPage) navigate(currentPage);
 }
 
@@ -1390,6 +1434,7 @@ function rTimeline(){
   var events=(DATA.keyEvents||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
   var now=new Date();
   var viewMode=window._tlView||'list';
+  var showCadences=window._tlCadences!==false;
 
   function daysLeft(ds){if(!ds)return null;var d=new Date(ds);return Math.round((d-now)/(1000*60*60*24));}
   function fmtDl(dl){if(dl===null)return '';if(dl>0)return '<span style="color:var(--green)">'+dl+' days left</span>';if(dl===0)return '<span style="color:var(--amber)">Today</span>';return '<span style="color:var(--red)">'+Math.abs(dl)+' days ago</span>';}
@@ -1407,17 +1452,22 @@ function rTimeline(){
         +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+e(ph.days||'')+'</div>'
         +(dl!==null?'<div style="font-size:11px;margin-top:3px">'+fmtDl(dl)+'</div>':'')
         +'<div style="font-size:13px;color:var(--text-muted);margin-top:8px">'+e(ph.milestone||'')+'</div>'
-        +(canEdit()?'<button class="btn-icon" style="margin-top:12px;font-size:12px" onclick="editPhase('+i+')">&#9998; Edit</button>':'')
+        +(canEdit()?'<div class="row g6" style="margin-top:12px"><button class="btn-icon" style="font-size:12px" onclick="editPhase('+i+')">&#9998; Edit</button><button class="btn-icon" style="color:#e85d5d;font-size:12px" onclick="deletePhase('+i+')">&#10005;</button></div>':'')
         +'</div>';
     }).join(''):'<div class="card" style="padding:20px;color:var(--text-muted)">No phases yet.</div>')
     +'</div>';
 
   // ── Event section header ──
+  // ── Add Phase button in phases section
+  var addPhaseBtn=canEdit()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick="addPhase()">+ Add Phase</button>':'';
+  phHtml=phHtml.replace('</div>',addPhaseBtn+'</div>');
+
   var evtHeader='<div class="row between center" style="margin-bottom:16px">'
     +'<div class="sec-title" style="margin-bottom:0">Key Events &amp; Milestones</div>'
     +'<div class="row g8">'
-    +'<button class="btn-ghost btn-sm" onclick="setTLList()" style="'+(viewMode==='list'?'border-color:var(--accent);color:var(--accent)':'')+'" title="List view">&#9776; List</button>'
-    +'<button class="btn-ghost btn-sm" onclick="setTLGantt()" style="'+(viewMode==='gantt'?'border-color:var(--accent);color:var(--accent)':'')+'" title="Bar view">&#9646; Bar</button>'
+    +'<button class="btn-ghost btn-sm" onclick="setTLList()" style="'+(viewMode==='list'?'border-color:var(--accent);color:var(--accent)':'')+'">&#9776; List</button>'
+    +'<button class="btn-ghost btn-sm" onclick="setTLGantt()" style="'+(viewMode==='gantt'?'border-color:var(--accent);color:var(--accent)':'')+'">&#9646; Bar</button>'
+    +'<button class="btn-ghost btn-sm" onclick="toggleCadences()" style="'+(showCadences?'border-color:var(--accent);color:var(--accent)':'')+'">&#9702; Cadences</button>'
     +(canEdit()?'<button class="btn-primary btn-sm" onclick="addEvent()">+ Add Event</button>':'')
     +'</div></div>';
 
@@ -1451,6 +1501,30 @@ function rTimeline(){
     var grouped={};
     events.forEach(function(ev){var t=ev.type||'Other';if(!grouped[t])grouped[t]=[];grouped[t].push(ev);});
 
+    // Add meeting cadences as rows if enabled
+    var cadenceRows='';
+    if(showCadences){
+      var meetings=DATA.meetings||[];
+      meetings.forEach(function(mt){
+        // Generate recurring dots based on frequency
+        var freqDays={'Weekly':7,'Bi-weekly':14,'Monthly':30,'Ad hoc':null}[mt.freq];
+        if(!freqDays) return;
+        var dots='';
+        var d=new Date(minD);
+        while(d<=maxD){
+          var p=((d-minD)/totalMs*100).toFixed(1);
+          dots+='<div title="'+e(mt.name)+'" style="position:absolute;left:'+p+'%;transform:translateX(-50%);top:4px">'
+            +'<div style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);opacity:.7"></div></div>';
+          d=new Date(d.getTime()+freqDays*86400000);
+        }
+        cadenceRows+='<div class="row center" style="margin-bottom:20px">'
+          +'<div style="width:100px;flex-shrink:0;font-size:10px;color:var(--text-muted);text-align:right;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e(mt.name)+'">'+e(mt.name)+'</div>'
+          +'<div style="flex:1;height:16px;background:var(--bg-light);border-radius:3px;position:relative;overflow:visible">'
+          +'<div style="position:absolute;left:'+todayPct+'%;top:-2px;bottom:-2px;width:2px;background:var(--red);opacity:.4"></div>'
+          +dots+'</div></div>';
+      });
+    }
+
     var rows=typeOrder.filter(function(t){return grouped[t]&&grouped[t].length;}).map(function(t){
       var col=typeColors[t]||'var(--text-muted)';
       var bars=grouped[t].map(function(ev,ei){
@@ -1471,7 +1545,8 @@ function rTimeline(){
     evtHtml='<div class="card" style="padding:20px;overflow-x:auto">'
       +'<div style="min-width:600px">'
       +monthBar+rows
-      +'<div style="padding-left:100px;font-size:11px;color:var(--red);margin-top:-8px">&#9650; Today</div>'
+      +(showCadences&&cadenceRows?'<div style="padding-left:100px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 6px">Cadences</div>'+cadenceRows:'')
+      +'<div style="padding-left:100px;font-size:11px;color:var(--red);margin-top:4px">&#9650; Today</div>'
       +'</div></div>';
   } else {
     // ── List view ──
@@ -1492,6 +1567,19 @@ function rTimeline(){
           +'</div>';
       }).join('')+'</div>'
       :'<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)">No events yet.</div>';
+  // Cadences in list view
+  if(showCadences&&(DATA.meetings||[]).length){
+    evtHtml+='<div style="margin-top:20px"><div class="sec-title">Meeting Cadences</div>'
+      +'<div class="col g8">'
+      +(DATA.meetings||[]).map(function(mt){
+        return '<div class="card row center" style="padding:10px 16px;gap:12px">'
+          +'<span class="badge b-blue">'+e(mt.freq)+'</span>'
+          +'<span style="font-size:13px;font-weight:600">'+e(mt.name)+'</span>'
+          +'<span style="font-size:12px;color:var(--text-muted);flex:1">'+e(mt.participants)+'</span>'
+          +'</div>';
+      }).join('')
+      +'</div></div>';
+  }
   }
 
   return '<div class="col g24">'
@@ -1500,6 +1588,7 @@ function rTimeline(){
 }
 function setTLView(v){ window._tlView=v; navigate('timeline'); }
 function setTLList(){ setTLView('list'); }
+function toggleCadences(){ window._tlCadences=(window._tlCadences===false?true:false); navigate('timeline'); }
 function setTLGantt(){ setTLView('gantt'); }
 function addEvent(){
   showModal('<div class="modal"><h3>Add Key Event</h3>'
@@ -1530,6 +1619,23 @@ function saveEvent(idx){
   closeModal();navigate('timeline');autoSave();
 }
 function deleteEvent(idx){if(confirm('Delete event?')){DATA.keyEvents.splice(idx,1);navigate('timeline');autoSave();}}
+function addPhase(){
+  showModal('<div class="modal"><h3>Add Phase</h3>'
+    +'<div class="form-group"><label>Phase Name</label><input id="ph-name" placeholder="e.g. Optimization"></div>'
+    +'<div class="form-group"><label>Label (e.g. 91–120 days)</label><input id="ph-days"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Start Date</label><input id="ph-start" type="date"></div>'
+    +'<div class="form-group"><label>End Date</label><input id="ph-end" type="date"></div></div>'
+    +'<div class="form-group"><label>Milestone Description</label><textarea id="ph-ms" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Status</label><select id="ph-status"><option>upcoming</option><option>active</option><option>done</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewPhase()">Add</button></div></div>');
+}
+function saveNewPhase(){
+  if(!DATA.phases) DATA.phases=[];
+  DATA.phases.push({name:document.getElementById('ph-name').value,days:document.getElementById('ph-days').value,startDate:document.getElementById('ph-start').value,endDate:document.getElementById('ph-end').value,milestone:document.getElementById('ph-ms').value,status:document.getElementById('ph-status').value});
+  closeModal();navigate('timeline');autoSave();
+}
+function deletePhase(idx){if(confirm('Delete phase?')){DATA.phases.splice(idx,1);navigate('timeline');autoSave();}}
 function editPhase(idx){
   var ph=(DATA.phases||[])[idx]; if(!ph) return;
   showModal('<div class="modal"><h3>Edit Phase</h3>'
@@ -2274,19 +2380,59 @@ function bindFC(){
     if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
   });
 
-  // dblclick — rename
+  // dblclick — inline rename for nodes and edges
   svg.addEventListener('dblclick',function(ev){
+    ev.preventDefault();
     var rect=svg.getBoundingClientRect();
     var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    // Check nodes
     for(var i=FC.nodes.length-1;i>=0;i--){
       var nd=FC.nodes[i];
       if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){
-        var nl=prompt('Label:',nd.label||'');
-        if(nl!==null){nd.label=nl;drawFC();saveFCData();}
+        showFCRename('node',i,nd.label||'',nd.x+nd.w/2,nd.y+nd.h/2);
+        return;
+      }
+    }
+    // Check edges (click near midpoint)
+    for(var j=0;j<FC.edges.length;j++){
+      var ed=FC.edges[j];
+      var s=FC.nodes.find(function(n){return n.id===ed.from;}),t2=FC.nodes.find(function(n){return n.id===ed.to;});
+      if(!s||!t2) continue;
+      var emx=(s.x+s.w/2+t2.x+t2.w/2)/2, emy=(s.y+s.h/2+t2.y+t2.h/2)/2;
+      if(Math.abs(mx-emx)<30&&Math.abs(my-emy)<20){
+        showFCRename('edge',j,ed.label||'',emx,emy);
         return;
       }
     }
   });
+}
+
+function showFCRename(type, idx, current, cx, cy){
+  var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+  var wRect=wrap.getBoundingClientRect();
+  var svgEl=document.getElementById('fc-svg'); if(!svgEl) return;
+  var sRect=svgEl.getBoundingClientRect();
+  // Position input over the element
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:absolute;z-index:999;top:'+(cy-16)+'px;left:'+(cx-80)+'px;width:160px';
+  var inp=document.createElement('input');
+  inp.value=current;
+  inp.style.cssText='width:100%;padding:6px 10px;font-size:13px;font-family:var(--font-body);border:2px solid var(--accent);border-radius:var(--radius-sm);background:var(--card-bg);color:var(--text);text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  overlay.appendChild(inp);
+  wrap.appendChild(overlay);
+  inp.focus(); inp.select();
+  function commit(){
+    var val=inp.value;
+    if(type==='node') FC.nodes[idx].label=val;
+    else FC.edges[idx].label=val;
+    overlay.remove();
+    drawFC(); saveFCData();
+  }
+  inp.addEventListener('keydown',function(ev){
+    if(ev.key==='Enter'){commit();}
+    if(ev.key==='Escape'){overlay.remove();}
+  });
+  inp.addEventListener('blur',function(){ setTimeout(function(){if(document.body.contains(overlay))commit();},150); });
 }
 
 function initFC(){ /* called by navigate — no-op, openFC handles init */ }
