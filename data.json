@@ -137,6 +137,12 @@
                   "painPoints": "Lower customer satisfaction",
                   "desiredOutcomes": "Escalate to human agent when needed",
                   "kpis": "Increase customer satisfaction"
+                },
+                {
+                  "story": "When no human agents are available to escalate to, create a ticket",
+                  "painPoints": "",
+                  "desiredOutcomes": "Create ticket ",
+                  "kpis": ""
                 }
               ],
               "scope": {
