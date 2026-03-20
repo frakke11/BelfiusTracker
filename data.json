@@ -18,7 +18,7 @@
           "label": "Integration design (Koen + Belfius)",
           "date": "Mid-April",
           "done": false,
-          "atRisk": true
+          "atRisk": false
         },
         {
           "label": "Test execution",
