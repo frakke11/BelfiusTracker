@@ -1215,20 +1215,11 @@ function setUCTab(idx,tab){ ucTab[idx]=tab; navigate('uc-'+idx); }
 /* ── UC Overview Tab ── */
 function renderUCOverviewTab(uc,idx){
   var canE=canEdit();
-  // Helper: render an editable field card
-  function inlineCard(title, field, isMulti){
-    var val=e(uc[field]||'');
-    var cardId='uco-'+idx+'-'+field;
-    var viewStyle='padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;min-height:44px';
-    // When editable, show an edit icon that turns the content editable
-    var editBtn=canE?'<button class="btn-icon" style="position:absolute;top:6px;right:6px;font-size:11px;padding:3px 7px;opacity:.7" onclick="ucFieldEdit(\''+cardId+'\',\''+field+'\','+idx+')">&#9998;</button>':'';
-    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;position:relative">'
+  function infoCard(title,value){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
-      +editBtn
-      +'<div id="'+cardId+'" style="'+viewStyle+'">'+val+'</div>'
-      +'</div>';
+      +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;white-space:pre-line">'+value+'</div></div>';
   }
-
   var mils=(uc.milestones||[]).map(function(m,mi){
     var last=mi===uc.milestones.length-1;
     return '<div class="row g14" style="align-items:flex-start">'
@@ -1245,46 +1236,21 @@ function renderUCOverviewTab(uc,idx){
       +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
       +'</div></div>';
   }).join('');
-
-  return '<div class="grid2" style="gap:14px;margin-bottom:16px">'
-    +inlineCard('Use Case','description',true)
-    +inlineCard('Business Priority','businessPriority',false)
-    +inlineCard('Target Users','targetUsers',false)
-    +inlineCard('Expected Outcomes','expectedOutcomes',true)
+  return '<div>'
+    +'<div class="grid2" style="gap:14px;margin-bottom:16px">'
+    +infoCard('Use Case', e(uc.title)+(uc.description?'\n'+e(uc.description):''))
+    +infoCard('Business Priority', e(uc.businessPriority||'—'))
+    +infoCard('Target Users', e(uc.targetUsers||'—'))
+    +infoCard('Expected Outcomes', e(uc.expectedOutcomes||'—'))
     +'</div>'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">'
+    +(canE?'<div style="margin-bottom:16px"><button class="btn-primary btn-sm" onclick="editUCOverview('+idx+')">&#9998; Edit Overview</button></div>':'')
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">'
     +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Milestones</div>'
     +(mils||'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
     +(canE?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
-    +'</div>';
+    +'</div></div>';
 }
 
-function ucFieldEdit(cardId, field, idx){
-  var el=document.getElementById(cardId); if(!el) return;
-  var current=DATA.useCases[idx][field]||'';
-  var isMulti=field==='description'||field==='expectedOutcomes';
-  // Replace content with an input/textarea
-  var inp=document.createElement(isMulti?'textarea':'input');
-  inp.value=current;
-  inp.style.cssText='width:100%;padding:0;font-size:13px;font-family:var(--font-body);color:var(--text);background:transparent;border:none;outline:none;resize:vertical;line-height:1.6';
-  if(isMulti){inp.rows=3;}
-  el.innerHTML='';
-  el.style.padding='14px';
-  el.appendChild(inp);
-  inp.focus();
-  // Edit icon changes to save icon
-  var btn=el.parentNode.querySelector('.btn-icon');
-  if(btn){btn.innerHTML='&#10003;';btn.style.color='var(--green)';btn.onclick=function(){commit();};}
-  function commit(){
-    var val=inp.value;
-    DATA.useCases[idx][field]=val;
-    el.innerHTML=e(val)||'<span style="color:var(--text-muted);font-style:italic">Click ✎ to edit</span>';
-    if(btn){btn.innerHTML='&#9998;';btn.style.color='';btn.onclick=function(){ucFieldEdit(cardId,field,idx);};}
-    autoSave();
-  }
-  inp.addEventListener('keydown',function(ev){ if(!isMulti&&ev.key==='Enter'){ev.preventDefault();commit();} if(ev.key==='Escape'){commit();} });
-  inp.addEventListener('blur',function(){ setTimeout(function(){if(document.body.contains(inp))commit();},200); });
-}
 
 /* ── UC Job Stories Tab ── */
 function renderUCJobStoriesTab(uc,idx){
@@ -1316,14 +1282,14 @@ function renderUCJobStoriesTab(uc,idx){
 /* ── UC Scope Tab ── */
 function renderUCScopeTab(uc,idx){
   var sc=uc.scope||{}, flows=sc.relatedFlows||[];
-  function scard(title,content){
-    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+  function scard(title,content,fullWidth){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden'+(fullWidth?';grid-column:1/-1':'')+'">'
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
       +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+content+'</div></div>';
   }
   return '<div class="col g12">'
     +'<div class="grid2" style="gap:12px">'
-    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>\n'+e(uc.description||''))
+    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>'+(uc.description?'\n'+e(uc.description):''))
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Functional Scope</div>'
     +'<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
@@ -1341,7 +1307,7 @@ function renderUCScopeTab(uc,idx){
     +scard('Data',e(sc.data||'—'))
     +scard('Actions',e(sc.actions||'—'))
     +'</div>'
-    +scard('Guardrails Summary',e(sc.guardrails||'—'))
+    +scard('Guardrails Summary',e(sc.guardrails||'—'),true)
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Related Flows</div>'
     +'<div style="padding:14px">'
@@ -1357,7 +1323,7 @@ function renderUCScopeTab(uc,idx){
       +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">Open Flowchart Builder</button>'
       +'</div>':'')
     +'</div></div>'
-    +(canEdit()?'<button class="btn-primary btn-sm" onclick="editUCScope('+idx+')">&#9998; Edit Scope</button>':'')
+    +(canEdit()?'<div><button class="btn-primary btn-sm" onclick="editUCScope('+idx+')">&#9998; Edit Agent Scope</button></div>':'')
     +'</div>';
 }
 
@@ -2473,94 +2439,148 @@ function bindFC(){
     }
   });
 
-  // mousemove — drag (hover handled below)
+  // ── Mouse move: drag + hover tooltip ──
+  // Use pointermove on the wrap container so tip stays visible when mouse moves onto it
+  var _hoverTimer=null, _tipVisible=false;
 
-  // mouseup
-  svg.addEventListener('mouseup',function(){
-    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
-  });
-  svg.addEventListener('mouseleave',function(){
-    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
-  });
-
-  // mousemove — hover detection for edit tooltip
-  var _hoverTimer=null;
   svg.addEventListener('mousemove',function(ev){
-    if(FC.dragNode) return; // skip during drag (already handled above)
     var rect=svg.getBoundingClientRect();
     var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+
+    // Drag
+    if(FC.dragNode){
+      FC.dragNode.x=Math.max(62,mx-FC.dragOx);
+      FC.dragNode.y=Math.max(0,my-FC.dragOy);
+      drawFC();
+      return;
+    }
+
+    // Hide tip while moving (will re-show after delay)
     var tip=document.getElementById('fc-hover-tip');
     if(!tip) return;
+
     // Check nodes
     var foundNode=null;
     for(var i=FC.nodes.length-1;i>=0;i--){
       var nd=FC.nodes[i];
       if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){foundNode=i;break;}
     }
-    if(foundNode!==null&&FC.hoverNode!==foundNode){
-      FC.hoverNode=foundNode; FC.hoverEdge=null;
-      clearTimeout(_hoverTimer);
-      _hoverTimer=setTimeout(function(){
-        var nd=FC.nodes[foundNode]; if(!nd) return;
-        var svgRect=svg.getBoundingClientRect();
-        var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
-        var wrapRect=wrap.getBoundingClientRect();
-        var tipX=nd.x+nd.w-wrapRect.left+svgRect.left+wrap.scrollLeft-32;
-        var tipY=nd.y-wrapRect.top+svgRect.top+wrap.scrollTop-16;
-        tip.style.cssText='position:absolute;z-index:50;left:'+tipX+'px;top:'+tipY+'px;pointer-events:auto';
-        tip.innerHTML=canEdit()?'<button onclick="fcHoverEdit('+foundNode+',0)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)">&#9998; Edit</button>':'';
-        tip.style.display='block';
-      },300);
-    } else if(foundNode===null){
-      // Check edges
-      var foundEdge=null;
+    // Check edges
+    var foundEdge=null;
+    if(foundNode===null){
       for(var j=0;j<FC.edges.length;j++){
         var ed=FC.edges[j];
         var sn=FC.nodes.find(function(n){return n.id===ed.from;}),tn=FC.nodes.find(function(n){return n.id===ed.to;});
         if(!sn||!tn) continue;
-        var emx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, emy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
-        if(Math.abs(mx-emx)<24&&Math.abs(my-emy)<16){foundEdge=j;break;}
-      }
-      if(foundEdge!==null&&FC.hoverEdge!==foundEdge){
-        FC.hoverEdge=foundEdge; FC.hoverNode=null;
-        clearTimeout(_hoverTimer);
-        var edIdx=foundEdge;
-        _hoverTimer=setTimeout(function(){
-          var ed=FC.edges[edIdx]; if(!ed) return;
-          var sn2=FC.nodes.find(function(n){return n.id===ed.from;}),tn2=FC.nodes.find(function(n){return n.id===ed.to;});
-          if(!sn2||!tn2) return;
-          var ex=(sn2.x+sn2.w/2+tn2.x+tn2.w/2)/2, ey=(sn2.y+sn2.h/2+tn2.y+tn2.h/2)/2;
-          var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
-          var wrapRect=wrap.getBoundingClientRect(), svgRect=svg.getBoundingClientRect();
-          var tipX=ex-wrapRect.left+svgRect.left+wrap.scrollLeft-24;
-          var tipY=ey-wrapRect.top+svgRect.top+wrap.scrollTop-16;
-          tip.style.cssText='position:absolute;z-index:50;left:'+tipX+'px;top:'+tipY+'px;pointer-events:auto';
-          tip.innerHTML=canEdit()?'<button onclick="fcHoverEdit('+edIdx+',1)" style="background:var(--text-muted);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)">&#9998; Label</button>':'';
-          tip.style.display='block';
-        },300);
-      } else if(foundEdge===null){
-        FC.hoverNode=null; FC.hoverEdge=null;
-        clearTimeout(_hoverTimer);
-        setTimeout(function(){
-          // Only hide if mouse isn't over the tip itself
-          if(tip&&!tip.matches(':hover')) tip.style.display='none';
-        },400);
+        var emx=(sn.x+sn.w/2+tn.x+tn.w/2)/2,emy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
+        if(Math.abs(mx-emx)<30&&Math.abs(my-emy)<22){foundEdge=j;break;}
       }
     }
+
+    var same=(foundNode!==null&&FC.hoverNode===foundNode)||(foundEdge!==null&&FC.hoverEdge===foundEdge);
+    if(same&&_tipVisible) return; // already showing tip for this element
+
+    // Clear pending timer
+    clearTimeout(_hoverTimer);
+
+    // If moved off both node and edge — hide tip
+    if(foundNode===null&&foundEdge===null){
+      FC.hoverNode=null; FC.hoverEdge=null;
+      _tipVisible=false;
+      tip.style.display='none';
+      return;
+    }
+
+    // New element — schedule tip
+    FC.hoverNode=foundNode; FC.hoverEdge=foundEdge;
+    _hoverTimer=setTimeout(function(){
+      var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+      var svgRect=svg.getBoundingClientRect();
+      var wrapRect=wrap.getBoundingClientRect();
+      var offsetX=svgRect.left-wrapRect.left+wrap.scrollLeft;
+      var offsetY=svgRect.top-wrapRect.top+wrap.scrollTop;
+
+      if(foundNode!==null){
+        var nd=FC.nodes[foundNode]; if(!nd) return;
+        // Position tip at top-right of node
+        tip.style.left=(nd.x+nd.w+offsetX-4)+'px';
+        tip.style.top=(nd.y+offsetY-4)+'px';
+        tip.innerHTML='<button onclick="fcHoverEdit('+foundNode+',0)" '
+          +'style="background:var(--accent);color:#fff;border:none;border-radius:6px;'
+          +'padding:5px 11px;cursor:pointer;font-size:12px;font-weight:600;'
+          +'box-shadow:0 3px 12px rgba(0,0,0,.35);white-space:nowrap;'
+          +'display:flex;align-items:center;gap:5px">&#9998; Edit</button>';
+      } else {
+        var ed2=FC.edges[foundEdge]; if(!ed2) return;
+        var sn2=FC.nodes.find(function(n){return n.id===ed2.from;});
+        var tn2=FC.nodes.find(function(n){return n.id===ed2.to;});
+        if(!sn2||!tn2) return;
+        var ex=(sn2.x+sn2.w/2+tn2.x+tn2.w/2)/2,ey=(sn2.y+sn2.h/2+tn2.y+tn2.h/2)/2;
+        tip.style.left=(ex+offsetX-30)+'px';
+        tip.style.top=(ey+offsetY-18)+'px';
+        tip.innerHTML='<button onclick="fcHoverEdit('+foundEdge+',1)" '
+          +'style="background:var(--text-soft);color:#fff;border:none;border-radius:6px;'
+          +'padding:5px 11px;cursor:pointer;font-size:12px;font-weight:600;'
+          +'box-shadow:0 3px 12px rgba(0,0,0,.35);white-space:nowrap;'
+          +'display:flex;align-items:center;gap:5px">&#9998; Label</button>';
+      }
+      tip.style.cssText=tip.style.cssText; // force repaint
+      tip.style.position='absolute';
+      tip.style.zIndex='200';
+      tip.style.pointerEvents='auto';
+      tip.style.display='block';
+      _tipVisible=true;
+
+      // Keep tip visible when mouse enters it
+      tip.onmouseenter=function(){ clearTimeout(_hoverTimer); _tipVisible=true; };
+      tip.onmouseleave=function(){ _tipVisible=false; tip.style.display='none'; FC.hoverNode=null; FC.hoverEdge=null; };
+    }, 400);
+  });
+
+  svg.addEventListener('mouseup',function(){
+    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
   });
   svg.addEventListener('mouseleave',function(){
-    FC.hoverNode=null; FC.hoverEdge=null;
-    var tip=document.getElementById('fc-hover-tip');
-    if(tip) tip.style.display='none';
+    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
+    // Only hide tip if mouse didn't go to the tip itself
+    clearTimeout(_hoverTimer);
+    setTimeout(function(){
+      var tip=document.getElementById('fc-hover-tip');
+      if(tip&&!_tipVisible&&!window._fcTipLock){ tip.style.display='none'; FC.hoverNode=null; FC.hoverEdge=null; }
+    },50);
   });
 }
 
 function fcHoverEdit(idx, isEdge){
-  // Called from hover tooltip button — dispatches to showFCRename with correct coords
   var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
   if(!isEdge){
     var nd=FC.nodes[idx]; if(!nd) return;
-    showFCRename('node', idx, nd.label||'', nd.x+nd.w/2, nd.y+nd.h/2);
+    // Show a small popover with: Rename + color swatches
+    var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+    // Position near top-right of node
+    var svg=document.getElementById('fc-svg'); if(!svg) return;
+    var sRect=svg.getBoundingClientRect(), wRect=wrap.getBoundingClientRect();
+    var ox=sRect.left-wRect.left+wrap.scrollLeft;
+    var oy=sRect.top-wRect.top+wrap.scrollTop;
+    var px=nd.x+nd.w+ox, py=nd.y+oy-4;
+    var tip2=document.getElementById('fc-hover-tip'); if(!tip2) return;
+    var COLORS=[['#e8f4fe','Sky'],['#d4edda','Mint'],['#fff3cd','Sand'],['#fde2e2','Rose'],['#e2d9f3','Lavender'],['#f3f3f3','White']];
+    var swatches=COLORS.map(function(col){
+      var active=nd.fill===col[0];
+      return '<div onclick="fcNodeColor('+idx+',\''+col[0]+'\')" title="'+col[1]+'" style="width:22px;height:22px;border-radius:50%;background:'+col[0]+';cursor:pointer;border:2px solid '+(active?'var(--accent)':'rgba(0,0,0,.15)')+';flex-shrink:0;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.2)\'" onmouseout="this.style.transform=\'\'"></div>';
+    }).join('');
+    tip2.innerHTML='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;box-shadow:0 4px 20px rgba(0,0,0,.25);min-width:160px">'
+      +'<button onclick="showFCRename(\'nodeX\','+idx+',\''+e(nd.label||'').replace(/'/g,'\\\'')+'\')'+(',')+''+(nd.x+nd.w/2)+','+(nd.y+nd.h/2)+')" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:8px;text-align:left">&#9998; Rename</button>'
+      +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Color</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+swatches+'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<input type="color" value="'+(nd.fill&&nd.fill[0]==='#'?nd.fill:'#e8f4fe')+'" onchange="fcNodeColor('+idx+',this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);border-radius:4px;cursor:pointer">'
+      +'<span style="font-size:11px;color:var(--text-muted)">Custom color</span>'
+      +'</div>'
+      +'</div>';
+    tip2.style.cssText='position:absolute;z-index:200;left:'+px+'px;top:'+py+'px;pointer-events:auto;display:block';
+    tip2.onmouseenter=function(){ window._fcTipLock=true; };
+    tip2.onmouseleave=function(){ window._fcTipLock=false; tip2.style.display='none'; };
   } else {
     var ed=FC.edges[idx]; if(!ed) return;
     var sn=FC.nodes.find(function(n){return n.id===ed.from;});
@@ -2569,6 +2589,11 @@ function fcHoverEdit(idx, isEdge){
     var cx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, cy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
     showFCRename('edge', idx, ed.label||'', cx, cy);
   }
+}
+function fcNodeColor(ndIdx, color){
+  if(FC.nodes[ndIdx]) FC.nodes[ndIdx].fill=color;
+  var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
+  drawFC(); saveFCData();
 }
 function showFCRename(type, idx, current, cx, cy){
   var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
@@ -2586,7 +2611,7 @@ function showFCRename(type, idx, current, cx, cy){
   inp.focus(); inp.select();
   function commit(){
     var val=inp.value;
-    if(type==='node') FC.nodes[idx].label=val;
+    if(type==='node'||type==='nodeX') FC.nodes[idx].label=val;
     else FC.edges[idx].label=val;
     overlay.remove();
     drawFC(); saveFCData();
