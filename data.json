@@ -45,7 +45,7 @@
               "id": "UC1",
               "title": "New Car Policy Onboarding",
               "subtitle": "Virtual Broker + IDP",
-              "progress": "64",
+              "progress": "32",
               "status": "In Progress",
               "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
               "businessPriority": "High – value driver = productivity / target KPIs = minutes saved",
