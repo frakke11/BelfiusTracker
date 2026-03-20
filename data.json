@@ -38,7 +38,7 @@
       "id": "UC2",
       "title": "FAQ Agent",
       "subtitle": "Multi-Channel Scale-Up",
-      "progress": 10,
+      "progress": "0",
       "status": "Planning",
       "description": "Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.",
       "milestones": [
