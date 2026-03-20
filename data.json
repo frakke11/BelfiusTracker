@@ -66,7 +66,7 @@
       "id": "UC3",
       "title": "Service Rep Assistant",
       "subtitle": "Employee Agent",
-      "progress": 5,
+      "progress": "0",
       "status": "Planning",
       "description": "Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.",
       "milestones": [
