@@ -143,6 +143,12 @@
                   "painPoints": "",
                   "desiredOutcomes": "Create ticket ",
                   "kpis": ""
+                },
+                {
+                  "story": "Let the agent be available on multiple channels",
+                  "painPoints": "still manual workload on other channels",
+                  "desiredOutcomes": "work on email, facebook, whatsapp, ... ",
+                  "kpis": ""
                 }
               ],
               "scope": {
