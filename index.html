@@ -1198,6 +1198,7 @@ function rUseCasePage(idx){
       +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
       +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:140px;accent-color:var(--accent)">'
       +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
+      +'<span style="font-size:11px;color:var(--text-muted)">avg of milestones</span>'
       +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
       +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
       +'</select></div>':'')
@@ -1220,20 +1221,38 @@ function renderUCOverviewTab(uc,idx){
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
       +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;white-space:pre-line">'+value+'</div></div>';
   }
-  var mils=(uc.milestones||[]).map(function(m,mi){
-    var last=mi===uc.milestones.length-1;
+  // Sort milestones by date for display
+  var sortedMils=(uc.milestones||[]).map(function(m,i){return {m:m,i:i};}).sort(function(a,b){
+    if(!a.m.date&&!b.m.date) return 0; if(!a.m.date) return 1; if(!b.m.date) return -1;
+    return a.m.date.localeCompare(b.m.date);
+  });
+  var mils=sortedMils.map(function(item,si){
+    var m=item.m, mi=item.i;
+    var last=si===sortedMils.length-1;
+    var pct=m.progress||0;
+    var dotColor=pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--border)';
+    var dotFill=pct>=100?'var(--green)':pct>0?'rgba(240,168,67,.3)':'var(--bg)';
     return '<div class="row g14" style="align-items:flex-start">'
-      +'<div class="col center"><div class="tl-dot'+(m.done?' done':'')+'"></div>'
+      +'<div class="col center">'
+      +'<div style="width:14px;height:14px;border-radius:50%;border:2px solid '+dotColor+';background:'+dotFill+';flex-shrink:0;margin-top:3px"></div>'
       +(!last?'<div class="tl-line"></div>':'')+'</div>'
-      +'<div style="padding-bottom:'+(last?0:14)+'px;flex:1">'
-      +'<div class="row center g8 wrap">'
-      +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
+      +'<div style="padding-bottom:'+(last?0:16)+'px;flex:1">'
+      +'<div class="row center g8 wrap" style="margin-bottom:4px">'
+      +'<span style="font-size:13px;font-weight:600;color:'+(pct>=100?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(pct>=100?'line-through':'none')+'">'+e(m.label)+'</span>'
       +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
       +(canE?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
-        +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>'
-        +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'' )
+        +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>':'')
       +'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
+      // Progress bar + date row
+      +'<div class="row center g8" style="margin-bottom:4px">'
+      +'<div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:5px;background:'+(pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--accent)')+';width:'+pct+'%;transition:width .5s"></div></div>'
+      +'<span style="font-size:11px;font-weight:700;color:'+(pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--text-muted)')+';min-width:32px;text-align:right">'+pct+'%</span>'
+      +(m.date?'<span style="font-size:11px;color:var(--text-muted);flex-shrink:0">&#128197; '+e(m.date)+'</span>':'')
+      +'</div>'
+      // Assignees
+      +(m.assignees&&m.assignees.length?'<div class="row g4" style="flex-wrap:wrap">'
+        +m.assignees.map(function(a){return '<span style="font-size:10px;padding:1px 7px;background:var(--bg-light);border:1px solid var(--border);border-radius:10px;color:var(--text-muted)">'+e(a)+'</span>';}).join('')
+        +'</div>':'')
       +'</div></div>';
   }).join('');
   return '<div>'
@@ -1412,34 +1431,86 @@ function saveUCScope(idx){
   closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
 }
 function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
-function addMilestone(idx){
-  showModal('<div class="modal"><h3>Add Milestone</h3>'
-    +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
-    +'<div class="form-group"><label>Date</label><input id="m-date" placeholder="e.g. Mid-April"></div>'
-    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk" style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">Mark as At Risk</label></div>'
+function milModal(title, vals, saveFn){
+  var teamNames=(DATA.team||[]).map(function(t){return t.name;});
+  var assignees=vals.assignees||[];
+  showModal('<div class="modal"><h3>'+title+'</h3>'
+    +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(vals.label||'')+'" placeholder="Milestone description"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Due Date</label><input id="m-date" type="date" value="'+e(vals.date||'')+'"></div>'
+    +'<div class="form-group"><label>Progress (%)</label>'
+    +'<div class="row center g8" style="margin-top:6px">'
+    +'<input type="range" id="m-prog" min="0" max="100" value="'+e(vals.progress||0)+'" oninput="document.getElementById(\'m-prog-val\').textContent=this.value+\'%\'" style="flex:1;accent-color:var(--accent)">'
+    +'<span id="m-prog-val" style="font-size:13px;font-weight:700;color:var(--accent);min-width:40px">'+e(vals.progress||0)+'%</span>'
+    +'</div></div></div>'
+    +(teamNames.length?'<div class="form-group"><label>Assigned To</label>'
+      +'<div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){
+        var sel=assignees.indexOf(n)!==-1;
+        return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;transition:all .15s">'
+          +'<input type="checkbox" class="m-assignee" value="'+e(n)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(n)+'</label>';
+      }).join('')
+      +'</div></div>':'')
+    +'<div class="form-row" style="align-items:center;gap:12px;margin-top:4px">'
+    +'<div class="form-group row center g8" style="margin-bottom:0"><input type="checkbox" id="m-risk"'+(vals.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline;margin:0">At Risk</label></div>'
+    +'</div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="btn-primary" onclick="saveMilestone('+idx+')">Add</button></div></div>');
+    +'<button class="btn-primary" onclick="'+saveFn+'">Save</button></div></div>');
+}
+function getMilFormVals(){
+  var assignees=[]; document.querySelectorAll('.m-assignee:checked').forEach(function(cb){assignees.push(cb.value);});
+  return {label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,
+    progress:parseInt(document.getElementById('m-prog').value)||0,
+    atRisk:document.getElementById('m-risk').checked,assignees:assignees};
+}
+function addMilestone(idx){
+  milModal('Add Milestone',{progress:0},'saveMilestone('+idx+')');
 }
 function saveMilestone(idx){
-  DATA.useCases[idx].milestones.push({label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,done:false,atRisk:document.getElementById('m-risk').checked});
+  var v=getMilFormVals();
+  v.done=v.progress>=100;
+  DATA.useCases[idx].milestones.push(v);
+  sortMilestones(idx);
+  recalcUCProgress(idx);
   closeModal();navigate('uc-'+idx);autoSave();
 }
 function editMilestone(idx,mi){
   var m=DATA.useCases[idx].milestones[mi];
-  showModal('<div class="modal"><h3>Edit Milestone</h3>'
-    +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(m.label)+'"></div>'
-    +'<div class="form-group"><label>Date</label><input id="m-date" value="'+e(m.date)+'"></div>'
-    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk"'+(m.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">At Risk</label></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="btn-primary" onclick="saveEditMilestone('+idx+','+mi+')">Save</button></div></div>');
+  milModal('Edit Milestone',m,'saveEditMilestone('+idx+','+mi+')');
 }
 function saveEditMilestone(idx,mi){
-  var m=DATA.useCases[idx].milestones[mi];
-  m.label=document.getElementById('m-lbl').value; m.date=document.getElementById('m-date').value; m.atRisk=document.getElementById('m-risk').checked;
+  var v=getMilFormVals();
+  v.done=v.progress>=100;
+  Object.assign(DATA.useCases[idx].milestones[mi],v);
+  sortMilestones(idx);
+  recalcUCProgress(idx);
   closeModal();navigate('uc-'+idx);autoSave();
 }
-function deleteMilestone(idx,mi){DATA.useCases[idx].milestones.splice(mi,1);navigate('uc-'+idx);autoSave();}
-function toggleMil(idx,mi,v){DATA.useCases[idx].milestones[mi].done=v;}
+function deleteMilestone(idx,mi){
+  DATA.useCases[idx].milestones.splice(mi,1);
+  recalcUCProgress(idx);
+  navigate('uc-'+idx);autoSave();
+}
+function toggleMil(idx,mi,v){
+  DATA.useCases[idx].milestones[mi].done=v;
+  DATA.useCases[idx].milestones[mi].progress=v?100:0;
+  recalcUCProgress(idx);
+  autoSave();
+}
+function sortMilestones(idx){
+  DATA.useCases[idx].milestones.sort(function(a,b){
+    if(!a.date&&!b.date) return 0;
+    if(!a.date) return 1;
+    if(!b.date) return -1;
+    return a.date.localeCompare(b.date);
+  });
+}
+function recalcUCProgress(idx){
+  var mils=DATA.useCases[idx].milestones||[];
+  if(!mils.length) return;
+  var avg=Math.round(mils.reduce(function(s,m){return s+(m.progress||0);},0)/mils.length);
+  DATA.useCases[idx].progress=avg;
+}
+
 function addJobStory(idx){
   showModal('<div class="modal"><h3>Add Job Story</h3>'
     +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3" placeholder="When... I want... so that..."></textarea></div>'
@@ -1543,7 +1614,10 @@ function rTimeline(){
 
   if(viewMode==='gantt'&&events.length){
     // ── Gantt / Bar view ──
-    var allDates=events.map(function(ev){return ev.date;}).filter(Boolean).sort();
+    // Collect milestone dates from all UCs
+    var ucMilDates=[];
+    (DATA.useCases||[]).forEach(function(uc){(uc.milestones||[]).forEach(function(m){if(m.date&&/^\d{4}-/.test(m.date))ucMilDates.push({date:m.date,label:m.label,ucTitle:uc.title,ucId:uc.id,pct:m.progress||0,assignees:m.assignees||[],atRisk:m.atRisk});});});
+    var allDates=events.map(function(ev){return ev.date;}).concat(ucMilDates.map(function(m){return m.date;})).filter(Boolean).sort();
     var minD=new Date(allDates[0]||new Date());
     var maxD=new Date(allDates[allDates.length-1]||new Date());
     minD.setDate(1); // start of month
@@ -1613,6 +1687,30 @@ function rTimeline(){
     evtHtml='<div class="card" style="padding:20px;overflow-x:auto">'
       +'<div style="min-width:600px">'
       +monthBar+rows
+      // UC milestone rows
+      +(ucMilDates.length?'<div style="height:1px;background:var(--border);margin:8px 0 10px 100px"></div>'
+        +'<div style="padding-left:100px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">UC Milestones</div>'
+        +(function(){
+            var ucGroups={};
+            ucMilDates.forEach(function(m){ if(!ucGroups[m.ucId]) ucGroups[m.ucId]={title:m.ucTitle,id:m.ucId,mils:[]}; ucGroups[m.ucId].mils.push(m); });
+            return Object.keys(ucGroups).map(function(uid2){
+              var grp=ucGroups[uid2];
+              var dots=grp.mils.map(function(m){
+                var p=pct(m.date).toFixed(1);
+                var col=m.pct>=100?'var(--green)':m.atRisk?'var(--red)':'var(--accent)';
+                return '<div title="'+e(m.label)+' ('+m.pct+'%)" style="position:absolute;left:'+p+'%;transform:translateX(-50%);top:0px">'
+                  +'<div style="width:12px;height:12px;border-radius:50%;background:'+col+';border:2px solid var(--card-bg);cursor:pointer" onclick="goUC('+(DATA.useCases||[]).findIndex(function(u){return u.id===uid2;})+')"></div>'
+                  +'<div style="position:absolute;left:50%;transform:translateX(-50%);top:16px;white-space:nowrap;font-size:9px;color:var(--text-muted);max-width:70px;overflow:hidden;text-overflow:ellipsis;text-align:center">'+e(m.label)+'</div>'
+                  +'</div>';
+              }).join('');
+              return '<div class="row center" style="margin-bottom:24px">'
+                +'<div style="width:100px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);text-align:right;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e(grp.title)+'">'+e(grp.id)+'</div>'
+                +'<div style="flex:1;height:16px;background:var(--bg-light);border-radius:3px;position:relative;overflow:visible">'
+                +'<div style="position:absolute;left:'+todayPct+'%;top:-2px;bottom:-2px;width:2px;background:var(--red);opacity:.5"></div>'
+                +dots+'</div></div>';
+            }).join('');
+          })()
+        :'')
       +(showCadences&&cadenceRows?'<div style="padding-left:100px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 6px">Cadences</div>'+cadenceRows:'')
       +'<div style="padding-left:100px;font-size:11px;color:var(--red);margin-top:4px">&#9650; Today</div>'
       +'</div></div>';
@@ -1635,6 +1733,43 @@ function rTimeline(){
           +'</div>';
       }).join('')+'</div>'
       :'<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)">No events yet.</div>';
+  // UC Milestones in list view
+  var listMils=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.milestones||[]).forEach(function(m){
+      if(m.date) listMils.push({m:m,ucId:uc.id,ucTitle:uc.title,ui:ui});
+    });
+  });
+  listMils.sort(function(a,b){return (a.m.date||'').localeCompare(b.m.date||'');});
+  if(listMils.length){
+    evtHtml+='<div style="margin-top:20px"><div class="sec-title">UC Milestones</div>'
+      +'<div class="col g8">'
+      +listMils.map(function(x){
+        var m=x.m;
+        var dl=daysLeft(m.date);
+        var pct2=m.progress||0;
+        var col=pct2>=100?'var(--green)':m.atRisk?'var(--red)':'var(--accent)';
+        return '<div class="card row center" style="padding:10px 16px;gap:14px;cursor:pointer;'+(m.atRisk?'border-color:rgba(232,93,93,.25)':'')+'" onclick="goUC('+x.ui+')">'
+          +'<div style="flex-shrink:0;text-align:center;min-width:52px">'
+          +'<div style="font-size:11px;font-weight:700;color:'+col+'">'+e(m.date||'')+'</div>'
+          +(dl!==null?'<div style="font-size:10px;margin-top:1px">'+fmtDl(dl)+'</div>':'')
+          +'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(m.label)+'</div>'
+          +'<div class="row center g8" style="margin-top:4px">'
+          +'<span style="font-size:11px;color:var(--accent);font-weight:700">'+e(x.ucId)+'</span>'
+          +(m.assignees&&m.assignees.length?'<span style="font-size:11px;color:var(--text-muted)">'+m.assignees.join(', ')+'</span>':'')
+          +'</div>'
+          +'</div>'
+          +'<div style="min-width:80px">'
+          +'<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:5px;background:'+col+';width:'+pct2+'%"></div></div>'
+          +'<div style="font-size:11px;font-weight:700;color:'+col+';text-align:right;margin-top:2px">'+pct2+'%</div>'
+          +'</div>'
+          +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
+          +'</div>';
+      }).join('')+'</div></div>';
+  }
+
   // Cadences in list view
   if(showCadences&&(DATA.meetings||[]).length){
     evtHtml+='<div style="margin-top:20px"><div class="sec-title">Meeting Cadences</div>'
