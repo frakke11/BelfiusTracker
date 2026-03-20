@@ -34,14 +34,27 @@ body.theme-belfius{
   --card-bg:#ffffff;--card-grad:linear-gradient(135deg,#ffffff,#f8f9fc);
   --card-accent-bg:linear-gradient(135deg,rgba(204,0,0,.05),rgba(248,249,252,1));
   --card-accent-border:rgba(204,0,0,.2);
-  --sidebar-bg:#1a1a2e;--sidebar-border:rgba(204,0,0,.2);
+  --sidebar-bg:#cc0000;--sidebar-border:rgba(255,255,255,.15);
   --btn-primary:linear-gradient(135deg,#cc0000,#990000);--btn-primary-text:#ffffff;
-  --nav-active-bg:rgba(204,0,0,.15);--nav-active-text:#cc0000;
-  --nav-hover:rgba(204,0,0,.07);
+  --nav-active-bg:rgba(255,255,255,.22);--nav-active-text:#ffffff;
+  --nav-hover:rgba(255,255,255,.1);
   --red:#e85d5d;--green:#16a34a;--amber:#d97706;--blue:#2563eb;
   --font-head:'Source Sans 3',sans-serif;--font-body:'Source Sans 3',sans-serif;
   --radius:6px;--radius-sm:4px;
 }
+body.theme-belfius .sidebar{color:#ffffff}
+body.theme-belfius .nav-item{color:rgba(255,255,255,.75)}
+body.theme-belfius .nav-item:hover{color:#ffffff;background:rgba(255,255,255,.12)}
+body.theme-belfius .nav-item.active{color:#ffffff;background:rgba(255,255,255,.22)}
+body.theme-belfius .sidebar .btn-ghost{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3)}
+body.theme-belfius .sidebar .btn-ghost:hover{color:#ffffff;border-color:rgba(255,255,255,.7)}
+body.theme-belfius .sidebar .btn-primary{background:#ffffff;color:#cc0000;border:none}
+body.theme-belfius .sidebar #gh-save-btn{background:#ffffff;color:#cc0000}
+body.theme-belfius .theme-btn{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3)}
+body.theme-belfius .theme-btn.active{background:#ffffff;color:#cc0000;border-color:transparent}
+body.theme-belfius .sidebar #gh-status{color:rgba(255,255,255,.7)}
+body.theme-belfius .sidebar #role-badge-wrap .badge{background:rgba(255,255,255,.2);color:#ffffff;border-color:rgba(255,255,255,.3)}
+body.theme-belfius .dot-red{background:#ffaaaa}
 
 html{scroll-behavior:smooth}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
@@ -244,7 +257,26 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 /* ═══════════════════════════════════════════════════
    DATA
 ═══════════════════════════════════════════════════ */
-var CREDS={salesforce:{password:'sf2026',role:'salesforce'},belfius:{password:'bel2026',role:'belfius'},admin:{password:'admin2026',role:'admin'}};
+/* ═══════════════════════════════════════════════════
+   AUTH — SHA-256 hashed passwords
+   Default hashes (can be changed via admin UI + saved to GitHub):
+   salesforce/sf2026 · belfius/bel2026 · admin/admin2026
+═══════════════════════════════════════════════════ */
+var CREDS = {
+  salesforce: { hash:'1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148', role:'salesforce' },
+  belfius:    { hash:'e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3', role:'belfius' },
+  admin:      { hash:'6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6', role:'admin' }
+};
+/* Passwords: salesforce=sf2026 · belfius=bel2026 · admin=admin2026
+   Stored as SHA-256 hashes. Change via Admin → Change Passwords.
+   Real hashes are loaded from data.json on login so they can be
+   updated without editing this file. */
+
+async function sha256(str){
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+
 var currentRole=null, currentPage='overview', currentTheme='default';
 
 var DATA={
@@ -321,7 +353,11 @@ var DATA={
     {name:'Monthly Governance',freq:'Monthly',participants:'Gilles + BDI leadership (Pieter, Hannes)',purpose:'Executive alignment, escalations'},
     {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
   ],
-  flowcharts:[]
+  flowcharts:[],
+  execSponsors:[
+    {name:'Pieter Bamps',title:'Head of IT BDI',company:'Belfius'},
+    {name:'Hannes Heylen',title:'CIO Belfius Insurance',company:'Belfius'}
+  ]
 };
 
 var KEY_DATES=[
@@ -370,12 +406,17 @@ function setTheme(t){
 /* ═══════════════════════════════════════════════════
    AUTH
 ═══════════════════════════════════════════════════ */
-function doLogin(){
+async function doLogin(){
   var u=document.getElementById('l-user').value.trim().toLowerCase();
   var p=document.getElementById('l-pass').value;
   var er=document.getElementById('l-err');
+  var btn=document.getElementById('l-btn');
   var entry=CREDS[u];
-  if(entry&&entry.password===p){
+  if(!entry){ er.classList.remove('hidden'); er.textContent='Unknown username.'; return; }
+  btn.textContent='Checking…'; btn.disabled=true;
+  var h = await sha256(p);
+  btn.textContent='Sign In →'; btn.disabled=false;
+  if(h===entry.hash){
     er.classList.add('hidden');
     currentRole=entry.role;
     document.getElementById('login-screen').classList.add('hidden');
@@ -384,7 +425,7 @@ function doLogin(){
     navigate('overview');
   } else {
     er.classList.remove('hidden');
-    er.textContent='Invalid credentials. Try: salesforce/sf2026  |  belfius/bel2026  |  admin/admin2026';
+    er.textContent='Incorrect password.';
   }
 }
 document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
@@ -522,9 +563,9 @@ function rUseCases(){
         +'</div>':'')
       +'</div></div>'
       +(isAdmin()?'<div class="row center g12" style="margin-bottom:14px"><span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
-        +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\'" style="width:160px;accent-color:var(--accent)">'
+        +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:160px;accent-color:var(--accent)">'
         +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
-        +'<select onchange="DATA.useCases['+idx+'].status=this.value" style="width:auto">'
+        +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
         +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>'}).join('')
         +'</select></div>':'')
       +pb(uc.progress)
@@ -557,7 +598,7 @@ function addUC(){
 }
 function saveAddUC(){
   DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,subtitle:document.getElementById('m-sub').value,description:document.getElementById('m-desc').value,status:document.getElementById('m-status').value,progress:parseInt(document.getElementById('m-prog').value)||0,milestones:[]});
-  closeModal();navigate('usecases');
+  closeModal();navigate('usecases');autoSave();
 }
 function editUC(idx){
   var uc=DATA.useCases[idx];
@@ -577,9 +618,9 @@ function saveEditUC(idx){
   uc.id=document.getElementById('m-id').value;uc.title=document.getElementById('m-title').value;
   uc.subtitle=document.getElementById('m-sub').value;uc.description=document.getElementById('m-desc').value;
   uc.status=document.getElementById('m-status').value;uc.progress=parseInt(document.getElementById('m-prog').value)||0;
-  closeModal();navigate('usecases');
+  closeModal();navigate('usecases');autoSave();
 }
-function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases')}}
+function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
 function addMilestone(ucIdx){
   showModal('<div class="modal"><h3>Add Milestone</h3>'
     +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
@@ -590,7 +631,7 @@ function addMilestone(ucIdx){
 }
 function saveMilestone(ucIdx){
   DATA.useCases[ucIdx].milestones.push({label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,done:false,atRisk:document.getElementById('m-risk').checked});
-  closeModal();navigate('usecases');
+  closeModal();navigate('usecases');autoSave();
 }
 function editMilestone(ucIdx,mIdx){
   var m=DATA.useCases[ucIdx].milestones[mIdx];
@@ -604,9 +645,9 @@ function editMilestone(ucIdx,mIdx){
 function saveEditMilestone(ucIdx,mIdx){
   var m=DATA.useCases[ucIdx].milestones[mIdx];
   m.label=document.getElementById('m-lbl').value;m.date=document.getElementById('m-date').value;m.atRisk=document.getElementById('m-risk').checked;
-  closeModal();navigate('usecases');
+  closeModal();navigate('usecases');autoSave();
 }
-function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases')}
+function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases');autoSave()}
 function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v}
 
 /* ═══════════════════════════════════════════════════
@@ -666,12 +707,22 @@ function rTeam(){
     +'<div><div class="label">People</div><h1 style="font-size:26px;font-weight:800">Team</h1>'
     +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addTeamMember()">+ Add Member</button>':'')+'</div>'
     +'<div class="card-accent" style="padding:24px">'
-    +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">Executive Sponsors &mdash; Belfius</div>'
+    +'<div class="row between center" style="margin-bottom:14px">'
+    +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors &mdash; Belfius</div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick="addExecSponsor()">+ Add Sponsor</button>':'')
+    +'</div>'
     +'<div class="row wrap g12">'
-    +'<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
-    +av('Pieter Bamps','Belfius')+'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">Pieter Bamps</div><div style="font-size:12px;color:var(--accent)">Head of IT BDI</div></div></div>'
-    +'<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
-    +av('Hannes Heylen','Belfius')+'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">Hannes Heylen</div><div style="font-size:12px;color:var(--accent)">CIO Belfius Insurance</div></div></div>'
+    +DATA.execSponsors.map(function(s,si){
+      return '<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
+        +av(s.name,'Belfius')
+        +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div>'
+        +'<div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div></div>'
+        +(isAdmin()?'<div class="row g4" style="margin-left:8px">'
+          +'<button class="btn-icon" onclick="editExecSponsor('+si+')">&#9998;</button>'
+          +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteExecSponsor('+si+')">&#10005;</button>'
+          +'</div>':'')
+        +'</div>';
+    }).join('')
     +'</div></div>'
     +'<div class="grid2">'
     +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a9eff;margin-bottom:12px">Salesforce</h2><div class="col g10">'+sfT.map(mc).join('')+'</div></div>'
@@ -698,9 +749,34 @@ function editTeamMember(idx){
 function saveTeamMember(idx){
   var obj={name:document.getElementById('m-name').value,role:document.getElementById('m-role').value,company:document.getElementById('m-co').value};
   if(idx===-1)DATA.team.push(obj);else DATA.team[idx]=obj;
-  closeModal();navigate('team');
+  closeModal();navigate('team');autoSave();
 }
-function deleteTeamMember(idx){if(confirm('Remove this team member?')){DATA.team.splice(idx,1);navigate('team')}}
+function deleteTeamMember(idx){if(confirm('Remove this team member?')){DATA.team.splice(idx,1);navigate('team');autoSave();}}
+
+/* ── Exec Sponsors ── */
+function addExecSponsor(){
+  showModal('<div class="modal"><h3>Add Executive Sponsor</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title" placeholder="e.g. CIO Belfius Insurance"></div>'
+    +'<div class="form-group"><label>Company</label><input id="m-co" value="Belfius"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor(-1)">Add</button></div></div>');
+}
+function editExecSponsor(idx){
+  var s=DATA.execSponsors[idx];
+  showModal('<div class="modal"><h3>Edit Executive Sponsor</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(s.name)+'"></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(s.title)+'"></div>'
+    +'<div class="form-group"><label>Company</label><input id="m-co" value="'+e(s.company)+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor('+idx+')">Save</button></div></div>');
+}
+function saveExecSponsor(idx){
+  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:document.getElementById('m-co').value};
+  if(idx===-1) DATA.execSponsors.push(obj); else DATA.execSponsors[idx]=obj;
+  closeModal(); navigate('team'); autoSave();
+}
+function deleteExecSponsor(idx){if(confirm('Remove this sponsor?')){DATA.execSponsors.splice(idx,1);navigate('team');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    RACI
@@ -711,7 +787,7 @@ function rRaci(){
   var rows=DATA.raci.map(function(row,ri){
     var cells=cols.map(function(c){
       if(isAdmin()){
-        return '<td style="text-align:center"><select onchange="DATA.raci['+ri+'][\''+c.k+'\']=this.value" style="width:60px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(row[c.k]==='R'?'#4caf82':row[c.k]==='A'?'var(--accent)':row[c.k]==='C'?'#4a9eff':'var(--text-muted)')+';">'
+        return '<td style="text-align:center"><select onchange="DATA.raci['+ri+'][\''+c.k+'\']=this.value;autoSave()" style="width:60px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(row[c.k]==='R'?'#4caf82':row[c.k]==='A'?'var(--accent)':row[c.k]==='C'?'#4a9eff':'var(--text-muted)')+';">'
           +vals.map(function(v){return '<option'+(v===row[c.k]?' selected':'')+'>'+v+'</option>'}).join('')
           +'</select></td>';
       }
@@ -745,9 +821,9 @@ function addRaciRow(){
 }
 function saveRaciRow(){
   DATA.raci.push({a:document.getElementById('m-act').value,M:document.getElementById('m-M').value,F:document.getElementById('m-F').value,J:document.getElementById('m-J').value,R:document.getElementById('m-R').value,K:document.getElementById('m-K').value,B:document.getElementById('m-B').value});
-  closeModal();navigate('raci');
+  closeModal();navigate('raci');autoSave();
 }
-function deleteRaciRow(idx){if(confirm('Delete this activity?')){DATA.raci.splice(idx,1);navigate('raci')}}
+function deleteRaciRow(idx){if(confirm('Delete this activity?')){DATA.raci.splice(idx,1);navigate('raci');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    BLOCKERS
@@ -772,7 +848,7 @@ function rBlockers(){
           +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Owner: <span style="color:var(--text-soft)">'+e(item.owner)+'</span></div>'
           +'</div>'
           +'<div class="col g8" style="align-items:flex-end">'
-          +(canEdit?'<select onchange="DATA.blockers['+realIdx+'].status=this.value;navigate(\'blockers\')" style="width:auto;font-size:12px;padding:5px 10px">'
+          +(canEdit?'<select onchange="DATA.blockers['+realIdx+'].status=this.value;navigate(\'blockers\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
             +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>'}).join('')+'</select>':'')
           +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick="editBlocker('+realIdx+')">&#9998;</button>'
             +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteBlocker('+realIdx+')">&#10005;</button></div>':'')
@@ -799,7 +875,7 @@ function addBlocker(type){
 }
 function saveBlocker(type){
   DATA.blockers.push({id:document.getElementById('m-id').value,type:type,item:document.getElementById('m-item').value,owner:document.getElementById('m-owner').value,status:document.getElementById('m-status').value});
-  closeModal();navigate('blockers');
+  closeModal();navigate('blockers');autoSave();
 }
 function editBlocker(idx){
   var b=DATA.blockers[idx];
@@ -819,9 +895,9 @@ function saveEditBlocker(idx){
   b.id=document.getElementById('m-id').value;b.item=document.getElementById('m-item').value;
   b.owner=document.getElementById('m-owner').value;b.type=document.getElementById('m-type').value;
   b.status=document.getElementById('m-status').value;
-  closeModal();navigate('blockers');
+  closeModal();navigate('blockers');autoSave();
 }
-function deleteBlocker(idx){if(confirm('Delete this item?')){DATA.blockers.splice(idx,1);navigate('blockers')}}
+function deleteBlocker(idx){if(confirm('Delete this item?')){DATA.blockers.splice(idx,1);navigate('blockers');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    MEETINGS
@@ -867,9 +943,9 @@ function editMeeting(idx){
 function saveMeeting(idx){
   var obj={name:document.getElementById('m-name').value,freq:document.getElementById('m-freq').value,participants:document.getElementById('m-part').value,purpose:document.getElementById('m-pur').value};
   if(idx===-1)DATA.meetings.push(obj);else DATA.meetings[idx]=obj;
-  closeModal();navigate('meetings');
+  closeModal();navigate('meetings');autoSave();
 }
-function deleteMeeting(idx){if(confirm('Delete this meeting?')){DATA.meetings.splice(idx,1);navigate('meetings')}}
+function deleteMeeting(idx){if(confirm('Delete this meeting?')){DATA.meetings.splice(idx,1);navigate('meetings');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    KPIs
@@ -901,8 +977,8 @@ function rKpis(){
     +(isAdmin()?'<div><button class="btn-ghost" onclick="addKpi()">+ Add KPI</button></div>':'')
     +'</div>';
 }
-function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis')}
-function deleteKpi(idx){if(confirm('Delete this KPI?')){DATA.kpis.splice(idx,1);navigate('kpis')}}
+function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis');autoSave()}
+function deleteKpi(idx){if(confirm('Delete this KPI?')){DATA.kpis.splice(idx,1);navigate('kpis');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    FLOWCHART BUILDER
@@ -1320,9 +1396,55 @@ function updateEdgeProp(eid,prop,val){
 function initFC(){}
 
 /* ═══════════════════════════════════════════════════
-   GITHUB SYNC  —  reads/writes data.json only
-   index.html is NEVER touched by saves
-   Repo: frakke11/BelfiusTracker
+   AUTO-SAVE — debounced commit after every mutation
+═══════════════════════════════════════════════════ */
+var _autoSaveTimer = null;
+function autoSave(){
+  if(currentRole!=='admin') return;
+  var statusEl = document.getElementById('gh-status');
+  if(statusEl){ statusEl.textContent='Unsaved changes…'; statusEl.style.color='var(--amber)'; }
+  if(!GH.token) return; // no token = no auto-save, user must click manually
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function(){ ghSaveData(true); }, 1800);
+}
+
+/* ═══════════════════════════════════════════════════
+   PASSWORD MANAGEMENT
+═══════════════════════════════════════════════════ */
+function showPasswordModal(){
+  showModal('<div class="modal"><h3>&#128274; Change Passwords</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">'
+    +'Set new passwords for each role. Leave blank to keep current password.<br>'
+    +'Passwords are stored as SHA-256 hashes — never as plain text.</p>'
+    +['salesforce','belfius','admin'].map(function(role){
+      return '<div class="form-group"><label>'+role.charAt(0).toUpperCase()+role.slice(1)+' password</label>'
+        +'<input type="password" id="pw-'+role+'" placeholder="Leave blank to keep current"></div>';
+    }).join('')
+    +'<div class="modal-actions">'
+    +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="savePasswords()">Save &amp; Commit</button>'
+    +'</div></div>');
+}
+async function savePasswords(){
+  var changed = false;
+  for(var role of ['salesforce','belfius','admin']){
+    var val = (document.getElementById('pw-'+role).value||'').trim();
+    if(val){
+      CREDS[role].hash = await sha256(val);
+      changed = true;
+    }
+  }
+  closeModal();
+  if(changed){
+    // Save new hashes to data.json immediately
+    await ghSaveData(true);
+    alert('Passwords updated and saved to GitHub.');
+  } else {
+    alert('No changes made.');
+  }
+}
+
+
 ═══════════════════════════════════════════════════ */
 var GH = {
   owner:  'frakke11',
@@ -1350,72 +1472,74 @@ async function ghLoadData(){
               +'?ref='+GH.branch+'&nocache='+Date.now();
     var res = await fetch(url, {headers: ghApiHeaders()});
     if(res.status === 404){
-      // data.json doesn't exist yet — that's fine, we'll create it on first save
       setStatus('No saved data yet — using defaults', 'var(--amber)');
       return;
     }
     if(!res.ok) throw new Error('HTTP '+res.status);
     var json = await res.json();
     GH.sha = json.sha;
-    // GitHub returns base64 content with line breaks
     var raw = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
     var loaded = JSON.parse(raw);
-    if(loaded.useCases)   DATA.useCases   = loaded.useCases;
-    if(loaded.blockers)   DATA.blockers   = loaded.blockers;
-    if(loaded.kpis)       DATA.kpis       = loaded.kpis;
-    if(loaded.team)       DATA.team       = loaded.team;
-    if(loaded.raci)       DATA.raci       = loaded.raci;
-    if(loaded.meetings)   DATA.meetings   = loaded.meetings;
-    if(loaded.flowcharts) DATA.flowcharts = loaded.flowcharts;
+    if(loaded.useCases)    DATA.useCases    = loaded.useCases;
+    if(loaded.blockers)    DATA.blockers    = loaded.blockers;
+    if(loaded.kpis)        DATA.kpis        = loaded.kpis;
+    if(loaded.team)        DATA.team        = loaded.team;
+    if(loaded.raci)        DATA.raci        = loaded.raci;
+    if(loaded.meetings)    DATA.meetings    = loaded.meetings;
+    if(loaded.flowcharts)  DATA.flowcharts  = loaded.flowcharts;
+    if(loaded.execSponsors)DATA.execSponsors= loaded.execSponsors;
+    // Restore password hashes if saved
+    if(loaded.creds){
+      if(loaded.creds.salesforce) CREDS.salesforce.hash = loaded.creds.salesforce;
+      if(loaded.creds.belfius)    CREDS.belfius.hash    = loaded.creds.belfius;
+      if(loaded.creds.admin)      CREDS.admin.hash      = loaded.creds.admin;
+    }
     setStatus('✓ Synced — '+new Date().toLocaleTimeString(), 'var(--green)');
     setTimeout(function(){setStatus('');}, 4000);
     if(currentPage) navigate(currentPage);
   } catch(err){
     console.warn('GitHub load failed:', err);
-    setStatus('⚠ Could not load — using local data', 'var(--amber)');
+    setStatus('⚠ Could not load — using defaults', 'var(--amber)');
   }
 }
 
-/* ── Save: write DATA as data.json to GitHub ── */
-async function ghSaveData(){
-  if(!GH.token){ showGhTokenModal(); return; }
+/* ── Save: write DATA + hashes as data.json to GitHub ── */
+async function ghSaveData(silent){
+  if(!GH.token){ if(!silent) showGhTokenModal(); else { showGhTokenModal(); } return; }
   var btn = document.getElementById('gh-save-btn');
   var statusEl = document.getElementById('gh-status');
   function setStatus(msg,col){ if(statusEl){statusEl.textContent=msg;statusEl.style.color=col||'var(--text-muted)';} }
   if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
-  setStatus('Committing to GitHub…');
+  setStatus('Saving…');
   try {
-    // Always fetch fresh SHA before writing to avoid conflicts
+    // Refresh SHA
     var getUrl = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file
                  +'?ref='+GH.branch+'&nocache='+Date.now();
     var getRes = await fetch(getUrl, {headers: ghApiHeaders()});
-    if(getRes.ok){
-      var getJson = await getRes.json();
-      GH.sha = getJson.sha;
-    } else if(getRes.status === 404){
-      GH.sha = null; // new file
-    } else {
-      throw new Error('Could not read current file: HTTP '+getRes.status);
-    }
+    if(getRes.ok){ GH.sha = (await getRes.json()).sha; }
+    else if(getRes.status !== 404){ throw new Error('Could not read current file: HTTP '+getRes.status); }
+    else { GH.sha = null; }
 
-    // Serialize data as clean JSON
     var payload = JSON.stringify({
-      useCases:   DATA.useCases,
-      blockers:   DATA.blockers,
-      kpis:       DATA.kpis,
-      team:       DATA.team,
-      raci:       DATA.raci,
-      meetings:   DATA.meetings,
-      flowcharts: DATA.flowcharts
+      useCases:    DATA.useCases,
+      blockers:    DATA.blockers,
+      kpis:        DATA.kpis,
+      team:        DATA.team,
+      raci:        DATA.raci,
+      meetings:    DATA.meetings,
+      flowcharts:  DATA.flowcharts,
+      execSponsors:DATA.execSponsors,
+      creds:{ // store only hashes, never plain text
+        salesforce: CREDS.salesforce.hash,
+        belfius:    CREDS.belfius.hash,
+        admin:      CREDS.admin.hash
+      }
     }, null, 2);
 
-    // Base64 encode (handles unicode safely)
     var encoded = btoa(unescape(encodeURIComponent(payload)));
-
     var body = {
       message: 'Update tracker data — '+new Date().toISOString().slice(0,16).replace('T',' '),
-      content: encoded,
-      branch:  GH.branch
+      content: encoded, branch: GH.branch
     };
     if(GH.sha) body.sha = GH.sha;
 
@@ -1436,7 +1560,7 @@ async function ghSaveData(){
     console.error('GitHub save failed:', err);
     if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
     setStatus('✗ Save failed', 'var(--red)');
-    alert('Save failed:\n\n'+err.message+'\n\nMake sure your token has "repo" write permissions.');
+    if(!silent) alert('Save failed:\n\n'+err.message+'\n\nCheck your token has "repo" write permissions.');
   }
 }
 
@@ -1488,8 +1612,9 @@ function injectGhBar(force){
   bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
   bar.innerHTML =
     '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">GitHub Sync</div>'
-    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData()">&#9729; Save to GitHub</button>'
+    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData(false)">&#9729; Save to GitHub</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghLoadData()">&#8635; Pull latest</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showPasswordModal()">&#128274; Change Passwords</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
     +(GH.token ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
   // Insert before the sign-out button
