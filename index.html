@@ -1076,6 +1076,69 @@ function rOverview(){
 ═══════════════════════════════════════════════════ */
 var ucTab={};
 
+
+function renderUCFlowchartsTab(uc,idx){
+  var linked=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx===idx;});
+  var all=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx!==idx;});
+  return '<div class="col g16">'
+    +'<div class="row between center">'
+    +'<div style="font-size:13px;color:var(--text-muted)">Flowcharts linked to this use case</div>'
+    +(canEdit()?'<div class="row g8">'
+      +'<button class="btn-ghost btn-sm" onclick="linkFCtoUC('+idx+')">&#128279; Link Existing</button>'
+      +'<button class="btn-primary btn-sm" onclick="newFCforUC('+idx+')">+ New Flowchart</button>'
+      +'</div>':'')
+    +'</div>'
+    +(linked.length
+      ?'<div class="col g10">'+linked.map(function(x){
+          return '<div class="card row center g14" style="padding:16px 20px;cursor:pointer" onclick="openFC('+x.fi+')">'
+            +'<div style="font-size:28px">&#9875;</div>'
+            +'<div style="flex:1">'
+            +'<div style="font-weight:700;font-size:15px">'+e(x.fc.name)+'</div>'
+            +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+(x.fc.nodes||[]).length+' nodes &middot; '+(x.fc.edges||[]).length+' connections</div>'
+            +'</div>'
+            +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();unlinkFCfromUC('+x.fi+','+idx+')">&#128279;&#10005; Unlink</button>':'')
+            +'<button class="btn-ghost btn-sm" onclick="event.stopPropagation();openFC('+x.fi+')">Open &#8599;</button>'
+            +'</div>';
+        }).join('')+'</div>'
+      :'<div class="card-el" style="padding:32px;text-align:center;color:var(--text-muted)">'
+        +'<div style="font-size:32px;margin-bottom:8px">&#9875;</div>'
+        +'<div style="font-size:14px;font-weight:600;margin-bottom:4px">No flowcharts yet</div>'
+        +'<div style="font-size:12px">Create a new one or link an existing flowchart</div>'
+        +'</div>')
+    +'</div>';
+}
+function newFCforUC(idx){
+  // Create a new flowchart pre-linked to this UC
+  var uc=DATA.useCases[idx];
+  var ucOpts='<option value="">— None —</option>'+(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'"'+(i===idx?' selected':'')+'>'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
+  showModal('<div class="modal"><h3>New Flowchart for '+e(uc.id)+'</h3>'
+    +'<div class="form-group"><label>Name</label><input id="fc-name" value="'+e(uc.id)+' — Process Flow"></div>'
+    +'<div class="form-group"><label>Swim lanes</label><input id="fc-lanes" value="Channel,Agentforce,Data 360,Data"></div>'
+    +'<div class="form-group"><label>Linked Use Case</label><select id="fc-uc">'+ucOpts+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="createFC()">Create</button></div></div>');
+}
+function linkFCtoUC(ucIdx){
+  var unlinked=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx!==ucIdx;});
+  if(!unlinked.length){alert('No other flowcharts to link. Create a new one first.');return;}
+  showModal('<div class="modal"><h3>Link Flowchart to Use Case</h3>'
+    +'<div class="form-group"><label>Select Flowchart</label><select id="lk-fc">'
+    +unlinked.map(function(x){return '<option value="'+x.fi+'">'+e(x.fc.name)+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveLinkFCtoUC('+ucIdx+')">Link</button></div></div>');
+}
+function saveLinkFCtoUC(ucIdx){
+  var fi=parseInt(document.getElementById('lk-fc').value);
+  DATA.flowcharts[fi].ucIdx=ucIdx;
+  closeModal(); ucTab[ucIdx]='flowcharts'; navigate('uc-'+ucIdx); autoSave();
+}
+function unlinkFCfromUC(fi,ucIdx){
+  if(confirm('Unlink this flowchart from the use case? The flowchart itself is kept.'))  {
+    DATA.flowcharts[fi].ucIdx=null;
+    navigate('uc-'+ucIdx); autoSave();
+  }
+}
 function rUseCasesList(){
   return '<div class="col g16">'
     +'<div class="row between center" style="margin-bottom:4px">'
@@ -1108,13 +1171,14 @@ function rUseCasePage(idx){
   var uc=(DATA.useCases||[])[idx];
   if(!uc) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Use case not found.</div>';
   var tab=ucTab[idx]||'overview';
-  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'}];
+  var ucFlowcharts=(DATA.flowcharts||[]).filter(function(fc){return fc.ucIdx===idx;});
+  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'},{id:'flowcharts',label:'Flowcharts'+(ucFlowcharts.length?' ('+ucFlowcharts.length+')':'')}];
   var tabBar='<div class="row" style="gap:0;border-bottom:2px solid var(--border);margin-bottom:22px">'
     +tabs.map(function(t){var a=tab===t.id;
       return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:10px 22px;font-size:13px;font-weight:'+(a?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(a?'2px solid var(--accent)':'2px solid transparent')+';color:'+(a?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px">'+t.label+'</button>';
     }).join('')+'</div>';
   var prev=idx>0?idx-1:null, next=idx<(DATA.useCases||[]).length-1?idx+1:null;
-  var content=tab==='overview'?renderUCOverviewTab(uc,idx):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):renderUCScopeTab(uc,idx);
+  var content=tab==='overview'?renderUCOverviewTab(uc,idx):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):tab==='flowcharts'?renderUCFlowchartsTab(uc,idx):renderUCScopeTab(uc,idx);
   return '<div class="col g0">'
     +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
     +'<span style="cursor:pointer;color:var(--accent)" onclick="navigate(\'usecases\')">Use Cases</span>'
@@ -1150,6 +1214,21 @@ function setUCTab(idx,tab){ ucTab[idx]=tab; navigate('uc-'+idx); }
 
 /* ── UC Overview Tab ── */
 function renderUCOverviewTab(uc,idx){
+  var canE=canEdit();
+  // Helper: render an editable field card
+  function inlineCard(title, field, isMulti){
+    var val=e(uc[field]||'');
+    var cardId='uco-'+idx+'-'+field;
+    var viewStyle='padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;min-height:44px';
+    // When editable, show an edit icon that turns the content editable
+    var editBtn=canE?'<button class="btn-icon" style="position:absolute;top:6px;right:6px;font-size:11px;padding:3px 7px;opacity:.7" onclick="ucFieldEdit(\''+cardId+'\',\''+field+'\','+idx+')">&#9998;</button>':'';
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;position:relative">'
+      +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
+      +editBtn
+      +'<div id="'+cardId+'" style="'+viewStyle+'">'+val+'</div>'
+      +'</div>';
+  }
+
   var mils=(uc.milestones||[]).map(function(m,mi){
     var last=mi===uc.milestones.length-1;
     return '<div class="row g14" style="align-items:flex-start">'
@@ -1159,29 +1238,52 @@ function renderUCOverviewTab(uc,idx){
       +'<div class="row center g8 wrap">'
       +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
       +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
-      +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
+      +(canE?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
         +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>'
         +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'' )
       +'</div>'
       +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
       +'</div></div>';
   }).join('');
+
   return '<div class="grid2" style="gap:14px;margin-bottom:16px">'
-    +[['Use Case',e(uc.title)+'<br><span style="font-size:13px;color:var(--text-muted);font-weight:400">'+e(uc.description||'')+'</span>'],
-      ['Business Priority',e(uc.businessPriority||'—')],
-      ['Target Users',e(uc.targetUsers||'—')],
-      ['Expected Outcomes',e(uc.expectedOutcomes||'—')]].map(function(pair){
-      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-        +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+pair[0]+'</div>'
-        +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+pair[1]+'</div></div>';
-    }).join('')
+    +inlineCard('Use Case','description',true)
+    +inlineCard('Business Priority','businessPriority',false)
+    +inlineCard('Target Users','targetUsers',false)
+    +inlineCard('Expected Outcomes','expectedOutcomes',true)
     +'</div>'
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">'
     +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Milestones</div>'
     +(mils||'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
-    +(canEdit()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
-    +'</div>'
-    +(canEdit()?'<button class="btn-primary btn-sm" onclick="editUCOverview('+idx+')">&#9998; Edit Overview</button>':'');
+    +(canE?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
+    +'</div>';
+}
+
+function ucFieldEdit(cardId, field, idx){
+  var el=document.getElementById(cardId); if(!el) return;
+  var current=DATA.useCases[idx][field]||'';
+  var isMulti=field==='description'||field==='expectedOutcomes';
+  // Replace content with an input/textarea
+  var inp=document.createElement(isMulti?'textarea':'input');
+  inp.value=current;
+  inp.style.cssText='width:100%;padding:0;font-size:13px;font-family:var(--font-body);color:var(--text);background:transparent;border:none;outline:none;resize:vertical;line-height:1.6';
+  if(isMulti){inp.rows=3;}
+  el.innerHTML='';
+  el.style.padding='14px';
+  el.appendChild(inp);
+  inp.focus();
+  // Edit icon changes to save icon
+  var btn=el.parentNode.querySelector('.btn-icon');
+  if(btn){btn.innerHTML='&#10003;';btn.style.color='var(--green)';btn.onclick=function(){commit();};}
+  function commit(){
+    var val=inp.value;
+    DATA.useCases[idx][field]=val;
+    el.innerHTML=e(val)||'<span style="color:var(--text-muted);font-style:italic">Click ✎ to edit</span>';
+    if(btn){btn.innerHTML='&#9998;';btn.style.color='';btn.onclick=function(){ucFieldEdit(cardId,field,idx);};}
+    autoSave();
+  }
+  inp.addEventListener('keydown',function(ev){ if(!isMulti&&ev.key==='Enter'){ev.preventDefault();commit();} if(ev.key==='Escape'){commit();} });
+  inp.addEventListener('blur',function(){ setTimeout(function(){if(document.body.contains(inp))commit();},200); });
 }
 
 /* ── UC Job Stories Tab ── */
@@ -2041,7 +2143,9 @@ function rFlowchart(){
     return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick="openFC('+i+')">'
       +'<span style="font-size:24px">&#9875;</span>'
       +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+e(fc.name)+'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted)">'+(fc.nodes||[]).length+' nodes &middot; '+(fc.edges||[]).length+' connections</div></div>'
+      +'<div style="font-size:12px;color:var(--text-muted)">'+(fc.nodes||[]).length+' nodes &middot; '+(fc.edges||[]).length+' connections'
+      +(fc.ucIdx!==null&&fc.ucIdx!==undefined&&(DATA.useCases||[])[fc.ucIdx]?' &middot; <span style="color:var(--accent)">'+e((DATA.useCases[fc.ucIdx]||{}).id||'')+'</span>':'')
+      +'</div></div>'
       +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();deleteFC('+i+')">&#10005;</button>':'')
       +'</div>';
   }).join('');
@@ -2131,12 +2235,15 @@ function deleteUser(u){ if(confirm('Delete user '+u+'?')){ delete USERS[u]; navi
    FLOWCHART ENGINE — simple, stable, no crashes
 ════════════════════════════════════════════════════ */
 var FC = { nodes:[], edges:[], lanes:[], svgW:1200, svgH:680, currentChart:null,
-  sel:null, dragNode:null, dragOx:0, dragOy:0, connectMode:false, connectFrom:null };
+  sel:null, dragNode:null, dragOx:0, dragOy:0, connectMode:false, connectFrom:null,
+  hoverNode:null, hoverEdge:null };
 
 function newFC(){
+  var ucOpts='<option value="">— None —</option>'+(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'">'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
   showModal('<div class="modal"><h3>New Flowchart</h3>'
     +'<div class="form-group"><label>Name</label><input id="fc-name" placeholder="e.g. UC1 Process Flow"></div>'
     +'<div class="form-group"><label>Swim lanes (comma-separated)</label><input id="fc-lanes" value="Channel,Agentforce,Data 360,Data"></div>'
+    +'<div class="form-group"><label>Link to Use Case (optional)</label><select id="fc-uc">'+ucOpts+'</select></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="createFC()">Create</button></div></div>');
 }
@@ -2145,7 +2252,9 @@ function createFC(){
   var laneNames=document.getElementById('fc-lanes').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
   var laneH=Math.floor(FC.svgH/Math.max(laneNames.length,1));
   var lanes=laneNames.map(function(n,i){return {id:uid(),name:n,y:i*laneH,h:laneH};});
-  var chart={name:name,nodes:[],edges:[],lanes:lanes};
+  var ucSel=document.getElementById('fc-uc');
+  var ucIdx=ucSel&&ucSel.value!==''?parseInt(ucSel.value):null;
+  var chart={name:name,nodes:[],edges:[],lanes:lanes,ucIdx:ucIdx};
   if(!DATA.flowcharts) DATA.flowcharts=[];
   DATA.flowcharts.push(chart);
   closeModal(); autoSave(); openFC(DATA.flowcharts.length-1);
@@ -2176,9 +2285,10 @@ function buildFCEditor(name){
       +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'diamond\')">&#9671; Decision</button>'
       +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'rounded\')">&#9711; Start/End</button>'
       +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'cylinder\')">&#9641; Database</button>'
-      +'<span id="fc-hint" style="font-size:11px;color:var(--text-muted);margin-left:8px">Click canvas to place · Drag to move · Double-click to rename · Click node then &#8594; Connect then click another</span>'
+      +'<span id="fc-hint" style="font-size:11px;color:var(--text-muted);margin-left:8px">Click to select · Drag to move · Hover for edit button · Use &#8594; Connect to link nodes</span>'
       +'</div>':'')
     +'<div style="flex:1;overflow:auto;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius);position:relative" id="fc-wrap">'
+    +'<div id="fc-hover-tip" style="position:absolute;z-index:50;display:none;pointer-events:none"></div>'
     +'<svg id="fc-svg" width="'+FC.svgW+'" height="'+FC.svgH+'" style="display:block;cursor:default">'
     +'<defs><marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="var(--accent)"/></marker></defs>'
     +'</svg></div></div>';
@@ -2363,14 +2473,7 @@ function bindFC(){
     }
   });
 
-  // mousemove — drag
-  svg.addEventListener('mousemove',function(ev){
-    if(!FC.dragNode) return;
-    var rect=svg.getBoundingClientRect();
-    FC.dragNode.x=Math.max(62,ev.clientX-rect.left-FC.dragOx);
-    FC.dragNode.y=Math.max(0,ev.clientY-rect.top-FC.dragOy);
-    drawFC();
-  });
+  // mousemove — drag (hover handled below)
 
   // mouseup
   svg.addEventListener('mouseup',function(){
@@ -2380,33 +2483,93 @@ function bindFC(){
     if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
   });
 
-  // dblclick — inline rename for nodes and edges
-  svg.addEventListener('dblclick',function(ev){
-    ev.preventDefault();
+  // mousemove — hover detection for edit tooltip
+  var _hoverTimer=null;
+  svg.addEventListener('mousemove',function(ev){
+    if(FC.dragNode) return; // skip during drag (already handled above)
     var rect=svg.getBoundingClientRect();
     var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    var tip=document.getElementById('fc-hover-tip');
+    if(!tip) return;
     // Check nodes
+    var foundNode=null;
     for(var i=FC.nodes.length-1;i>=0;i--){
       var nd=FC.nodes[i];
-      if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){
-        showFCRename('node',i,nd.label||'',nd.x+nd.w/2,nd.y+nd.h/2);
-        return;
-      }
+      if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){foundNode=i;break;}
     }
-    // Check edges (click near midpoint)
-    for(var j=0;j<FC.edges.length;j++){
-      var ed=FC.edges[j];
-      var s=FC.nodes.find(function(n){return n.id===ed.from;}),t2=FC.nodes.find(function(n){return n.id===ed.to;});
-      if(!s||!t2) continue;
-      var emx=(s.x+s.w/2+t2.x+t2.w/2)/2, emy=(s.y+s.h/2+t2.y+t2.h/2)/2;
-      if(Math.abs(mx-emx)<30&&Math.abs(my-emy)<20){
-        showFCRename('edge',j,ed.label||'',emx,emy);
-        return;
+    if(foundNode!==null&&FC.hoverNode!==foundNode){
+      FC.hoverNode=foundNode; FC.hoverEdge=null;
+      clearTimeout(_hoverTimer);
+      _hoverTimer=setTimeout(function(){
+        var nd=FC.nodes[foundNode]; if(!nd) return;
+        var svgRect=svg.getBoundingClientRect();
+        var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+        var wrapRect=wrap.getBoundingClientRect();
+        var tipX=nd.x+nd.w-wrapRect.left+svgRect.left+wrap.scrollLeft-32;
+        var tipY=nd.y-wrapRect.top+svgRect.top+wrap.scrollTop-16;
+        tip.style.cssText='position:absolute;z-index:50;left:'+tipX+'px;top:'+tipY+'px;pointer-events:auto';
+        tip.innerHTML=canEdit()?'<button onclick="fcHoverEdit('+foundNode+',0)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)">&#9998; Edit</button>':'';
+        tip.style.display='block';
+      },300);
+    } else if(foundNode===null){
+      // Check edges
+      var foundEdge=null;
+      for(var j=0;j<FC.edges.length;j++){
+        var ed=FC.edges[j];
+        var sn=FC.nodes.find(function(n){return n.id===ed.from;}),tn=FC.nodes.find(function(n){return n.id===ed.to;});
+        if(!sn||!tn) continue;
+        var emx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, emy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
+        if(Math.abs(mx-emx)<24&&Math.abs(my-emy)<16){foundEdge=j;break;}
+      }
+      if(foundEdge!==null&&FC.hoverEdge!==foundEdge){
+        FC.hoverEdge=foundEdge; FC.hoverNode=null;
+        clearTimeout(_hoverTimer);
+        var edIdx=foundEdge;
+        _hoverTimer=setTimeout(function(){
+          var ed=FC.edges[edIdx]; if(!ed) return;
+          var sn2=FC.nodes.find(function(n){return n.id===ed.from;}),tn2=FC.nodes.find(function(n){return n.id===ed.to;});
+          if(!sn2||!tn2) return;
+          var ex=(sn2.x+sn2.w/2+tn2.x+tn2.w/2)/2, ey=(sn2.y+sn2.h/2+tn2.y+tn2.h/2)/2;
+          var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+          var wrapRect=wrap.getBoundingClientRect(), svgRect=svg.getBoundingClientRect();
+          var tipX=ex-wrapRect.left+svgRect.left+wrap.scrollLeft-24;
+          var tipY=ey-wrapRect.top+svgRect.top+wrap.scrollTop-16;
+          tip.style.cssText='position:absolute;z-index:50;left:'+tipX+'px;top:'+tipY+'px;pointer-events:auto';
+          tip.innerHTML=canEdit()?'<button onclick="fcHoverEdit('+edIdx+',1)" style="background:var(--text-muted);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)">&#9998; Label</button>':'';
+          tip.style.display='block';
+        },300);
+      } else if(foundEdge===null){
+        FC.hoverNode=null; FC.hoverEdge=null;
+        clearTimeout(_hoverTimer);
+        setTimeout(function(){
+          // Only hide if mouse isn't over the tip itself
+          if(tip&&!tip.matches(':hover')) tip.style.display='none';
+        },400);
       }
     }
   });
+  svg.addEventListener('mouseleave',function(){
+    FC.hoverNode=null; FC.hoverEdge=null;
+    var tip=document.getElementById('fc-hover-tip');
+    if(tip) tip.style.display='none';
+  });
 }
 
+function fcHoverEdit(idx, isEdge){
+  // Called from hover tooltip button — dispatches to showFCRename with correct coords
+  var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
+  if(!isEdge){
+    var nd=FC.nodes[idx]; if(!nd) return;
+    showFCRename('node', idx, nd.label||'', nd.x+nd.w/2, nd.y+nd.h/2);
+  } else {
+    var ed=FC.edges[idx]; if(!ed) return;
+    var sn=FC.nodes.find(function(n){return n.id===ed.from;});
+    var tn=FC.nodes.find(function(n){return n.id===ed.to;});
+    if(!sn||!tn) return;
+    var cx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, cy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
+    showFCRename('edge', idx, ed.label||'', cx, cy);
+  }
+}
 function showFCRename(type, idx, current, cx, cy){
   var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
   var wRect=wrap.getBoundingClientRect();
