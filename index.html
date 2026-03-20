@@ -382,6 +382,24 @@ var DATA={
   useCases:[
     {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
       description:'Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.',
+      businessPriority:'High – value driver = productivity / target KPIs = minutes saved',
+      targetUsers:'Customers',
+      expectedOutcomes:'100% of new car policy required documents and data gathered by an AI agent',
+      jobStories:[
+        {story:'When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. I want to be able to generate a quote entirely conversation driven. It needs to capture all the required information to generate a quote.',painPoints:'Long response time\nWork in multiple systems\nIntegration between Core platform (Keylane Axon), Salesforce',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'},
+        {story:'When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and hand off to a customer agent so a customer agent can finalize the new car policy.',painPoints:'Long response time\nWork in multiple systems\nMultiple email between customer and service agent',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'}
+      ],
+      scope:{
+        agentRole:'AI agent (Agentforce) deployed in Salesforce to automate handling of gathering all required documents and data for completion of a new car policy request',
+        channels:'Chat',
+        currentProcess:'Manual: after an offer has been accepted, multiple mails between customer and service agent to gather documents and data\n\nInefficient:\n- Long response time\n- Work in multiple systems\n- Multiple email between customer and service agent',
+        functionalScopeIn:'New car policy request',
+        functionalScopeOut:'Any other car policy mutation request',
+        data:'- Case record\n- Contract records in Salesforce\n- Documents in Axon\n- Conversation history',
+        actions:'- Request document\n- Check document correct\n- Check document complete\n- Consolidate cases\n- Hand off service agent\n- Escalate',
+        guardrails:'- Never provide advise\n- Don\'t use subjective adjectives (best, cheapest…)\n- Don\'t compare to other insurers\n- If the subject is about claims, route to the claims department\n- Always hand off in case of:\n  - Claims history doc contains more than 2 accidents within 5 years\n  - Pink form contain grey boxes\n  - If it does not fit acceptance criteria',
+        relatedFlows:[]
+      },
       milestones:[
         {label:'Architecture design (Robin + Jeroen)',date:'Before mid-April',done:false,atRisk:false},
         {label:'Integration design (Koen + Belfius)',date:'Mid-April',done:false,atRisk:true},
@@ -390,13 +408,47 @@ var DATA={
       ]},
     {id:'UC2',title:'FAQ Agent',subtitle:'Multi-Channel Scale-Up',progress:10,status:'Planning',
       description:'Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.',
+      businessPriority:'Medium – reduce inbound call volume, improve self-service rate',
+      targetUsers:'Customers, Prospects',
+      expectedOutcomes:'30% deflection of FAQ-type queries from human agents',
+      jobStories:[
+        {story:'When a customer has a question about their policy, I want an AI agent to answer it immediately so that the customer gets instant help without waiting for an agent.',painPoints:'Long wait times\nHigh volume of repetitive questions',desiredOutcomes:'Accurate FAQ answers 24/7',kpis:'Deflection rate\nCustomer satisfaction score'}
+      ],
+      scope:{
+        agentRole:'AI-powered FAQ bot handling common insurance questions across digital channels',
+        channels:'Web Chat, WhatsApp, Customer Portal',
+        currentProcess:'Customers call or email service center for basic FAQ questions, creating unnecessary load on agents.',
+        functionalScopeIn:'Standard FAQ questions about policies, coverage, payments',
+        functionalScopeOut:'Complex claims, policy mutations, legal advice',
+        data:'- FAQ knowledge base\n- Policy documentation\n- Product catalogue',
+        actions:'- Answer FAQ\n- Route to human agent\n- Escalate complex query',
+        guardrails:'- Never provide legal advice\n- Always offer human handoff option\n- Don\'t make promises about coverage',
+        relatedFlows:[]
+      },
       milestones:[
         {label:'Authentication approach decision (D1)',date:'Open',done:false,atRisk:true},
         {label:'Channel integration design',date:'April-May',done:false,atRisk:false},
         {label:'Agent build & testing',date:'May',done:false,atRisk:false}
       ]},
     {id:'UC3',title:'Service Rep Assistant',subtitle:'Employee Agent',progress:5,status:'Planning',
-      description:'Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.',
+      description:'Internal AI assistant for service representatives — surfacing policy info, next-best-action guidance, and customer context in real time.',
+      businessPriority:'High – reduce average handling time, improve first-call resolution',
+      targetUsers:'Internal Service Representatives',
+      expectedOutcomes:'20% reduction in average handling time; improved first-call resolution rate',
+      jobStories:[
+        {story:'When a service rep is on a call with a customer, I want an AI assistant to surface relevant policy info and next-best actions so that the rep can resolve the query faster.',painPoints:'Switching between multiple systems\nSlow information retrieval\nInconsistent advice given',desiredOutcomes:'Faster resolution, consistent answers',kpis:'Average handling time\nFirst-call resolution rate'}
+      ],
+      scope:{
+        agentRole:'Internal copilot for service reps providing real-time context, policy lookup and guided next-best-action recommendations',
+        channels:'Salesforce Service Console (internal)',
+        currentProcess:'Reps manually search multiple systems during calls, leading to long handling times and inconsistent advice.',
+        functionalScopeIn:'Policy lookup, customer 360 view, next-best-action suggestions',
+        functionalScopeOut:'Autonomous customer-facing actions',
+        data:'- Customer record\n- Policy & contract data\n- Interaction history\n- Knowledge base articles',
+        actions:'- Surface policy info\n- Suggest next best action\n- Draft response\n- Summarise case',
+        guardrails:'- Rep must confirm all AI suggestions before acting\n- No autonomous customer communication\n- Flag sensitive cases for supervisor review',
+        relatedFlows:[]
+      },
       milestones:[
         {label:'Process mapping & documentation',date:'April-May',done:false,atRisk:false},
         {label:'Agent configuration',date:'May',done:false,atRisk:false},
@@ -697,98 +749,315 @@ function rOverview(){
 }
 
 /* ═══════════════════════════════════════════════════
-   USE CASES
+   USE CASES — Canvas View
 ═══════════════════════════════════════════════════ */
+var ucTab = {};
+
 function rUseCases(){
-  var html=DATA.useCases.map(function(uc,idx){
-    var mils=uc.milestones.map(function(m,mi){
+  var cards=DATA.useCases.map(function(uc,idx){
+    var tab=ucTab[idx]||'overview';
+    var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'}];
+    var tabBar='<div class="row" style="gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">'
+      +tabs.map(function(t){
+        var active=tab===t.id;
+        return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:9px 20px;font-size:13px;font-weight:'+(active?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(active?'2px solid var(--accent)':'2px solid transparent')+';color:'+(active?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px;transition:all .15s">'+t.label+'</button>';
+      }).join('')+'</div>';
+    var content='';
+    if(tab==='overview') content=renderUCOverviewTab(uc,idx);
+    else if(tab==='jobstories') content=renderUCJobStoriesTab(uc,idx);
+    else if(tab==='scope') content=renderUCScopeTab(uc,idx);
+    return '<div class="card-el" style="margin-bottom:20px;overflow:hidden">'
+      +'<div style="background:var(--btn-primary);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      +'<div style="display:flex;align-items:center;gap:14px">'
+      +'<div style="width:44px;height:44px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:15px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
+      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:18px;color:#fff">'+e(uc.title)+'</div>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px">'+badge(uc.status)
+      +(isAdmin()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
+        +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
+      +'</div></div>'
+      +'<div style="height:4px;background:rgba(0,0,0,.08)"><div style="height:4px;background:rgba(255,255,255,.5);width:'+uc.progress+'%;transition:width .8s"></div></div>'
+      +'<div style="padding:22px">'
+      +tabBar
+      +(isAdmin()?'<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);flex-wrap:wrap">'
+        +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
+        +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:140px;accent-color:var(--accent)">'
+        +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
+        +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
+        +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
+        +'</select></div>':'')
+      +content+'</div></div>';
+  }).join('');
+  return '<div class="col g8">'
+    +'<div class="row between center" style="margin-bottom:8px">'
+    +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
+    +(isAdmin()?'<button class="btn-primary" onclick="addUC()">+ Add Use Case</button>':'')
+    +'</div>'+cards+'</div>';
+}
+
+function setUCTab(idx,tab){ucTab[idx]=tab;navigate('usecases');}
+
+function renderUCOverviewTab(uc,idx){
+  var idx2=DATA.useCases.indexOf(uc);
+  return '<div class="grid2" style="gap:14px;margin-bottom:16px">'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Use Case</div>'
+    +'<div style="padding:14px"><div style="font-weight:700;font-size:14px;margin-bottom:6px">'+e(uc.title)+'</div>'
+    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.description||'—')+'</div></div></div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Business Priority</div>'
+    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.businessPriority||'—')+'</div></div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Target Users</div>'
+    +'<div style="padding:14px;font-size:13px;color:var(--text-muted)">'+e(uc.targetUsers||'—')+'</div></div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Expected Outcomes</div>'
+    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.expectedOutcomes||'—')+'</div></div>'
+    +'</div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Milestones</div>'
+    +(uc.milestones.length?uc.milestones.map(function(m,mi){
       var last=mi===uc.milestones.length-1;
       return '<div class="row g14" style="align-items:flex-start">'
         +'<div class="col center"><div class="tl-dot'+(m.done?' done':'')+'"></div>'
         +(!last?'<div class="tl-line"></div>':'')+'</div>'
-        +'<div style="padding-bottom:'+(last?0:16)+'px">'
+        +'<div style="padding-bottom:'+(last?0:14)+'px;flex:1">'
         +'<div class="row center g8 wrap">'
         +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
         +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
-        +(isAdmin()?'<button class="btn-icon" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
-          +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>':'')
-        +(isAdmin()&&!m.done?'<input type="checkbox" onchange="toggleMil('+idx+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)" title="Mark done">':'')
+        +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx2+','+mi+')">&#9998;</button>'
+          +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx2+','+mi+')">&#10005;</button>'
+          +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx2+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'')
         +'</div>'
         +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
         +'</div></div>';
-    }).join('');
-    return '<div class="card-el" style="padding:26px;margin-bottom:16px">'
-      +'<div class="row wrap between" style="gap:14px;margin-bottom:18px">'
-      +'<div class="row g16" style="align-items:flex-start">'
-      +'<div style="width:50px;height:50px;border-radius:var(--radius);flex-shrink:0;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:16px;color:var(--btn-primary-text)">'+e(uc.id)+'</div>'
-      +'<div><div style="font-family:var(--font-head);font-weight:800;font-size:20px">'+e(uc.title)+'</div>'
-      +'<div style="font-size:14px;color:var(--accent);margin-top:2px">'+e(uc.subtitle)+'</div>'
-      +'<p style="font-size:13px;color:var(--text-muted);margin-top:8px;max-width:500px;line-height:1.6">'+e(uc.description)+'</p></div></div>'
-      +'<div class="col" style="align-items:flex-end;gap:8px">'+badge(uc.status)
-      +(isAdmin()?'<div class="row g8">'
-        +'<button class="btn-primary btn-sm" onclick="editUC('+idx+')">Edit</button>'
-        +'<button class="btn-danger btn-sm" onclick="deleteUC('+idx+')">Delete</button>'
-        +'</div>':'')
-      +'</div></div>'
-      +(isAdmin()?'<div class="row center g12" style="margin-bottom:14px"><span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
-        +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:160px;accent-color:var(--accent)">'
-        +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
-        +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
-        +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>'}).join('')
-        +'</select></div>':'')
-      +pb(uc.progress)
-      +'<div class="row between" style="margin-top:6px;margin-bottom:18px">'
-      +'<span style="font-size:12px;color:var(--text-muted)">Overall progress</span>'
-      +'<span style="font-size:12px;color:var(--accent);font-weight:700">'+uc.progress+'%</span></div>'
-      +'<div style="font-size:11px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Milestones</div>'
-      +mils
-      +(isAdmin()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
-      +'</div>';
-  }).join('');
-  return '<div class="col g8">'
-    +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
-    +(isAdmin()?'<div class="row" style="gap:10px;margin-bottom:8px"><button class="btn-primary" onclick="addUC()">+ Add Use Case</button></div>':'')
-    +html+'</div>';
+    }).join(''):'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
+    +(isAdmin()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx2+')">+ Add Milestone</button>':'')
+    +'</div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick="editUCOverview('+idx2+')">&#9998; Edit Overview</button>':'');
 }
 
-/* UC CRUD */
+function renderUCJobStoriesTab(uc,idx){
+  var idx2=DATA.useCases.indexOf(uc);
+  var stories=uc.jobStories||[];
+  return '<div>'
+    +'<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent)">'
+    +'"When (situation/context), I want (motivation/action), so that (outcome/benefit)."</div>'
+    +(stories.length
+      ?'<div class="overflow-x"><table><thead><tr>'
+        +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th>'
+        +(isAdmin()?'<th></th>':'')
+        +'</tr></thead><tbody>'
+        +stories.map(function(js,ji){
+          return '<tr><td style="text-align:center;font-weight:700;color:var(--accent)">'+(ji+1)+'</td>'
+            +'<td style="min-width:240px;line-height:1.6">'+e(js.story||'')+'</td>'
+            +'<td style="min-width:150px"><div style="white-space:pre-line;font-size:12px;line-height:1.5">'+e(js.painPoints||'')+'</div></td>'
+            +'<td style="min-width:140px;font-size:12px">'+e(js.desiredOutcomes||'')+'</td>'
+            +'<td style="min-width:120px;font-size:12px"><div style="white-space:pre-line">'+e(js.kpis||'')+'</div></td>'
+            +(isAdmin()?'<td><div class="row g4"><button class="btn-icon" style="font-size:11px" onclick="editJobStory('+idx2+','+ji+')">&#9998;</button>'
+              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteJobStory('+idx2+','+ji+')">&#10005;</button></div></td>':'')
+            +'</tr>';
+        }).join('')+'</tbody></table></div>'
+      :'<div style="padding:24px;text-align:center;color:var(--text-muted);background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm)">No job stories yet.</div>')
+    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick="addJobStory('+idx2+')">+ Add Job Story</button>':'')
+    +'</div>';
+}
+
+function renderUCScopeTab(uc,idx){
+  var idx2=DATA.useCases.indexOf(uc);
+  var sc=uc.scope||{};
+  var flows=sc.relatedFlows||[];
+  function scard(title,content,full){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden'+(full?';grid-column:1/-1':'')+'">'
+      +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
+      +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+content+'</div></div>';
+  }
+  return '<div class="col g12">'
+    +'<div class="grid2" style="gap:12px">'
+    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>\n'+e(uc.description||''))
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Functional Scope</div>'
+    +'<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">In Scope</div>'
+    +'<div style="font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.6">'+e(sc.functionalScopeIn||'—')+'</div></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">Out of Scope</div>'
+    +'<div style="font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.6">'+e(sc.functionalScopeOut||'—')+'</div></div>'
+    +'</div></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
+    +scard('Agent Role',e(sc.agentRole||'—'))
+    +scard('Channel(s)',e(sc.channels||'—'))
+    +scard('Current Process',e(sc.currentProcess||'—'))
+    +'</div>'
+    +'<div class="grid2" style="gap:12px">'
+    +scard('Data',e(sc.data||'—'))
+    +scard('Actions',e(sc.actions||'—'))
+    +'</div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Guardrails Summary</div>'
+    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+e(sc.guardrails||'—')+'</div></div>'
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Related Flows</div>'
+    +'<div style="padding:14px">'
+    +(flows.length
+      ?flows.map(function(f,fi){
+          return '<div class="row center g10" style="padding:8px 0;border-bottom:1px solid var(--border)">'
+            +'<span style="font-size:16px">&#9875;</span><span style="font-size:13px;flex:1;color:var(--text-dim)">'+e(f.name)+'</span>'
+            +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick="editLinkedFlow('+idx2+','+fi+')">&#9998;</button>'
+              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteLinkedFlow('+idx2+','+fi+')">&#10005;</button>':'')
+            +'</div>';}).join('')
+      :'<div style="font-size:13px;color:var(--text-muted)">No flows linked yet.</div>')
+    +(isAdmin()?'<div class="row g8" style="margin-top:12px"><button class="btn-ghost btn-sm" onclick="addLinkedFlow('+idx2+')">+ Link Flow</button>'
+      +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">Open Flowchart Builder</button></div>':'')
+    +'</div></div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick="editUCScope('+idx2+')">&#9998; Edit Scope</button>':'')
+    +'</div>';
+}
+
+/* ── UC CRUD ── */
 function addUC(){
   showModal('<div class="modal"><h3>Add Use Case</h3>'
-    +'<div class="form-group"><label>ID (e.g. UC4)</label><input id="m-id" value="UC4"></div>'
-    +'<div class="form-group"><label>Title</label><input id="m-title" placeholder="Use case title"></div>'
-    +'<div class="form-group"><label>Subtitle</label><input id="m-sub" placeholder="Short description"></div>'
-    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="3"></textarea></div>'
-    +'<div class="form-row"><div class="form-group"><label>Status</label><select id="m-status">'
-    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option>'+s+'</option>'}).join('')
-    +'</select></div><div class="form-group"><label>Progress %</label><input id="m-prog" type="number" min="0" max="100" value="0"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>ID</label><input id="m-id" value="UC4"></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></div></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
+    +'<div class="form-group"><label>Subtitle</label><input id="m-sub"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="0"></div>'
+    +'<div class="form-group"><label>Target Users</label><input id="m-tusers"></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Business Priority</label><input id="m-bprio"></div>'
+    +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2"></textarea></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveAddUC()">Add</button></div></div>');
 }
 function saveAddUC(){
-  DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,subtitle:document.getElementById('m-sub').value,description:document.getElementById('m-desc').value,status:document.getElementById('m-status').value,progress:parseInt(document.getElementById('m-prog').value)||0,milestones:[]});
+  DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,
+    subtitle:document.getElementById('m-sub').value,description:document.getElementById('m-desc').value,
+    status:document.getElementById('m-status').value,progress:parseInt(document.getElementById('m-prog').value)||0,
+    businessPriority:document.getElementById('m-bprio').value,targetUsers:document.getElementById('m-tusers').value,
+    expectedOutcomes:document.getElementById('m-outcomes').value,jobStories:[],
+    scope:{agentRole:'',channels:'',currentProcess:'',functionalScopeIn:'',functionalScopeOut:'',data:'',actions:'',guardrails:'',relatedFlows:[]},
+    milestones:[]});
   closeModal();navigate('usecases');autoSave();
 }
 function editUC(idx){
   var uc=DATA.useCases[idx];
   showModal('<div class="modal"><h3>Edit Use Case</h3>'
-    +'<div class="form-group"><label>ID</label><input id="m-id" value="'+e(uc.id)+'"></div>'
+    +'<div class="form-row"><div class="form-group"><label>ID</label><input id="m-id" value="'+e(uc.id)+'"></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(uc.title)+'"></div>'
     +'<div class="form-group"><label>Subtitle</label><input id="m-sub" value="'+e(uc.subtitle)+'"></div>'
-    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="3">'+e(uc.description)+'</textarea></div>'
-    +'<div class="form-row"><div class="form-group"><label>Status</label><select id="m-status">'
-    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>'}).join('')
-    +'</select></div><div class="form-group"><label>Progress %</label><input id="m-prog" type="number" min="0" max="100" value="'+uc.progress+'"></div></div>'
+    +'<div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="'+uc.progress+'"></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveEditUC('+idx+')">Save</button></div></div>');
 }
 function saveEditUC(idx){
   var uc=DATA.useCases[idx];
   uc.id=document.getElementById('m-id').value;uc.title=document.getElementById('m-title').value;
-  uc.subtitle=document.getElementById('m-sub').value;uc.description=document.getElementById('m-desc').value;
-  uc.status=document.getElementById('m-status').value;uc.progress=parseInt(document.getElementById('m-prog').value)||0;
+  uc.subtitle=document.getElementById('m-sub').value;uc.status=document.getElementById('m-status').value;
+  uc.progress=parseInt(document.getElementById('m-prog').value)||0;
   closeModal();navigate('usecases');autoSave();
 }
+function editUCOverview(idx){
+  var uc=DATA.useCases[idx];
+  showModal('<div class="modal"><h3>Edit Overview</h3>'
+    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="3">'+e(uc.description||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Business Priority</label><input id="m-bprio" value="'+e(uc.businessPriority||'')+'"></div>'
+    +'<div class="form-group"><label>Target Users</label><input id="m-tusers" value="'+e(uc.targetUsers||'')+'"></div>'
+    +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2">'+e(uc.expectedOutcomes||'')+'</textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCOverview('+idx+')">Save</button></div></div>');
+}
+function saveUCOverview(idx){
+  var uc=DATA.useCases[idx];
+  uc.description=document.getElementById('m-desc').value;uc.businessPriority=document.getElementById('m-bprio').value;
+  uc.targetUsers=document.getElementById('m-tusers').value;uc.expectedOutcomes=document.getElementById('m-outcomes').value;
+  closeModal();navigate('usecases');autoSave();
+}
+function editUCScope(idx){
+  var sc=DATA.useCases[idx].scope||{};
+  showModal('<div class="modal modal-lg"><h3>Edit Agent Scope</h3>'
+    +'<div class="form-group"><label>Agent Role</label><textarea id="sc-role" rows="2">'+e(sc.agentRole||'')+'</textarea></div>'
+    +'<div class="form-row"><div class="form-group"><label>Channel(s)</label><input id="sc-chan" value="'+e(sc.channels||'')+'"></div>'
+    +'<div class="form-group"><label>In Scope</label><input id="sc-in" value="'+e(sc.functionalScopeIn||'')+'"></div></div>'
+    +'<div class="form-group"><label>Out of Scope</label><input id="sc-out" value="'+e(sc.functionalScopeOut||'')+'"></div>'
+    +'<div class="form-group"><label>Current Process</label><textarea id="sc-proc" rows="3">'+e(sc.currentProcess||'')+'</textarea></div>'
+    +'<div class="form-row"><div class="form-group"><label>Data (one per line)</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Actions (one per line)</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
+    +'<div class="form-group"><label>Guardrails Summary</label><textarea id="sc-guard" rows="5">'+e(sc.guardrails||'')+'</textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCScope('+idx+')">Save</button></div></div>');
+}
+function saveUCScope(idx){
+  if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
+  var sc=DATA.useCases[idx].scope;
+  sc.agentRole=document.getElementById('sc-role').value;sc.channels=document.getElementById('sc-chan').value;
+  sc.functionalScopeIn=document.getElementById('sc-in').value;sc.functionalScopeOut=document.getElementById('sc-out').value;
+  sc.currentProcess=document.getElementById('sc-proc').value;sc.data=document.getElementById('sc-data').value;
+  sc.actions=document.getElementById('sc-acts').value;sc.guardrails=document.getElementById('sc-guard').value;
+  closeModal();ucTab[idx]='scope';navigate('usecases');autoSave();
+}
 function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
+
+/* ── Job Stories CRUD ── */
+function addJobStory(idx){
+  showModal('<div class="modal"><h3>Add Job Story</h3>'
+    +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3" placeholder="When... I want... so that..."></textarea></div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3"></textarea></div>'
+    +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3"></textarea></div></div>'
+    +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+',-1)">Add</button></div></div>');
+}
+function editJobStory(idx,ji){
+  var js=(DATA.useCases[idx].jobStories||[])[ji]||{};
+  showModal('<div class="modal"><h3>Edit Job Story</h3>'
+    +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3">'+e(js.story||'')+'</textarea></div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3">'+e(js.painPoints||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3">'+e(js.desiredOutcomes||'')+'</textarea></div></div>'
+    +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi" value="'+e(js.kpis||'')+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+','+ji+')">Save</button></div></div>');
+}
+function saveJobStory(idx,ji){
+  if(!DATA.useCases[idx].jobStories) DATA.useCases[idx].jobStories=[];
+  var obj={story:document.getElementById('js-story').value,painPoints:document.getElementById('js-pain').value,
+    desiredOutcomes:document.getElementById('js-out').value,kpis:document.getElementById('js-kpi').value};
+  if(ji===-1) DATA.useCases[idx].jobStories.push(obj); else DATA.useCases[idx].jobStories[ji]=obj;
+  closeModal();ucTab[idx]='jobstories';navigate('usecases');autoSave();
+}
+function deleteJobStory(idx,ji){if(confirm('Delete?')){DATA.useCases[idx].jobStories.splice(ji,1);navigate('usecases');autoSave();}}
+
+/* ── Linked Flows ── */
+function addLinkedFlow(idx){
+  var fcNames=DATA.flowcharts.map(function(f){return '<option>'+e(f.name)+'</option>';}).join('');
+  showModal('<div class="modal"><h3>Link Flowchart</h3>'
+    +(DATA.flowcharts.length?'<div class="form-group"><label>Select flowchart</label><select id="lf-sel">'+fcNames+'</select></div>':'')
+    +'<div class="form-group"><label>Or enter custom name</label><input id="lf-name"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +(DATA.flowcharts.length?'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',true)">Link Selected</button>':'')
+    +'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',false)">Link Custom</button></div></div>');
+}
+function saveLinkedFlow(idx,useSelect){
+  if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
+  if(!DATA.useCases[idx].scope.relatedFlows) DATA.useCases[idx].scope.relatedFlows=[];
+  var sel=document.getElementById('lf-sel'),nm=document.getElementById('lf-name');
+  var name=useSelect&&sel?sel.value:(nm?nm.value:'');
+  if(name){DATA.useCases[idx].scope.relatedFlows.push({name:name});}
+  closeModal();ucTab[idx]='scope';navigate('usecases');autoSave();
+}
+function editLinkedFlow(idx,fi){
+  var f=DATA.useCases[idx].scope.relatedFlows[fi];
+  showModal('<div class="modal"><h3>Edit Flow Link</h3>'
+    +'<div class="form-group"><label>Name</label><input id="lf-name" value="'+e(f.name)+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditLinkedFlow('+idx+','+fi+')">Save</button></div></div>');
+}
+function saveEditLinkedFlow(idx,fi){DATA.useCases[idx].scope.relatedFlows[fi].name=document.getElementById('lf-name').value;closeModal();navigate('usecases');autoSave();}
+function deleteLinkedFlow(idx,fi){if(confirm('Remove?')){DATA.useCases[idx].scope.relatedFlows.splice(fi,1);navigate('usecases');autoSave();}}
+
+/* Milestone CRUD */
 function addMilestone(ucIdx){
   showModal('<div class="modal"><h3>Add Milestone</h3>'
     +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
@@ -815,8 +1084,8 @@ function saveEditMilestone(ucIdx,mIdx){
   m.label=document.getElementById('m-lbl').value;m.date=document.getElementById('m-date').value;m.atRisk=document.getElementById('m-risk').checked;
   closeModal();navigate('usecases');autoSave();
 }
-function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases');autoSave()}
-function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v}
+function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases');autoSave();}
+function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v;}
 
 /* ═══════════════════════════════════════════════════
    TIMELINE
