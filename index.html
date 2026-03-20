@@ -307,28 +307,29 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
     <div style="text-align:center;margin-bottom:36px">
       <!-- Salesforce logo -->
       <div style="display:inline-flex;flex-direction:column;align-items:center;gap:12px">
-        <svg width="72" height="50" viewBox="0 0 72 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 9.2C32.5 6.3 36 4.5 40 4.5c5.7 0 10.5 3.2 12.9 8 2-.9 4.2-1.4 6.6-1.4 8.2 0 14.9 6.8 14.9 15.1S67.7 41.3 59.5 41.3H18.5C10.7 41.3 4.5 35.2 4.5 27.5c0-6.8 4.9-12.5 11.5-13.4.9-2.3 2.8-4.1 5.1-5 1.9-.7 3.9-.7 5.7.2.7.3 1.4.7 1.9 1.2.3.3.6.6.7.8.8-.8 1.7-1.4 2.6-1.9z" fill="white"/>
-        </svg>
+        <img src="https://raw.githubusercontent.com/frakke11/BelfiusTracker/main/Salesforce.com_logo.svg%20(1).png" alt="Salesforce" style="height:52px;width:auto;filter:brightness(0) invert(1);object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;flex-direction:column;align-items:center;gap:4px">
+          <svg width="72" height="50" viewBox="0 0 72 50" fill="none"><path d="M30 9.2C32.5 6.3 36 4.5 40 4.5c5.7 0 10.5 3.2 12.9 8 2-.9 4.2-1.4 6.6-1.4 8.2 0 14.9 6.8 14.9 15.1S67.7 41.3 59.5 41.3H18.5C10.7 41.3 4.5 35.2 4.5 27.5c0-6.8 4.9-12.5 11.5-13.4.9-2.3 2.8-4.1 5.1-5 1.9-.7 3.9-.7 5.7.2.7.3 1.4.7 1.9 1.2.3.3.6.6.7.8.8-.8 1.7-1.4 2.6-1.9z" fill="white"/></svg>
+          <div style="font-family:'Source Sans 3',sans-serif;font-weight:700;font-size:22px;color:#ffffff">Salesforce</div>
+        </div>
         <div>
-          <div style="font-family:'Source Sans 3',sans-serif;font-weight:700;font-size:22px;color:#ffffff;letter-spacing:-.01em">Salesforce</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:.12em;text-transform:uppercase;margin-top:2px">× Belfius Insurance</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.75);letter-spacing:.1em;text-transform:uppercase;margin-top:6px;text-align:center">Agentforce Team</div>
         </div>
       </div>
       <!-- Agentforce pill -->
       <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(27,150,255,.25);border:1px solid rgba(27,150,255,.5);border-radius:20px;padding:6px 16px;margin-top:16px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(27,150,255,0.4)" stroke="#22bef4" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>
-        <span style="font-size:12px;color:#ffffff;font-weight:600;letter-spacing:.06em">Agentic Transformation Program</span>
+        <span style="font-size:12px;color:#ffffff;font-weight:600;letter-spacing:.06em">Agentforce Program Tracker</span>
       </div>
     </div>
     <!-- Login card -->
     <div style="background:rgba(255,255,255,.97);border-radius:8px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
       <h2 style="font-size:20px;font-weight:700;margin-bottom:6px;color:#032d60;font-family:'Source Sans 3',sans-serif">Sign in to your account</h2>
-      <p style="font-size:13px;color:#54698d;margin-bottom:24px">Belfius Agentic Transformation Tracker</p>
+      <p style="font-size:13px;color:#54698d;margin-bottom:24px">Sign in to access your program workspace</p>
       <div class="col g16">
         <div>
           <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Username</label>
-          <input id="l-user" type="text" placeholder="superadmin · viewer · belfius" autocomplete="off" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
+          <input id="l-user" type="text" placeholder="Enter your username" autocomplete="off" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
         </div>
         <div>
           <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Password</label>
@@ -338,13 +339,12 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick="doLogin()">Log In</button>
       </div>
     </div>
-    <!-- Footer logos -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-top:24px;opacity:.6">
-      <svg width="80" height="22" viewBox="0 0 80 22" fill="none"><path d="M9 4.5C9.6 3.7 10.6 3.2 11.7 3.2c1.6 0 2.9.9 3.6 2.2.6-.3 1.2-.4 1.8-.4 2.2 0 4 1.8 4 4s-1.8 4-4 4H5.2C3.1 13 1.5 11.4 1.5 9.3c0-1.9 1.4-3.4 3.2-3.7.3-.7.8-1.2 1.4-1.5.5-.2 1-.2 1.5.1.2.1.4.2.5.3.1.1.2.2.2.3.2-.2.4-.3.7-.4z" fill="white"/><text x="20" y="14" fill="white" font-size="9" font-family="sans-serif" font-weight="bold">Salesforce</text></svg>
-      <div style="width:1px;height:16px;background:rgba(255,255,255,.3)"></div>
-      <span style="color:white;font-size:11px;font-weight:600;letter-spacing:.05em">BELFIUS INSURANCE</span>
+    <!-- Footer -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:24px;opacity:.6">
+      <img src="https://raw.githubusercontent.com/frakke11/BelfiusTracker/main/Salesforce.com_logo.svg%20(1).png" alt="Salesforce" style="height:18px;width:auto;filter:brightness(0) invert(1);opacity:.7;object-fit:contain" onerror="this.style.display='none'">
+      <span style="color:white;font-size:12px;font-weight:600;letter-spacing:.06em">Agentforce Team</span>
     </div>
-    <p style="text-align:center;font-size:11px;color:rgba(255,255,255,.5);margin-top:12px">superadmin/admin2026 &nbsp;&middot;&nbsp; viewer/sf2026 &nbsp;&middot;&nbsp; belfius/bel2026</p><p style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);margin-top:4px">Confidential — Salesforce Professional Services</p>
+    <p style="text-align:center;font-size:11px;color:rgba(255,255,255,.35);margin-top:16px">Confidential — Salesforce Agentforce Team</p>
   </div>
 </div>
 
@@ -353,14 +353,11 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <div id="sidebar-header" style="padding:4px 8px 16px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
-        <!-- Salesforce cloud logo SVG -->
+        <!-- Salesforce logo -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13.3 4.1C14.4 2.8 16 2 17.8 2c2.5 0 4.6 1.4 5.7 3.5.9-.4 1.9-.6 2.9-.6 3.6 0 6.6 3 6.6 6.6 0 3.7-3 6.6-6.6 6.6H8.2C4.9 18.1 2 15.3 2 12c0-3 2.2-5.5 5.1-5.9.4-1 1.2-1.8 2.2-2.2.8-.3 1.7-.3 2.5.1.3.1.6.3.8.5.1.1.2.2.2.3.3-.3.7-.5 1.1-.7z" fill="white" opacity="0.95"/>
-          </svg>
+          <img src="https://raw.githubusercontent.com/frakke11/BelfiusTracker/main/Salesforce.com_logo.svg%20(1).png" alt="Salesforce" style="height:22px;width:auto;filter:brightness(0) invert(1);object-fit:contain;flex-shrink:0" onerror="this.style.display='none'">
           <div>
-            <div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#ffffff;letter-spacing:.01em">Salesforce</div>
-            <div style="font-size:9px;color:rgba(255,255,255,.65);letter-spacing:.08em;text-transform:uppercase;margin-top:1px">× Belfius</div>
+            <div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#ffffff;letter-spacing:.01em">Agentforce Team</div>
           </div>
         </div>
         <!-- Agentforce badge -->
@@ -711,11 +708,11 @@ async function doLogin(){
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   buildSidebar();
-  if(currentTheme==='customer') applyCustomerTheme();
-  // Update customer theme label
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
   var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
   navigate('overview');
-  if(isSuperAdmin()) ghLoadData();
+  // Load data for accessible customers after login
+  ghLoadData();
 }
 
 async function ghFetchUsers(){
@@ -1068,7 +1065,7 @@ function rOverview(){
     +'<div style="position:relative;z-index:1;max-width:62%">'
     +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
     +'<h1 style="font-size:26px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:8px">'+e(prj.name||'Agentic Transformation')+'</h1>'
-    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(prj.description||'Salesforce Professional Services')+'</p>'
+    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(prj.description||'Salesforce Agentforce Team')+'</p>'
     +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
     +(prj.technologies&&prj.technologies.length?prj.technologies:['Agentforce']).map(function(t){
       return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+e(t)+'</span>';
@@ -3046,7 +3043,7 @@ function autoSave(){
   if(statusEl){ statusEl.textContent='Unsaved changes…'; statusEl.style.color='var(--amber)'; }
   if(typeof GH==='undefined'||!GH.token) return; // no token = no auto-save
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(function(){ ghSaveData(true); }, 1800);
+  _autoSaveTimer = setTimeout(function(){ ghSaveCustomer(true); }, 1800);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3080,89 +3077,178 @@ function ghApiHeaders(){
   return h;
 }
 
-/* ── Load: fetch data.json from GitHub ── */
-async function ghLoadData(){
-  var statusEl = document.getElementById('gh-status');
-  function setStatus(msg,col){ if(statusEl){statusEl.textContent=msg;statusEl.style.color=col||'var(--text-muted)';} }
-  setStatus('Syncing…');
+/* ═══════════════════════════════════════════════════════════════
+   GITHUB SYNC — Per-customer encrypted files
+   users.json         → plain JSON { users: {...} }
+   data-{cusId}.json  → AES-GCM encrypted JSON (key derived from token)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Crypto helpers ── */
+async function ghDeriveKey(cusId){
+  // Key = PBKDF2(GH.token + '|' + cusId, fixed salt, 100k rounds)
+  var pwBytes = new TextEncoder().encode((GH.token||'notoken')+'|'+cusId);
+  var saltBytes = new TextEncoder().encode('SalesforceTrackerSalt2024');
+  var baseKey = await crypto.subtle.importKey('raw', pwBytes, 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:saltBytes, iterations:100000, hash:'SHA-256'},
+    baseKey,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function ghEncrypt(key, plaintext){
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var data = new TextEncoder().encode(plaintext);
+  var encrypted = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, data);
+  // Prepend IV to ciphertext, encode as base64
+  var combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode.apply(null, combined));
+}
+async function ghDecrypt(key, b64){
+  var combined = Uint8Array.from(atob(b64), function(ch){return ch.charCodeAt(0);});
+  var iv = combined.slice(0, 12);
+  var data = combined.slice(12);
+  var decrypted = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, data);
+  return new TextDecoder().decode(decrypted);
+}
+
+/* ── File name helpers ── */
+function ghCusFile(cusId){ return 'data-'+cusId+'.json'; }
+
+/* ── Load users.json (plain, just hashes) ── */
+async function ghFetchUsers(){
+  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json'
+         +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res=await fetch(url,{headers:ghApiHeaders()});
+  if(!res.ok) return; // 404 = no saved users yet, use defaults
+  var json=await res.json();
+  var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+  var loaded=JSON.parse(raw);
+  if(loaded.users) USERS=loaded.users;
+}
+
+/* ── Save users.json (plain) ── */
+async function ghSaveUsers(){
+  if(!GH.token) return;
+  var payload=JSON.stringify({users:USERS}, null, 2);
+  await ghPutFile('users.json', payload, GH._usersSha||null, 'Update users');
+}
+
+/* ── Load a single customer's encrypted file ── */
+async function ghLoadCustomer(cusId){
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
+  var fname=ghCusFile(cusId);
+  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname
+         +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res=await fetch(url,{headers:ghApiHeaders()});
+  if(res.status===404){ setS('No saved data for '+cusId+' yet','var(--amber)'); return; }
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  var json=await res.json();
+  // Store SHA per customer for updates
+  if(!GH._cusSha) GH._cusSha={};
+  GH._cusSha[cusId]=json.sha;
+  var b64content=json.content.replace(/\n/g,'');
+  var raw;
   try {
-    var url = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file
-              +'?ref='+GH.branch+'&nocache='+Date.now();
-    var res = await fetch(url, {headers: ghApiHeaders()});
-    if(res.status === 404){
-      setStatus('No saved data yet — using defaults', 'var(--amber)');
-      return;
-    }
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    var json = await res.json();
-    GH.sha = json.sha;
-    var raw = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
-    var loaded = JSON.parse(raw);
-    if(loaded.users){ USERS = loaded.users; }
-    if(loaded.customers && loaded.customers.length){ CUSTOMERS = loaded.customers; syncDATA(); }
-    // All data is inside customers array — no flat field restore needed
-    setStatus('✓ Synced — '+new Date().toLocaleTimeString(), 'var(--green)');
-    setTimeout(function(){setStatus('');}, 4000);
+    // Try decrypting first
+    if(!GH.token) throw new Error('no token');
+    var key=await ghDeriveKey(cusId);
+    raw=await ghDecrypt(key, b64content);
+  } catch(decErr){
+    // Fallback: try plain JSON (for migration from old format)
+    try {
+      raw=decodeURIComponent(escape(atob(b64content)));
+    } catch(e2){ throw new Error('Cannot read '+fname+': '+decErr.message); }
+  }
+  var loaded=JSON.parse(raw);
+  // Merge loaded customer data into CUSTOMERS array
+  if(loaded.customerData){
+    var ci=CUSTOMERS.findIndex(function(cu){return cu.id===cusId;});
+    if(ci!==-1) Object.assign(CUSTOMERS[ci], loaded.customerData);
     syncDATA();
-    // Silently refresh current page content without rebuilding sidebar
-    var mc=document.getElementById('main-content');
-    if(mc && currentPage) mc.innerHTML=renderPage(currentPage);
-  } catch(err){
-    console.warn('GitHub load failed:', err);
-    setStatus('⚠ Could not load — using defaults', 'var(--amber)');
   }
 }
 
-/* ── Save: write DATA + hashes as data.json to GitHub ── */
-async function ghSaveData(silent){
-  if(!GH.token){ if(!silent) showGhTokenModal(); else { showGhTokenModal(); } return; }
-  var btn = document.getElementById('gh-save-btn');
-  var statusEl = document.getElementById('gh-status');
-  function setStatus(msg,col){ if(statusEl){statusEl.textContent=msg;statusEl.style.color=col||'var(--text-muted)';} }
+/* ── Save current customer's encrypted file ── */
+async function ghSaveCustomer(silent){
+  if(!GH.token){ if(!silent) showGhTokenModal(); else showGhTokenModal(); return; }
+  var statusEl=document.getElementById('gh-status');
+  var btn=document.getElementById('gh-save-btn');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
   if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
-  setStatus('Saving…');
+  setS('Encrypting & saving…');
   try {
-    // Refresh SHA
-    var getUrl = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file
-                 +'?ref='+GH.branch+'&nocache='+Date.now();
-    var getRes = await fetch(getUrl, {headers: ghApiHeaders()});
-    if(getRes.ok){ GH.sha = (await getRes.json()).sha; }
-    else if(getRes.status !== 404){ throw new Error('Could not read current file: HTTP '+getRes.status); }
-    else { GH.sha = null; }
-
-    // Save USERS + all CUSTOMERS (which contain all projects and their data)
-    var payload = JSON.stringify({
-      users: USERS,
-      customers: CUSTOMERS
-    }, null, 2);
-
-    var encoded = btoa(unescape(encodeURIComponent(payload)));
-    var body = {
-      message: 'Update tracker data — '+new Date().toISOString().slice(0,16).replace('T',' '),
-      content: encoded, branch: GH.branch
-    };
-    if(GH.sha) body.sha = GH.sha;
-
-    var putRes = await fetch(
-      'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file,
-      { method:'PUT', headers: ghApiHeaders(), body: JSON.stringify(body) }
+    var cus=CUS();
+    var key=await ghDeriveKey(cus.id);
+    var payload=JSON.stringify({customerData:cus}, null, 2);
+    var encrypted=await ghEncrypt(key, payload);
+    var fname=ghCusFile(cus.id);
+    // Get current SHA
+    var getUrl='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname
+               +'?ref='+GH.branch+'&nocache='+Date.now();
+    var getRes=await fetch(getUrl,{headers:ghApiHeaders()});
+    var curSha=(getRes.ok)?(await getRes.json()).sha:null;
+    var body={message:'Update '+cus.name+' data — '+new Date().toISOString().slice(0,16).replace('T',' '),
+              content:encrypted, branch:GH.branch};
+    if(curSha) body.sha=curSha;
+    var putRes=await fetch(
+      'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,
+      {method:'PUT', headers:ghApiHeaders(), body:JSON.stringify(body)}
     );
-    if(!putRes.ok){
-      var errJson = await putRes.json().catch(function(){return {};});
-      throw new Error(errJson.message || 'PUT failed: HTTP '+putRes.status);
-    }
-    var putJson = await putRes.json();
-    GH.sha = putJson.content ? putJson.content.sha : GH.sha;
+    if(!putRes.ok){ var ej=await putRes.json().catch(function(){return {};}); throw new Error(ej.message||'PUT failed'); }
+    // Also save users
+    await ghSaveUsers();
     if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
-    setStatus('✓ Saved at '+new Date().toLocaleTimeString(), 'var(--green)');
-    setTimeout(function(){setStatus('');}, 5000);
+    setS('✓ Encrypted & saved at '+new Date().toLocaleTimeString(),'var(--green)');
+    setTimeout(function(){setS('');},5000);
   } catch(err){
-    console.error('GitHub save failed:', err);
+    console.error('Save failed:',err);
     if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
-    setStatus('✗ Save failed', 'var(--red)');
-    if(!silent) alert('Save failed:\n\n'+err.message+'\n\nCheck your token has "repo" write permissions.');
+    setS('✗ Save failed','var(--red)');
+    if(!silent) alert('Save failed:\n\n'+err.message);
   }
 }
+
+/* ── Load all accessible customer files on login ── */
+async function ghLoadData(){
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,col){ if(statusEl){statusEl.textContent=m;statusEl.style.color=col||'var(--text-muted)';} }
+  if(!GH.token){ setS('No token — data not synced','var(--amber)'); return; }
+  setS('Syncing…');
+  try {
+    // Determine which customers to load
+    var cusToLoad=CUSTOMERS.filter(function(cu){
+      if(!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length) return true;
+      return currentUser.assignedCustomers.indexOf(cu.id)!==-1;
+    });
+    for(var i=0;i<cusToLoad.length;i++){
+      try { await ghLoadCustomer(cusToLoad[i].id); }
+      catch(e){ console.warn('Could not load '+cusToLoad[i].id+':',e); }
+    }
+    setS('✓ Synced — '+new Date().toLocaleTimeString(),'var(--green)');
+    setTimeout(function(){setS('');},4000);
+    syncDATA(); buildSidebar();
+    if(currentPage){ var mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderPage(currentPage); }
+  } catch(err){
+    console.warn('GitHub load failed:',err);
+    setS('⚠ Could not load — using defaults','var(--amber)');
+  }
+}
+
+/* ── Shared PUT helper ── */
+async function ghPutFile(fname, plainPayload, sha, msg){
+  var encoded=btoa(unescape(encodeURIComponent(plainPayload)));
+  var body={message:msg||'Update',content:encoded,branch:GH.branch};
+  if(sha) body.sha=sha;
+  return fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,
+    {method:'PUT',headers:ghApiHeaders(),body:JSON.stringify(body)});
+}
+
+/* ── autoSave calls ghSaveCustomer now ── */
 
 /* ── Token modal ── */
 function showGhTokenModal(){
