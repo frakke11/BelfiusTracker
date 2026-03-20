@@ -412,11 +412,19 @@ async function doLogin(){
   var er=document.getElementById('l-err');
   var btn=document.getElementById('l-btn');
   var entry=CREDS[u];
-  if(!entry){ er.classList.remove('hidden'); er.textContent='Unknown username.'; return; }
+  if(!entry){ er.classList.remove('hidden'); er.textContent='Unknown username. Use: salesforce, belfius, or admin'; return; }
   btn.textContent='Checking…'; btn.disabled=true;
+
+  // Try to load latest hashes from GitHub first (so password changes take effect)
+  // If it fails, fall back to the hashes baked into this file — login still works
+  try { await ghFetchCreds(); } catch(ignored){}
+
   var h = await sha256(p);
   btn.textContent='Sign In →'; btn.disabled=false;
-  if(h===entry.hash){
+
+  // Re-read entry after potential GitHub update
+  entry = CREDS[u];
+  if(h === entry.hash){
     er.classList.add('hidden');
     currentRole=entry.role;
     document.getElementById('login-screen').classList.add('hidden');
@@ -428,6 +436,24 @@ async function doLogin(){
     er.textContent='Incorrect password.';
   }
 }
+
+// Fetch only the creds hashes from data.json — lightweight, no full data load
+// Uses hardcoded repo values so it works before GH object is fully initialized
+async function ghFetchCreds(){
+  var url='https://api.github.com/repos/frakke11/BelfiusTracker/contents/data.json'
+          +'?ref=main&nocache='+Date.now();
+  var res=await fetch(url,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  if(!res.ok) return;
+  var json=await res.json();
+  var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+  var loaded=JSON.parse(raw);
+  if(loaded.creds){
+    if(loaded.creds.salesforce) CREDS.salesforce.hash=loaded.creds.salesforce;
+    if(loaded.creds.belfius)    CREDS.belfius.hash   =loaded.creds.belfius;
+    if(loaded.creds.admin)      CREDS.admin.hash     =loaded.creds.admin;
+  }
+}
+
 document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 function logout(){currentRole=null;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
@@ -1445,6 +1471,10 @@ async function savePasswords(){
 }
 
 
+/* ═══════════════════════════════════════════════════
+   GITHUB SYNC  —  reads/writes data.json only
+   index.html is NEVER touched by saves
+   Repo: frakke11/BelfiusTracker
 ═══════════════════════════════════════════════════ */
 var GH = {
   owner:  'frakke11',
