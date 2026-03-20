@@ -473,47 +473,6 @@
                   "h": 170
                 }
               ]
-            },
-            {
-              "name": "joke",
-              "nodes": [
-                {
-                  "id": "73ryso3",
-                  "shape": "rect",
-                  "x": 120,
-                  "y": 29.666656494140625,
-                  "w": 140,
-                  "h": 60,
-                  "label": "New Step"
-                }
-              ],
-              "edges": [],
-              "lanes": [
-                {
-                  "id": "jkseavz",
-                  "name": "Channel",
-                  "y": 0,
-                  "h": 170
-                },
-                {
-                  "id": "nyc5tww",
-                  "name": "Agentforce",
-                  "y": 170,
-                  "h": 170
-                },
-                {
-                  "id": "as127ip",
-                  "name": "Data 360",
-                  "y": 340,
-                  "h": 170
-                },
-                {
-                  "id": "wrdks2u",
-                  "name": "Data",
-                  "y": 510,
-                  "h": 170
-                }
-              ]
             }
           ],
           "execSponsors": [
