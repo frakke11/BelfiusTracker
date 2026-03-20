@@ -288,7 +288,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
           <input id="l-pass" type="password" placeholder="••••••••" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
         </div>
         <div id="l-err" class="err hidden"></div>
-        <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick=\"closeModal()\">Log In</button>
+        <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick="doLogin()">Log In</button>
       </div>
     </div>
     <!-- Footer logos -->
@@ -335,14 +335,14 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Theme</div>
         <div class="col g4">
           <div class="row g4">
-            <button class="theme-btn active" id="tb-default" onclick=\"closeModal()\" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
-            <button class="theme-btn" id="tb-sf-dark" onclick=\"closeModal()\" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
+            <button class="theme-btn active" id="tb-default" onclick=\"setTheme('default')\" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
+            <button class="theme-btn" id="tb-sf-dark" onclick=\"setTheme('sf-dark')\" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
           </div>
-          <button class="theme-btn" id="tb-belfius" onclick=\"closeModal()\" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
+          <button class="theme-btn" id="tb-belfius" onclick=\"setTheme('belfius')\" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
         </div>
       </div>
       <nav id="nav-items" class="col" style="gap:2px;flex:1"></nav>
-      <button class="btn-ghost" style="width:100%;margin-top:10px;color:var(--text-muted)" onclick=\"closeModal()\">&larr; Sign Out</button>
+      <button class="btn-ghost" style="width:100%;margin-top:10px;color:var(--text-muted)" onclick=\"logout()\">&larr; Sign Out</button>
     </aside>
     <main class="main" id="main-content"></main>
   </div>
@@ -813,22 +813,21 @@ function renderPage(page){
 }
 
 
+
 /* ═══════════════════════════════════════════════════
-   OVERVIEW — dynamic from use case data
+   OVERVIEW
 ═══════════════════════════════════════════════════ */
 function rOverview(){
-  // Derive stats dynamically from DATA
-  var atRisk=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'}).length;
-  var open=DATA.blockers.filter(function(b){return b.status==='Open'}).length;
-  var totalUCs=DATA.useCases.length;
-  var doneUCs=DATA.useCases.filter(function(u){return u.status==='Done'}).length;
-  var avgProgress=totalUCs?Math.round(DATA.useCases.reduce(function(s,u){return s+Number(u.progress);},0)/totalUCs):0;
+  var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length;
+  var open=(DATA.blockers||[]).filter(function(b){return b.status==='Open';}).length;
+  var totalUCs=(DATA.useCases||[]).length;
+  var doneUCs=(DATA.useCases||[]).filter(function(u){return u.status==='Done';}).length;
+  var avgProgress=totalUCs?Math.round((DATA.useCases||[]).reduce(function(s,u){return s+Number(u.progress||0);},0)/totalUCs):0;
+  var prj=PRJ();
 
-  // Hero banner
   var heroBanner='<div style="background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border-radius:var(--radius);padding:28px 32px;position:relative;overflow:hidden">'
     +'<div style="position:absolute;right:-20px;top:-30px;opacity:.12;pointer-events:none">'
-    +'<svg width="240" height="160" viewBox="0 0 240 160" fill="none"><path d="M78 64C83 44 101 29 122 29c25 0 46 15 57 37 9-4 19-5 30-5 37 0 66 30 66 66s-29 66-66 66H48C21 193 0 173 0 147c0-26 20-47 46-51 3-10 12-18 22-22 9-3 18-3 27 1z" fill="white"/></svg>'
-    +'</div>'
+    +'<svg width="240" height="160" viewBox="0 0 240 160" fill="none"><path d="M78 64C83 44 101 29 122 29c25 0 46 15 57 37 9-4 19-5 30-5 37 0 66 30 66 66s-29 66-66 66H48C21 193 0 173 0 147c0-26 20-47 46-51 3-10 12-18 22-22 9-3 18-3 27 1z" fill="white"/></svg></div>'
     +'<div style="position:absolute;right:80px;bottom:0;pointer-events:none;opacity:.95">'
     +'<svg width="68" height="85" viewBox="0 0 68 85" fill="none">'
     +'<ellipse cx="34" cy="72" rx="16" ry="5" fill="rgba(0,0,0,.2)"/>'
@@ -836,108 +835,82 @@ function rOverview(){
     +'<rect x="40" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
     +'<rect x="16" y="27" width="36" height="28" rx="6" fill="white"/>'
     +'<circle cx="34" cy="19" r="17" fill="white"/>'
-    +'<circle cx="27" cy="17" r="3.5" fill="#0070d2"/>'
-    +'<circle cx="41" cy="17" r="3.5" fill="#0070d2"/>'
-    +'<circle cx="28" cy="18" r="1.2" fill="#032d60"/>'
-    +'<circle cx="42" cy="18" r="1.2" fill="#032d60"/>'
+    +'<circle cx="27" cy="17" r="3.5" fill="#0070d2"/><circle cx="41" cy="17" r="3.5" fill="#0070d2"/>'
+    +'<circle cx="28" cy="18" r="1.2" fill="#032d60"/><circle cx="42" cy="18" r="1.2" fill="#032d60"/>'
     +'<path d="M28 25 Q34 29 40 25" stroke="#0070d2" stroke-width="1.8" stroke-linecap="round" fill="none"/>'
     +'<rect x="8" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
     +'<rect x="50" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
-    +'<rect x="18" y="3" width="32" height="4" rx="2" fill="rgba(255,255,255,.4)"/>'
     +'</svg></div>'
-    +'<div style="position:absolute;right:20px;top:16px;pointer-events:none;opacity:.8">'
-    +'<svg width="36" height="26" viewBox="0 0 36 26" fill="none"><path d="M11 8.5C11.7 5.8 13.9 4 16.4 4c3.1 0 5.7 2 6.6 4.8 1.1-.5 2.3-.7 3.6-.7 4.4 0 8 3.6 8 8s-3.6 8-8 8H7C3.7 24.1 1 21.4 1 18c0-3.2 2.4-5.8 5.5-6.2.5-1.5 1.5-2.7 2.8-3.4.9-.5 1.9-.5 2.8.2z" fill="rgba(255,255,255,0.6)"/></svg>'
-    +'</div>'
     +'<div style="position:relative;z-index:1;max-width:62%">'
     +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
-    +'<h1 style="font-size:26px;font-weight:700;color:#ffffff;line-height:1.2;margin-bottom:8px">'+e(PRJ().name||'Agentic Transformation')+'</h1>'
-    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(PRJ().description||'Salesforce Professional Services')+'</p>'
+    +'<h1 style="font-size:26px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:8px">'+e(prj.name||'Agentic Transformation')+'</h1>'
+    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(prj.description||'Salesforce Professional Services')+'</p>'
     +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
-    +(PRJ().technologies&&PRJ().technologies.length?PRJ().technologies:['Agentforce']).map(function(t){
-      return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+t+'</span>';
+    +(prj.technologies&&prj.technologies.length?prj.technologies:['Agentforce']).map(function(t){
+      return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+e(t)+'</span>';
     }).join('')
     +'</div>'
-    +(canEdit()?'<button onclick=\"closeModal()\" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-family:var(--font-head);font-weight:600">&#9998; Edit Project</button>':'')
-    +'</div></div></div>';
+    +(canEdit()?'<button onclick="editProject()" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600">&#9998; Edit Project</button>':'')
+    +'</div></div>';
 
-  // Dynamic stat cards
-  var statCards='<div class="row wrap g12">'
-    // Total UCs — clickable to usecases
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick=\"closeModal()\" title="View all use cases">'
+  var stats='<div class="row wrap g12">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick="navigate(\'usecases\')">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+totalUCs+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div>'
     +'<div style="font-size:10px;color:var(--green);margin-top:3px">'+doneUCs+' done</div></div>'
-    // Avg progress
     +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--blue)">'+avgProgress+'%</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
     +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
-    // At risk — clickable to blockers
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick=\"closeModal()\" title="View blockers">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'blockers\')">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
     +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
-    // Open items — clickable to blockers
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick=\"closeModal()\" title="View open decisions">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick="navigate(\'blockers\')">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div>'
     +'<div style="font-size:10px;color:var(--amber);margin-top:3px">click to view</div></div>'
-    // Exec meeting
     +'<div class="card-accent f1" style="padding:16px 20px;min-width:220px">'
     +'<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">&#128197; KEY EXEC MEETING</div>'
     +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">April 21, 2026 &mdash; F2F Eran Agrios + BDI C-suite</div>'
     +'<div style="font-size:12px;color:var(--text-muted);margin-top:3px">Fabian Delava &middot; Guillaume De Meus &middot; Hannes Heylen &middot; Pieter Bamps</div>'
     +'</div></div>';
 
-  // UC cards — clickable, show target users + expected outcomes from canvas
   var ucCards='<div><div class="sec-title">Use Cases</div><div class="gridA">'
-    +DATA.useCases.map(function(uc,idx){
-      var totalStories=(uc.jobStories||[]).length;
-      var hasScope=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
-      return '<div class="card" style="padding:20px;cursor:pointer;transition:all .2s" onclick=\"goUC('+idx+')\" '
-        +'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,.15)\'" '
-        +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">'
+    +(DATA.useCases||[]).map(function(uc,idx){
+      var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card" style="padding:20px;cursor:pointer" onclick="goUC('+idx+')" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
         +'<div class="row between center" style="gap:10px;margin-bottom:10px">'
         +'<div class="row center g8">'
         +'<div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:11px;color:var(--btn-primary-text);flex-shrink:0">'+e(uc.id)+'</div>'
         +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(uc.title)+'</div>'
         +'</div>'+badge(uc.status)+'</div>'
         +(uc.targetUsers?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">&#128100; '+e(uc.targetUsers)+'</div>':'')
-        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
         +pb(uc.progress)
         +'<div class="row between" style="margin-top:6px">'
-        +'<div class="row g8">'
-        +(totalStories?'<span style="font-size:10px;color:var(--text-muted)">&#128221; '+totalStories+' stories</span>':'')
-        +(hasScope?'<span style="font-size:10px;color:var(--text-muted)">&#9881; scope defined</span>':'')
-        +'</div>'
-        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'%</span></div>'
-        +'<div style="font-size:11px;color:var(--accent);margin-top:8px;font-weight:600">View canvas &rarr;</div>'
+        +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted)">&#128221; '+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted)">&#9881; scope</span>':'')+'</div>'
+        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span></div>'
         +'</div>';
     }).join('')
     +'</div></div>';
 
-  // Active blockers — clickable rows
-  var riskHtml='';
-  if(currentRole!=='belfius'){
-    var risks=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started'});
+  var riskSection='';
+  if(currentRole!=='viewer'||(currentUser&&!currentUser.assignedCustomers.length)){
+    var risks=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started';});
     if(risks.length){
-      riskHtml='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick=\"closeModal()\">View all &rarr;</span></div>'
+      riskSection='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="navigate(\'blockers\')">View all &rarr;</span></div>'
         +'<div class="col g8">'
         +risks.map(function(b){
-          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" '
-            +'onclick=\"closeModal()\" '
-            +'onmouseover="this.style.borderColor=\'rgba(232,93,93,.5)\'" onmouseout="this.style.borderColor=\'rgba(232,93,93,.2)\'">'
+          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" onclick="navigate(\'blockers\')">'
             +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
             +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
             +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'
-            +badge(b.status)
-            +'<span style="font-size:11px;color:var(--accent)">&#8594;</span>'
-            +'</div>';
+            +badge(b.status)+'<span style="font-size:11px;color:var(--accent)">&#8594;</span></div>';
         }).join('')+'</div></div>';
     }
   }
 
-  // Phases
   var phases='<div><div class="sec-title">Phases</div><div class="grid3">'
     +['Foundation','Realization','Deployment'].map(function(ph,i){
       var dates=['March-April 2026','April-May 2026','May-June 2026'][i];
@@ -951,27 +924,23 @@ function rOverview(){
         +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+ms+'</div></div>';
     }).join('')+'</div></div>';
 
-  return '<div class="col g24">'+heroBanner+statCards+ucCards+riskHtml+phases+'</div>';
+  return '<div class="col g24">'+heroBanner+stats+ucCards+riskSection+phases+'</div>';
 }
-/* ═══════════════════════════════════════════════════
-   USE CASES — Canvas View
-═══════════════════════════════════════════════════ */
-var ucTab = {};
 
 /* ═══════════════════════════════════════════════════
-   USE CASES LIST — index of all use cases
+   USE CASES
 ═══════════════════════════════════════════════════ */
+var ucTab={};
+
 function rUseCasesList(){
   return '<div class="col g16">'
     +'<div class="row between center" style="margin-bottom:4px">'
     +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
-    +(isAdmin()?'<button class="btn-primary" onclick=\"closeModal()\">+ Add Use Case</button>':'')
-    +'</div>'
-    +'<div class="gridA">'
-    +DATA.useCases.map(function(uc,idx){
-      var totalStories=(uc.jobStories||[]).length;
-      var hasScope=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
-      return '<div class="card-el" style="padding:0;overflow:hidden;cursor:pointer" onclick=\"goUC('+idx+')\">'
+    +(canEdit()?'<button class="btn-primary" onclick="addUC()">+ Add Use Case</button>':'')
+    +'</div><div class="gridA">'
+    +(DATA.useCases||[]).map(function(uc,idx){
+      var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card-el" style="padding:0;overflow:hidden;cursor:pointer" onclick="goUC('+idx+')">'
         +'<div style="background:var(--btn-primary);padding:16px 18px">'
         +'<div class="row between center" style="gap:8px">'
         +'<div class="row center g8">'
@@ -985,47 +954,27 @@ function rUseCasesList(){
         +(uc.targetUsers?'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">&#128100; <strong>Users:</strong> '+e(uc.targetUsers)+'</div>':'')
         +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
         +'<div class="row between center">'
-        +'<div class="row g8">'
-        +(totalStories?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+totalStories+' job stories</span>':'')
-        +(hasScope?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')
-        +'</div>'
+        +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')+'</div>'
         +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span>'
         +'</div></div></div>';
-    }).join('')
-    +'</div></div>';
+    }).join('')+'</div></div>';
 }
 
-/* ═══════════════════════════════════════════════════
-   USE CASE PAGE — single UC with canvas tabs
-═══════════════════════════════════════════════════ */
 function rUseCasePage(idx){
-  var uc=DATA.useCases[idx];
+  var uc=(DATA.useCases||[])[idx];
   if(!uc) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Use case not found.</div>';
   var tab=ucTab[idx]||'overview';
   var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'}];
-
   var tabBar='<div class="row" style="gap:0;border-bottom:2px solid var(--border);margin-bottom:22px">'
-    +tabs.map(function(t){
-      var active=tab===t.id;
-      return '<button onclick=\"goUC('+idx+')\" style="padding:10px 22px;font-size:13px;font-weight:'+(active?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(active?'2px solid var(--accent)':'2px solid transparent')+';color:'+(active?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px;transition:all .15s">'+t.label+'</button>';
+    +tabs.map(function(t){var a=tab===t.id;
+      return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:10px 22px;font-size:13px;font-weight:'+(a?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(a?'2px solid var(--accent)':'2px solid transparent')+';color:'+(a?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px">'+t.label+'</button>';
     }).join('')+'</div>';
-
-  var prevIdx=idx>0?idx-1:null;
-  var nextIdx=idx<DATA.useCases.length-1?idx+1:null;
-
-  var content='';
-  if(tab==='overview') content=renderUCOverviewTab(uc,idx);
-  else if(tab==='jobstories') content=renderUCJobStoriesTab(uc,idx);
-  else if(tab==='scope') content=renderUCScopeTab(uc,idx);
-
+  var prev=idx>0?idx-1:null, next=idx<(DATA.useCases||[]).length-1?idx+1:null;
+  var content=tab==='overview'?renderUCOverviewTab(uc,idx):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):renderUCScopeTab(uc,idx);
   return '<div class="col g0">'
-    // Breadcrumb
     +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
-    +'<span style="cursor:pointer;color:var(--accent)" onclick=\"closeModal()\">Use Cases</span>'
-    +'<span>&#8250;</span>'
-    +'<span style="color:var(--text)">'+e(uc.id)+' — '+e(uc.title)+'</span>'
-    +'</div>'
-    // Header card
+    +'<span style="cursor:pointer;color:var(--accent)" onclick="navigate(\'usecases\')">Use Cases</span>'
+    +'<span>&#8250;</span><span style="color:var(--text)">'+e(uc.id)+' — '+e(uc.title)+'</span></div>'
     +'<div style="background:var(--btn-primary);border-radius:var(--radius) var(--radius) 0 0;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
     +'<div class="row center g14">'
     +'<div style="width:48px;height:48px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:15px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
@@ -1033,108 +982,96 @@ function rUseCasePage(idx){
     +'<div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
     +'</div>'
     +'<div class="row center g10">'+badge(uc.status)
-    +(isAdmin()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick=\"goUC('+idx+')\">&#9998; Edit</button>'
-      +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick=\"goUC('+idx+')\">&#10005;</button>':'')
+    +(canEdit()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
+      +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
     +'</div></div>'
-    // Progress stripe
-    +'<div style="height:5px;background:rgba(0,0,0,.1);border-radius:0">'
-    +'<div style="height:5px;background:rgba(255,255,255,.55);width:'+uc.progress+'%;transition:width .8s"></div></div>'
-    // Admin progress controls
-    +(isAdmin()?'<div style="background:var(--bg-light);padding:10px 20px;border:1px solid var(--border);border-top:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    +'<div style="height:5px;background:rgba(0,0,0,.1)"><div style="height:5px;background:rgba(255,255,255,.55);width:'+uc.progress+'%"></div></div>'
+    +(canEdit()?'<div style="background:var(--bg-light);padding:10px 20px;border:1px solid var(--border);border-top:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
       +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
-      +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+'%';autoSave()" style="width:140px;accent-color:var(--accent)">'
+      +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:140px;accent-color:var(--accent)">'
       +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
       +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
       +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
       +'</select></div>':'')
-    // Canvas body
     +'<div style="background:var(--card-bg);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:24px">'
     +tabBar+content+'</div>'
-    // Navigation between UCs
     +'<div class="row between" style="margin-top:20px">'
-    +(prevIdx!==null?'<button class="btn-ghost" onclick=\"goUC('+prevIdx+')\">&larr; '+e(DATA.useCases[prevIdx].id)+' '+e(DATA.useCases[prevIdx].title)+'</button>':'<div></div>')
-    +(nextIdx!==null?'<button class="btn-ghost" onclick=\"goUC('+nextIdx+')\">' +e(DATA.useCases[nextIdx].id)+' '+e(DATA.useCases[nextIdx].title)+' &rarr;</button>':'<div></div>')
-    +'</div>'
-    +'</div>';
+    +(prev!==null?'<button class="btn-ghost" onclick="goUC('+prev+')">&larr; '+(DATA.useCases[prev].id)+' '+e(DATA.useCases[prev].title)+'</button>':'<div></div>')
+    +(next!==null?'<button class="btn-ghost" onclick="goUC('+next+')">'+(DATA.useCases[next].id)+' '+e(DATA.useCases[next].title)+' &rarr;</button>':'<div></div>')
+    +'</div></div>';
 }
 
-function rUseCases(){ return rUseCasesList(); }  // keep old ref working
+function rUseCases(){ return rUseCasesList(); }
+function setUCTab(idx,tab){ ucTab[idx]=tab; navigate('uc-'+idx); }
 
-function setUCTab(idx, tab){ucTab[idx]=tab; navigate('uc-'+idx);}
-
-
+/* ── UC Overview Tab ── */
 function renderUCOverviewTab(uc,idx){
-  var idx2=DATA.useCases.indexOf(uc);
+  var mils=(uc.milestones||[]).map(function(m,mi){
+    var last=mi===uc.milestones.length-1;
+    return '<div class="row g14" style="align-items:flex-start">'
+      +'<div class="col center"><div class="tl-dot'+(m.done?' done':'')+'"></div>'
+      +(!last?'<div class="tl-line"></div>':'')+'</div>'
+      +'<div style="padding-bottom:'+(last?0:14)+'px;flex:1">'
+      +'<div class="row center g8 wrap">'
+      +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
+      +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
+      +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>'
+        +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'' )
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
+      +'</div></div>';
+  }).join('');
   return '<div class="grid2" style="gap:14px;margin-bottom:16px">'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Use Case</div>'
-    +'<div style="padding:14px"><div style="font-weight:700;font-size:14px;margin-bottom:6px">'+e(uc.title)+'</div>'
-    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.description||'—')+'</div></div></div>'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Business Priority</div>'
-    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.businessPriority||'—')+'</div></div>'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Target Users</div>'
-    +'<div style="padding:14px;font-size:13px;color:var(--text-muted)">'+e(uc.targetUsers||'—')+'</div></div>'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Expected Outcomes</div>'
-    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+e(uc.expectedOutcomes||'—')+'</div></div>'
+    +[['Use Case',e(uc.title)+'<br><span style="font-size:13px;color:var(--text-muted);font-weight:400">'+e(uc.description||'')+'</span>'],
+      ['Business Priority',e(uc.businessPriority||'—')],
+      ['Target Users',e(uc.targetUsers||'—')],
+      ['Expected Outcomes',e(uc.expectedOutcomes||'—')]].map(function(pair){
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+        +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+pair[0]+'</div>'
+        +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+pair[1]+'</div></div>';
+    }).join('')
     +'</div>'
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">'
     +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Milestones</div>'
-    +(uc.milestones.length?uc.milestones.map(function(m,mi){
-      var last=mi===uc.milestones.length-1;
-      return '<div class="row g14" style="align-items:flex-start">'
-        +'<div class="col center"><div class="tl-dot'+(m.done?' done':'')+'"></div>'
-        +(!last?'<div class="tl-line"></div>':'')+'</div>'
-        +'<div style="padding-bottom:'+(last?0:14)+'px;flex:1">'
-        +'<div class="row center g8 wrap">'
-        +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
-        +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
-        +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
-          +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button>'
-          +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx2+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'')
-        +'</div>'
-        +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
-        +'</div></div>';
-    }).join(''):'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
-    +(isAdmin()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick=\"closeModal()\">+ Add Milestone</button>':'')
+    +(mils||'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
+    +(canEdit()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
     +'</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#9998; Edit Overview</button>':'');
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="editUCOverview('+idx+')">&#9998; Edit Overview</button>':'');
 }
 
+/* ── UC Job Stories Tab ── */
 function renderUCJobStoriesTab(uc,idx){
-  var idx2=DATA.useCases.indexOf(uc);
   var stories=uc.jobStories||[];
   return '<div>'
     +'<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent)">'
     +'"When (situation/context), I want (motivation/action), so that (outcome/benefit)."</div>'
-    +(stories.length
-      ?'<div class="overflow-x"><table><thead><tr>'
-        +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th>'
-        +(isAdmin()?'<th></th>':'')
-        +'</tr></thead><tbody>'
-        +stories.map(function(js,ji){
-          return '<tr><td style="text-align:center;font-weight:700;color:var(--accent)">'+(ji+1)+'</td>'
-            +'<td style="min-width:240px;line-height:1.6">'+e(js.story||'')+'</td>'
-            +'<td style="min-width:150px"><div style="white-space:pre-line;font-size:12px;line-height:1.5">'+e(js.painPoints||'')+'</div></td>'
-            +'<td style="min-width:140px;font-size:12px">'+e(js.desiredOutcomes||'')+'</td>'
-            +'<td style="min-width:120px;font-size:12px"><div style="white-space:pre-line">'+e(js.kpis||'')+'</div></td>'
-            +(isAdmin()?'<td><div class="row g4"><button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
-              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button></div></td>':'')
-            +'</tr>';
-        }).join('')+'</tbody></table></div>'
+    +(stories.length?'<div class="overflow-x"><table><thead><tr>'
+      +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th>'
+      +(canEdit()?'<th></th>':'')
+      +'</tr></thead><tbody>'
+      +stories.map(function(js,ji){
+        return '<tr><td style="text-align:center;font-weight:700;color:var(--accent)">'+(ji+1)+'</td>'
+          +'<td style="min-width:240px;line-height:1.6">'+e(js.story||'')+'</td>'
+          +'<td style="min-width:150px"><div style="white-space:pre-line;font-size:12px;line-height:1.5">'+e(js.painPoints||'')+'</div></td>'
+          +'<td style="min-width:140px;font-size:12px">'+e(js.desiredOutcomes||'')+'</td>'
+          +'<td style="min-width:120px;font-size:12px"><div style="white-space:pre-line">'+e(js.kpis||'')+'</div></td>'
+          +(canEdit()?'<td><div class="row g4">'
+            +'<button class="btn-icon" style="font-size:11px" onclick="editJobStory('+idx+','+ji+')">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteJobStory('+idx+','+ji+')">&#10005;</button>'
+            +'</div></td>':'')
+          +'</tr>';
+      }).join('')+'</tbody></table></div>'
       :'<div style="padding:24px;text-align:center;color:var(--text-muted);background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm)">No job stories yet.</div>')
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick=\"closeModal()\">+ Add Job Story</button>':'')
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick="addJobStory('+idx+')">+ Add Job Story</button>':'')
     +'</div>';
 }
 
+/* ── UC Scope Tab ── */
 function renderUCScopeTab(uc,idx){
-  var idx2=DATA.useCases.indexOf(uc);
-  var sc=uc.scope||{};
-  var flows=sc.relatedFlows||[];
-  function scard(title,content,full){
-    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden'+(full?';grid-column:1/-1':'')+'">'
+  var sc=uc.scope||{}, flows=sc.relatedFlows||[];
+  function scard(title,content){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
       +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+content+'</div></div>';
   }
@@ -1145,9 +1082,9 @@ function renderUCScopeTab(uc,idx){
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Functional Scope</div>'
     +'<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
     +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">In Scope</div>'
-    +'<div style="font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.6">'+e(sc.functionalScopeIn||'—')+'</div></div>'
+    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(sc.functionalScopeIn||'—')+'</div></div>'
     +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">Out of Scope</div>'
-    +'<div style="font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.6">'+e(sc.functionalScopeOut||'—')+'</div></div>'
+    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(sc.functionalScopeOut||'—')+'</div></div>'
     +'</div></div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
     +scard('Agent Role',e(sc.agentRole||'—'))
@@ -1158,24 +1095,23 @@ function renderUCScopeTab(uc,idx){
     +scard('Data',e(sc.data||'—'))
     +scard('Actions',e(sc.actions||'—'))
     +'</div>'
-    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Guardrails Summary</div>'
-    +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+e(sc.guardrails||'—')+'</div></div>'
+    +scard('Guardrails Summary',e(sc.guardrails||'—'))
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Related Flows</div>'
     +'<div style="padding:14px">'
-    +(flows.length
-      ?flows.map(function(f,fi){
-          return '<div class="row center g10" style="padding:8px 0;border-bottom:1px solid var(--border)">'
-            +'<span style="font-size:16px">&#9875;</span><span style="font-size:13px;flex:1;color:var(--text-dim)">'+e(f.name)+'</span>'
-            +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
-              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button>':'')
-            +'</div>';}).join('')
-      :'<div style="font-size:13px;color:var(--text-muted)">No flows linked yet.</div>')
-    +(isAdmin()?'<div class="row g8" style="margin-top:12px"><button class="btn-ghost btn-sm" onclick=\"closeModal()\">+ Link Flow</button>'
-      +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">Open Flowchart Builder</button></div>':'')
+    +(flows.length?flows.map(function(f,fi){
+        return '<div class="row center g10" style="padding:8px 0;border-bottom:1px solid var(--border)">'
+          +'<span style="font-size:16px">&#9875;</span><span style="font-size:13px;flex:1;color:var(--text-dim)">'+e(f.name)+'</span>'
+          +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="editLinkedFlow('+idx+','+fi+')">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteLinkedFlow('+idx+','+fi+')">&#10005;</button>':'')
+          +'</div>';
+      }).join(''):'<div style="font-size:13px;color:var(--text-muted)">No flows linked yet.</div>')
+    +(canEdit()?'<div class="row g8" style="margin-top:12px">'
+      +'<button class="btn-ghost btn-sm" onclick="addLinkedFlow('+idx+')">+ Link Flow</button>'
+      +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">Open Flowchart Builder</button>'
+      +'</div>':'')
     +'</div></div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#9998; Edit Scope</button>':'')
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="editUCScope('+idx+')">&#9998; Edit Scope</button>':'')
     +'</div>';
 }
 
@@ -1192,8 +1128,8 @@ function addUC(){
     +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="2"></textarea></div>'
     +'<div class="form-group"><label>Business Priority</label><input id="m-bprio"></div>'
     +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2"></textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAddUC()">Add</button></div></div>');
 }
 function saveAddUC(){
   DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,
@@ -1212,17 +1148,17 @@ function editUC(idx){
     +'<div class="form-group"><label>Status</label><select id="m-status">'
     +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(uc.title)+'"></div>'
-    +'<div class="form-group"><label>Subtitle</label><input id="m-sub" value="'+e(uc.subtitle)+'"></div>'
+    +'<div class="form-group"><label>Subtitle</label><input id="m-sub" value="'+e(uc.subtitle||'')+'"></div>'
     +'<div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="'+uc.progress+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditUC('+idx+')">Save</button></div></div>');
 }
 function saveEditUC(idx){
   var uc=DATA.useCases[idx];
-  uc.id=document.getElementById('m-id').value;uc.title=document.getElementById('m-title').value;
-  uc.subtitle=document.getElementById('m-sub').value;uc.status=document.getElementById('m-status').value;
+  uc.id=document.getElementById('m-id').value; uc.title=document.getElementById('m-title').value;
+  uc.subtitle=document.getElementById('m-sub').value; uc.status=document.getElementById('m-status').value;
   uc.progress=parseInt(document.getElementById('m-prog').value)||0;
-  closeModal();navigate('usecases');autoSave();
+  closeModal();navigate('uc-'+idx);autoSave();
 }
 function editUCOverview(idx){
   var uc=DATA.useCases[idx];
@@ -1231,14 +1167,14 @@ function editUCOverview(idx){
     +'<div class="form-group"><label>Business Priority</label><input id="m-bprio" value="'+e(uc.businessPriority||'')+'"></div>'
     +'<div class="form-group"><label>Target Users</label><input id="m-tusers" value="'+e(uc.targetUsers||'')+'"></div>'
     +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2">'+e(uc.expectedOutcomes||'')+'</textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCOverview('+idx+')">Save</button></div></div>');
 }
 function saveUCOverview(idx){
   var uc=DATA.useCases[idx];
-  uc.description=document.getElementById('m-desc').value;uc.businessPriority=document.getElementById('m-bprio').value;
-  uc.targetUsers=document.getElementById('m-tusers').value;uc.expectedOutcomes=document.getElementById('m-outcomes').value;
-  closeModal();navigate('usecases');autoSave();
+  uc.description=document.getElementById('m-desc').value; uc.businessPriority=document.getElementById('m-bprio').value;
+  uc.targetUsers=document.getElementById('m-tusers').value; uc.expectedOutcomes=document.getElementById('m-outcomes').value;
+  closeModal();navigate('uc-'+idx);autoSave();
 }
 function editUCScope(idx){
   var sc=DATA.useCases[idx].scope||{};
@@ -1248,32 +1184,58 @@ function editUCScope(idx){
     +'<div class="form-group"><label>In Scope</label><input id="sc-in" value="'+e(sc.functionalScopeIn||'')+'"></div></div>'
     +'<div class="form-group"><label>Out of Scope</label><input id="sc-out" value="'+e(sc.functionalScopeOut||'')+'"></div>'
     +'<div class="form-group"><label>Current Process</label><textarea id="sc-proc" rows="3">'+e(sc.currentProcess||'')+'</textarea></div>'
-    +'<div class="form-row"><div class="form-group"><label>Data (one per line)</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
-    +'<div class="form-group"><label>Actions (one per line)</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
-    +'<div class="form-group"><label>Guardrails Summary</label><textarea id="sc-guard" rows="5">'+e(sc.guardrails||'')+'</textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="form-row"><div class="form-group"><label>Data</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Actions</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
+    +'<div class="form-group"><label>Guardrails</label><textarea id="sc-guard" rows="5">'+e(sc.guardrails||'')+'</textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCScope('+idx+')">Save</button></div></div>');
 }
 function saveUCScope(idx){
   if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
   var sc=DATA.useCases[idx].scope;
-  sc.agentRole=document.getElementById('sc-role').value;sc.channels=document.getElementById('sc-chan').value;
-  sc.functionalScopeIn=document.getElementById('sc-in').value;sc.functionalScopeOut=document.getElementById('sc-out').value;
-  sc.currentProcess=document.getElementById('sc-proc').value;sc.data=document.getElementById('sc-data').value;
-  sc.actions=document.getElementById('sc-acts').value;sc.guardrails=document.getElementById('sc-guard').value;
-  closeModal();ucTab[idx]='scope';navigate('usecases');autoSave();
+  sc.agentRole=document.getElementById('sc-role').value; sc.channels=document.getElementById('sc-chan').value;
+  sc.functionalScopeIn=document.getElementById('sc-in').value; sc.functionalScopeOut=document.getElementById('sc-out').value;
+  sc.currentProcess=document.getElementById('sc-proc').value; sc.data=document.getElementById('sc-data').value;
+  sc.actions=document.getElementById('sc-acts').value; sc.guardrails=document.getElementById('sc-guard').value;
+  closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
 }
 function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
-
-/* ── Job Stories CRUD ── */
+function addMilestone(idx){
+  showModal('<div class="modal"><h3>Add Milestone</h3>'
+    +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
+    +'<div class="form-group"><label>Date</label><input id="m-date" placeholder="e.g. Mid-April"></div>'
+    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk" style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">Mark as At Risk</label></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveMilestone('+idx+')">Add</button></div></div>');
+}
+function saveMilestone(idx){
+  DATA.useCases[idx].milestones.push({label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,done:false,atRisk:document.getElementById('m-risk').checked});
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function editMilestone(idx,mi){
+  var m=DATA.useCases[idx].milestones[mi];
+  showModal('<div class="modal"><h3>Edit Milestone</h3>'
+    +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(m.label)+'"></div>'
+    +'<div class="form-group"><label>Date</label><input id="m-date" value="'+e(m.date)+'"></div>'
+    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk"'+(m.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">At Risk</label></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditMilestone('+idx+','+mi+')">Save</button></div></div>');
+}
+function saveEditMilestone(idx,mi){
+  var m=DATA.useCases[idx].milestones[mi];
+  m.label=document.getElementById('m-lbl').value; m.date=document.getElementById('m-date').value; m.atRisk=document.getElementById('m-risk').checked;
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function deleteMilestone(idx,mi){DATA.useCases[idx].milestones.splice(mi,1);navigate('uc-'+idx);autoSave();}
+function toggleMil(idx,mi,v){DATA.useCases[idx].milestones[mi].done=v;}
 function addJobStory(idx){
   showModal('<div class="modal"><h3>Add Job Story</h3>'
     +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3" placeholder="When... I want... so that..."></textarea></div>'
     +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3"></textarea></div>'
     +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3"></textarea></div></div>'
     +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+',-1)">Add</button></div></div>');
 }
 function editJobStory(idx,ji){
   var js=(DATA.useCases[idx].jobStories||[])[ji]||{};
@@ -1282,99 +1244,76 @@ function editJobStory(idx,ji){
     +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3">'+e(js.painPoints||'')+'</textarea></div>'
     +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3">'+e(js.desiredOutcomes||'')+'</textarea></div></div>'
     +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi" value="'+e(js.kpis||'')+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+','+ji+')">Save</button></div></div>');
 }
 function saveJobStory(idx,ji){
   if(!DATA.useCases[idx].jobStories) DATA.useCases[idx].jobStories=[];
   var obj={story:document.getElementById('js-story').value,painPoints:document.getElementById('js-pain').value,
     desiredOutcomes:document.getElementById('js-out').value,kpis:document.getElementById('js-kpi').value};
   if(ji===-1) DATA.useCases[idx].jobStories.push(obj); else DATA.useCases[idx].jobStories[ji]=obj;
-  closeModal();ucTab[idx]='jobstories';navigate('usecases');autoSave();
+  closeModal();ucTab[idx]='jobstories';navigate('uc-'+idx);autoSave();
 }
-function deleteJobStory(idx,ji){if(confirm('Delete?')){DATA.useCases[idx].jobStories.splice(ji,1);navigate('usecases');autoSave();}}
-
-/* ── Linked Flows ── */
+function deleteJobStory(idx,ji){if(confirm('Delete?')){DATA.useCases[idx].jobStories.splice(ji,1);navigate('uc-'+idx);autoSave();}}
 function addLinkedFlow(idx){
-  var fcNames=DATA.flowcharts.map(function(f){return '<option>'+e(f.name)+'</option>';}).join('');
+  var opts=(DATA.flowcharts||[]).map(function(f){return '<option>'+e(f.name)+'</option>';}).join('');
   showModal('<div class="modal"><h3>Link Flowchart</h3>'
-    +(DATA.flowcharts.length?'<div class="form-group"><label>Select flowchart</label><select id="lf-sel">'+fcNames+'</select></div>':'')
+    +(opts?'<div class="form-group"><label>Select flowchart</label><select id="lf-sel">'+opts+'</select></div>':'')
     +'<div class="form-group"><label>Or enter custom name</label><input id="lf-name"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +(DATA.flowcharts.length?'<button class="btn-primary" onclick=\"goUC('+idx+')\">Link Selected</button>':'')
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Link Custom</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +(opts?'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',true)">Link Selected</button>':'')
+    +'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',false)">Link Custom</button></div></div>');
 }
 function saveLinkedFlow(idx,useSelect){
   if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
   if(!DATA.useCases[idx].scope.relatedFlows) DATA.useCases[idx].scope.relatedFlows=[];
-  var sel=document.getElementById('lf-sel'),nm=document.getElementById('lf-name');
-  var name=useSelect&&sel?sel.value:(nm?nm.value:'');
-  if(name){DATA.useCases[idx].scope.relatedFlows.push({name:name});}
-  closeModal();ucTab[idx]='scope';navigate('usecases');autoSave();
+  var sel=document.getElementById('lf-sel'), nm=document.getElementById('lf-name');
+  var name=(useSelect&&sel)?sel.value:(nm?nm.value:'');
+  if(name) DATA.useCases[idx].scope.relatedFlows.push({name:name});
+  closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
 }
 function editLinkedFlow(idx,fi){
   var f=DATA.useCases[idx].scope.relatedFlows[fi];
   showModal('<div class="modal"><h3>Edit Flow Link</h3>'
     +'<div class="form-group"><label>Name</label><input id="lf-name" value="'+e(f.name)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditLinkedFlow('+idx+','+fi+')">Save</button></div></div>');
 }
-function saveEditLinkedFlow(idx,fi){DATA.useCases[idx].scope.relatedFlows[fi].name=document.getElementById('lf-name').value;closeModal();navigate('usecases');autoSave();}
-function deleteLinkedFlow(idx,fi){if(confirm('Remove?')){DATA.useCases[idx].scope.relatedFlows.splice(fi,1);navigate('usecases');autoSave();}}
-
-/* Milestone CRUD */
-function addMilestone(ucIdx){
-  showModal('<div class="modal"><h3>Add Milestone</h3>'
-    +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
-    +'<div class="form-group"><label>Date</label><input id="m-date" placeholder="e.g. Mid-April"></div>'
-    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk" style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">Mark as At Risk</label></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
-}
-function saveMilestone(ucIdx){
-  DATA.useCases[ucIdx].milestones.push({label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,done:false,atRisk:document.getElementById('m-risk').checked});
-  closeModal();navigate('usecases');autoSave();
-}
-function editMilestone(ucIdx,mIdx){
-  var m=DATA.useCases[ucIdx].milestones[mIdx];
-  showModal('<div class="modal"><h3>Edit Milestone</h3>'
-    +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(m.label)+'"></div>'
-    +'<div class="form-group"><label>Date</label><input id="m-date" value="'+e(m.date)+'"></div>'
-    +'<div class="form-group row center g8"><input type="checkbox" id="m-risk"'+(m.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">At Risk</label></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"saveEditProject()\">Save</button></div></div>');
-}
-function saveEditMilestone(ucIdx,mIdx){
-  var m=DATA.useCases[ucIdx].milestones[mIdx];
-  m.label=document.getElementById('m-lbl').value;m.date=document.getElementById('m-date').value;m.atRisk=document.getElementById('m-risk').checked;
-  closeModal();navigate('usecases');autoSave();
-}
-function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases');autoSave();}
-function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v;}
+function saveEditLinkedFlow(idx,fi){DATA.useCases[idx].scope.relatedFlows[fi].name=document.getElementById('lf-name').value;closeModal();navigate('uc-'+idx);autoSave();}
+function deleteLinkedFlow(idx,fi){if(confirm('Remove?')){DATA.useCases[idx].scope.relatedFlows.splice(fi,1);navigate('uc-'+idx);autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    TIMELINE
 ═══════════════════════════════════════════════════ */
 function rTimeline(){
+  var dates=[
+    {date:'End of March 2026',label:'Belfius sandbox access deadline',owner:'Belfius',urgent:true},
+    {date:'April 21, 2026',label:'Exec F2F — Eran Agrios + BDI C-suite',owner:'All',urgent:false},
+    {date:'Before mid-April',label:'UC1 architecture (Robin + Jeroen)',owner:'Salesforce',urgent:false},
+    {date:'Mid-April',label:'UC1 integration design (Koen + Belfius)',owner:'Koen / Belfius',urgent:true},
+    {date:'April 28-29, 2026',label:'Agent Builder Workshop (on-site)',owner:'All',urgent:false},
+    {date:'Mid-June',label:'UC1 test execution',owner:'Belfius',urgent:false},
+    {date:'Mid-June',label:'UC1 UAT & sign-off',owner:'Belfius',urgent:false}
+  ];
   var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
-    var days=['0-30 days','31-60 days','61-90 days'][i];
-    var dates=['March-April 2026','April-May 2026','May-June 2026'][i];
+    var d=['March-April 2026','April-May 2026','May-June 2026'][i];
     var ms=['Scope agreement, arch design, env access','Agent builds, iterative cycles','UAT, go-live, handover'][i];
-    return '<div class="card" style="padding:22px'+(i===0?';border-color:var(--border-hover)':'')+'">'
-      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">CURRENT</div>':'')
+    var icons=['🏗','⚙️','🚀'];
+    return '<div class="card" style="padding:22px'+(i===0?';border-left:3px solid var(--accent)':'')+'">'
+      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;font-weight:700">CURRENT</div>':'')
+      +'<div style="font-size:20px;margin-bottom:8px">'+icons[i]+'</div>'
       +'<div style="font-family:var(--font-head);font-weight:700;font-size:18px">'+ph+'</div>'
-      +'<div style="font-size:12px;color:var(--accent);margin-top:6px">'+days+'</div>'
-      +'<div style="font-size:13px;color:var(--text-soft);margin-top:3px">'+dates+'</div>'
+      +'<div style="font-size:12px;color:var(--accent);margin-top:6px">'+d+'</div>'
       +'<div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.5">'+ms+'</div></div>';
   }).join('');
-  var dates=KEY_DATES.map(function(kd,i){
-    var last=i===KEY_DATES.length-1;
+  var timeline=dates.map(function(kd,i){
+    var last=i===dates.length-1;
     return '<div class="row g14" style="align-items:flex-start">'
-      +'<div class="col center"><div class="tl-dot" style="border-color:'+(kd.urgent?'#e85d5d':'var(--accent)')+';background:'+(kd.urgent?'rgba(232,93,93,.2)':'var(--bg)')+'"></div>'
+      +'<div class="col center"><div class="tl-dot" style="border-color:'+(kd.urgent?'var(--red)':'var(--accent)')+';background:'+(kd.urgent?'rgba(232,93,93,.2)':'var(--bg)')+'"></div>'
       +(!last?'<div class="tl-line"></div>':'')+'</div>'
       +'<div style="padding-bottom:'+(last?0:20)+'px;flex:1">'
       +'<div class="row center g10 wrap">'
-      +'<span style="font-family:var(--font-head);font-size:12px;color:'+(kd.urgent?'#e85d5d':'var(--accent)')+';font-weight:700">'+e(kd.date)+'</span>'
+      +'<span style="font-family:var(--font-head);font-size:12px;color:'+(kd.urgent?'var(--red)':'var(--accent)')+';font-weight:700">'+e(kd.date)+'</span>'
       +'<span style="font-size:14px;color:var(--text-dim)">'+e(kd.label)+'</span>'
       +(kd.urgent?'<span class="badge b-red" style="font-size:9px">URGENT</span>':'')
       +'</div>'
@@ -1384,118 +1323,113 @@ function rTimeline(){
   return '<div class="col g24">'
     +'<div><div class="label">90-Day Roadmap</div><h1 style="font-size:26px;font-weight:800">Timeline</h1></div>'
     +'<div class="grid3">'+phases+'</div>'
-    +'<div><div class="sec-title">Key Dates &amp; Milestones</div>'+dates+'</div></div>';
+    +'<div><div class="sec-title">Key Dates &amp; Milestones</div>'+timeline+'</div></div>';
 }
 
 /* ═══════════════════════════════════════════════════
    TEAM
 ═══════════════════════════════════════════════════ */
 function rTeam(){
-  var sfT=DATA.team.filter(function(t){return t.company==='Salesforce'});
-  var bT=DATA.team.filter(function(t){return t.company==='Belfius'});
-  function mc(m,idx){
-    var realIdx=DATA.team.indexOf(m);
+  var sfT=(DATA.team||[]).filter(function(t){return t.company==='Salesforce';});
+  var bT=(DATA.team||[]).filter(function(t){return t.company!=='Salesforce';});
+  function mc(m){
+    var ri=DATA.team.indexOf(m);
     return '<div class="card row center g12" style="padding:12px 16px">'
       +av(m.name,m.company)
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-family:var(--font-head);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.name)+'</div>'
       +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.role)+'</div>'
       +'</div>'
-      +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button></div>':'')
+      +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editTeamMember('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteTeamMember('+ri+')">&#10005;</button></div>':'')
       +'</div>';
   }
+  var sponsors=(DATA.execSponsors||[]).map(function(s,si){
+    return '<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
+      +av(s.name,'Belfius')
+      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div><div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div></div>'
+      +(canEdit()?'<div class="row g4" style="margin-left:8px"><button class="btn-icon" onclick="editExecSponsor('+si+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteExecSponsor('+si+')">&#10005;</button></div>':'')
+      +'</div>';
+  }).join('');
   return '<div class="col g24">'
     +'<div><div class="label">People</div><h1 style="font-size:26px;font-weight:800">Team</h1>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"closeModal()\">+ Add Member</button>':'')+'</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addTeamMember()">+ Add Member</button>':'')+'</div>'
     +'<div class="card-accent" style="padding:24px">'
     +'<div class="row between center" style="margin-bottom:14px">'
-    +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors &mdash; Belfius</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">+ Add Sponsor</button>':'')
-    +'</div>'
-    +'<div class="row wrap g12">'
-    +DATA.execSponsors.map(function(s,si){
-      return '<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
-        +av(s.name,'Belfius')
-        +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div>'
-        +'<div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div></div>'
-        +(isAdmin()?'<div class="row g4" style="margin-left:8px">'
-          +'<button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
-          +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>'
-          +'</div>':'')
-        +'</div>';
-    }).join('')
-    +'</div></div>'
+    +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addExecSponsor()">+ Add</button>':'')+'</div>'
+    +'<div class="row wrap g12">'+sponsors+'</div></div>'
     +'<div class="grid2">'
-    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a9eff;margin-bottom:12px">Salesforce</h2><div class="col g10">'+sfT.map(mc).join('')+'</div></div>'
-    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Belfius</h2><div class="col g10">'+bT.map(mc).join('')+'</div></div>'
+    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a9eff;margin-bottom:12px">Salesforce</h2>'
+    +'<div class="col g10">'+sfT.map(mc).join('')+'</div></div>'
+    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">'+e(CUS().name)+'</h2>'
+    +'<div class="col g10">'+bT.map(mc).join('')+'</div></div>'
     +'</div></div>';
 }
 function addTeamMember(){
   showModal('<div class="modal"><h3>Add Team Member</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
     +'<div class="form-group"><label>Role</label><input id="m-role" placeholder="Job title / role"></div>'
-    +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>Belfius</option></select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveTeamMember(-1)">Add</button></div></div>');
 }
 function editTeamMember(idx){
   var m=DATA.team[idx];
   showModal('<div class="modal"><h3>Edit Team Member</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(m.name)+'"></div>'
     +'<div class="form-group"><label>Role</label><input id="m-role" value="'+e(m.role)+'"></div>'
-    +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(m.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(m.company==='Belfius'?' selected':'')+'>Belfius</option></select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(m.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(m.company!=='Salesforce'?' selected':'')+'>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveTeamMember('+idx+')">Save</button></div></div>');
 }
 function saveTeamMember(idx){
   var obj={name:document.getElementById('m-name').value,role:document.getElementById('m-role').value,company:document.getElementById('m-co').value};
-  if(idx===-1)DATA.team.push(obj);else DATA.team[idx]=obj;
+  if(idx===-1) DATA.team.push(obj); else DATA.team[idx]=obj;
   closeModal();navigate('team');autoSave();
 }
-function deleteTeamMember(idx){if(confirm('Remove this team member?')){DATA.team.splice(idx,1);navigate('team');autoSave();}}
-
-/* ── Exec Sponsors ── */
+function deleteTeamMember(idx){if(confirm('Remove?')){DATA.team.splice(idx,1);navigate('team');autoSave();}}
 function addExecSponsor(){
   showModal('<div class="modal"><h3>Add Executive Sponsor</h3>'
-    +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
-    +'<div class="form-group"><label>Title</label><input id="m-title" placeholder="e.g. CIO Belfius Insurance"></div>'
-    +'<div class="form-group"><label>Company</label><input id="m-co" value="Belfius"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor(-1)">Add</button></div></div>');
 }
 function editExecSponsor(idx){
   var s=DATA.execSponsors[idx];
-  showModal('<div class="modal"><h3>Edit Executive Sponsor</h3>'
+  showModal('<div class="modal"><h3>Edit Sponsor</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(s.name)+'"></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(s.title)+'"></div>'
-    +'<div class="form-group"><label>Company</label><input id="m-co" value="'+e(s.company)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor('+idx+')">Save</button></div></div>');
 }
 function saveExecSponsor(idx){
-  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:document.getElementById('m-co').value};
+  if(!DATA.execSponsors) DATA.execSponsors=[];
+  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:CUS().name};
   if(idx===-1) DATA.execSponsors.push(obj); else DATA.execSponsors[idx]=obj;
-  closeModal(); navigate('team'); autoSave();
+  closeModal();navigate('team');autoSave();
 }
-function deleteExecSponsor(idx){if(confirm('Remove this sponsor?')){DATA.execSponsors.splice(idx,1);navigate('team');autoSave();}}
+function deleteExecSponsor(idx){if(confirm('Remove?')){DATA.execSponsors.splice(idx,1);navigate('team');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    RACI
 ═══════════════════════════════════════════════════ */
 function rRaci(){
-  var cols=[{k:'M',l:'Maarten'},{k:'F',l:'Francis'},{k:'J',l:'Jeroen'},{k:'R',l:'Robin'},{k:'K',l:'Koen'},{k:'B',l:'Belfius',g:true}];
+  var cols=[{k:'M',l:'Maarten'},{k:'F',l:'Francis'},{k:'J',l:'Jeroen'},{k:'R',l:'Robin'},{k:'K',l:'Koen'},{k:'B',l:e(CUS().name),g:true}];
   var vals=['R','A','C','I'];
-  var rows=DATA.raci.map(function(row,ri){
+  var rows=(DATA.raci||[]).map(function(row,ri){
     var cells=cols.map(function(c){
-      if(isAdmin()){
+      if(canEdit()){
         return '<td style="text-align:center"><select onchange="DATA.raci['+ri+'][\''+c.k+'\']=this.value;autoSave()" style="width:60px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(row[c.k]==='R'?'#4caf82':row[c.k]==='A'?'var(--accent)':row[c.k]==='C'?'#4a9eff':'var(--text-muted)')+';">'
-          +vals.map(function(v){return '<option'+(v===row[c.k]?' selected':'')+'>'+v+'</option>'}).join('')
-          +'</select></td>';
+          +vals.map(function(v){return '<option'+(v===row[c.k]?' selected':'')+'>'+v+'</option>';}).join('')+'</select></td>';
       }
       return '<td style="text-align:center"><span class="r-'+row[c.k]+'" style="font-family:var(--font-head);font-size:13px">'+row[c.k]+'</span></td>';
     }).join('');
-    return '<tr><td style="min-width:220px">'+e(row.a)+(isAdmin()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick=\"closeModal()\">&#10005;</button>':'')+'</td>'+cells+'</tr>';
+    return '<tr><td style="min-width:220px">'+e(row.a)
+      +(canEdit()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick="deleteRaciRow('+ri+')">&#10005;</button>':'')
+      +'</td>'+cells+'</tr>';
   }).join('');
   var legend=[['R','r-R','Responsible'],['A','r-A','Accountable'],['C','r-C','Consulted'],['I','r-I','Informed']].map(function(x){
     return '<div class="row center g6" style="font-size:13px;color:var(--text-muted)"><span class="'+x[1]+'" style="font-family:var(--font-head);font-weight:700">'+x[0]+'</span><span>'+x[2]+'</span></div>';
@@ -1503,43 +1437,43 @@ function rRaci(){
   return '<div class="col g24">'
     +'<div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1>'
     +'<div class="row wrap g16" style="margin-top:12px">'+legend+'</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick=\"closeModal()\">+ Add Activity</button>':'')+'</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick="addRaciRow()">+ Add Activity</button>':'')+'</div>'
     +'<div class="overflow-x"><table><thead><tr><th style="min-width:220px">Activity</th>'
-    +cols.map(function(c){return '<th style="text-align:center;color:'+(c.g?'var(--accent)':'#4a9eff')+'">'+c.l+'</th>'}).join('')
+    +cols.map(function(c){return '<th style="text-align:center;color:'+(c.g?'var(--accent)':'#4a9eff')+'">'+c.l+'</th>';}).join('')
     +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function addRaciRow(){
   showModal('<div class="modal"><h3>Add RACI Activity</h3>'
-    +'<div class="form-group"><label>Activity Name</label><input id="m-act" placeholder="Activity description"></div>'
+    +'<div class="form-group"><label>Activity Name</label><input id="m-act"></div>'
     +'<div class="form-row">'
-    +['M:Maarten','F:Francis','J:Jeroen','R:Robin','K:Koen','B:Belfius'].map(function(x){
+    +['M:Maarten','F:Francis','J:Jeroen','R:Robin','K:Koen','B:'+CUS().name].map(function(x){
       var kl=x.split(':');
       return '<div class="form-group"><label>'+kl[1]+'</label><select id="m-'+kl[0]+'">'
-        +['R','A','C','I'].map(function(v){return '<option'+(v==='I'?' selected':'')+'>'+v+'</option>'}).join('')
+        +['R','A','C','I'].map(function(v){return '<option'+(v==='I'?' selected':'')+'>'+v+'</option>';}).join('')
         +'</select></div>';
     }).join('')+'</div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveRaciRow()">Add</button></div></div>');
 }
 function saveRaciRow(){
   DATA.raci.push({a:document.getElementById('m-act').value,M:document.getElementById('m-M').value,F:document.getElementById('m-F').value,J:document.getElementById('m-J').value,R:document.getElementById('m-R').value,K:document.getElementById('m-K').value,B:document.getElementById('m-B').value});
   closeModal();navigate('raci');autoSave();
 }
-function deleteRaciRow(idx){if(confirm('Delete this activity?')){DATA.raci.splice(idx,1);navigate('raci');autoSave();}}
+function deleteRaciRow(idx){if(confirm('Delete?')){DATA.raci.splice(idx,1);navigate('raci');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    BLOCKERS
 ═══════════════════════════════════════════════════ */
 function rBlockers(){
-  var canEdit=currentRole==='admin'||currentRole==='salesforce';
+  var canE=canEdit()||currentRole==='viewer';
   var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
   function sec(title,items,color,type){
     return '<div><div class="row center g12" style="margin-bottom:12px">'
       +'<h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:'+color+'">'+title+'</h2>'
-      +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">+ Add</button>':'')
-      +'</div>'
-      +'<div class="col g10">'+items.map(function(item,i){
-        var realIdx=DATA.blockers.indexOf(item);
+      +(canEdit()?'<button class="btn-primary btn-sm" onclick="addBlocker(\''+type+'\')">+ Add</button>':'')
+      +'</div><div class="col g10">'
+      +items.map(function(item){
+        var ri=(DATA.blockers||[]).indexOf(item);
         return '<div class="card" style="padding:16px 20px;'+(item.status==='At Risk'||item.status==='Blocked'?'border-color:rgba(232,93,93,.25)':'')+'">'
           +'<div class="row wrap between" style="gap:12px">'
           +'<div style="flex:1">'
@@ -1550,18 +1484,17 @@ function rBlockers(){
           +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Owner: <span style="color:var(--text-soft)">'+e(item.owner)+'</span></div>'
           +'</div>'
           +'<div class="col g8" style="align-items:flex-end">'
-          +(canEdit?'<select onchange="DATA.blockers['+realIdx+'].status=this.value;navigate(\'blockers\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
-            +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>'}).join('')+'</select>':'')
-          +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
-            +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button></div>':'')
+          +(currentRole!=='viewer'||canEdit()?'<select onchange="DATA.blockers['+ri+'].status=this.value;navigate(\'blockers\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
+            +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')
+          +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editBlocker('+ri+')">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteBlocker('+ri+')">&#10005;</button></div>':'')
           +'</div></div></div>';
       }).join('')+'</div></div>';
   }
   return '<div class="col g28">'
-    +'<div><div class="label">Risk Register</div><h1 style="font-size:26px;font-weight:800">Open Decisions &amp; Blockers</h1>'
-    +(canEdit?'<p style="font-size:13px;color:var(--accent);margin-top:6px">&#9998; Use dropdowns to update status live</p>':'')+'</div>'
-    +sec('Decisions Required',DATA.blockers.filter(function(b){return b.type==='Decision'}),'#f0a843','Decision')
-    +sec('Blockers',DATA.blockers.filter(function(b){return b.type==='Blocker'}),'#e85d5d','Blocker')
+    +'<div><div class="label">Risk Register</div><h1 style="font-size:26px;font-weight:800">Open Decisions &amp; Blockers</h1></div>'
+    +sec('Decisions Required',(DATA.blockers||[]).filter(function(b){return b.type==='Decision';}),'var(--amber)','Decision')
+    +sec('Blockers',(DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}),'var(--red)','Blocker')
     +'</div>';
 }
 function addBlocker(type){
@@ -1570,12 +1503,12 @@ function addBlocker(type){
     +'<div class="form-group"><label>Description</label><textarea id="m-item" rows="2"></textarea></div>'
     +'<div class="form-group"><label>Owner</label><input id="m-owner"></div>'
     +'<div class="form-group"><label>Status</label><select id="m-status">'
-    +['Open','In Progress','At Risk','Blocked','Not Started','Pending'].map(function(s){return '<option>'+s+'</option>'}).join('')
-    +'</select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +['Open','In Progress','At Risk','Blocked','Not Started','Pending'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveBlocker(\''+type+'\')">Add</button></div></div>');
 }
 function saveBlocker(type){
+  if(!DATA.blockers) DATA.blockers=[];
   DATA.blockers.push({id:document.getElementById('m-id').value,type:type,item:document.getElementById('m-item').value,owner:document.getElementById('m-owner').value,status:document.getElementById('m-status').value});
   closeModal();navigate('blockers');autoSave();
 }
@@ -1587,50 +1520,49 @@ function editBlocker(idx){
     +'<div class="form-group"><label>Owner</label><input id="m-owner" value="'+e(b.owner)+'"></div>'
     +'<div class="form-group"><label>Type</label><select id="m-type"><option'+(b.type==='Decision'?' selected':'')+'>Decision</option><option'+(b.type==='Blocker'?' selected':'')+'>Blocker</option></select></div>'
     +'<div class="form-group"><label>Status</label><select id="m-status">'
-    +['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'].map(function(s){return '<option'+(s===b.status?' selected':'')+'>'+s+'</option>'}).join('')
-    +'</select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'].map(function(s){return '<option'+(s===b.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditBlocker('+idx+')">Save</button></div></div>');
 }
 function saveEditBlocker(idx){
   var b=DATA.blockers[idx];
-  b.id=document.getElementById('m-id').value;b.item=document.getElementById('m-item').value;
-  b.owner=document.getElementById('m-owner').value;b.type=document.getElementById('m-type').value;
+  b.id=document.getElementById('m-id').value; b.item=document.getElementById('m-item').value;
+  b.owner=document.getElementById('m-owner').value; b.type=document.getElementById('m-type').value;
   b.status=document.getElementById('m-status').value;
   closeModal();navigate('blockers');autoSave();
 }
-function deleteBlocker(idx){if(confirm('Delete this item?')){DATA.blockers.splice(idx,1);navigate('blockers');autoSave();}}
+function deleteBlocker(idx){if(confirm('Delete?')){DATA.blockers.splice(idx,1);navigate('blockers');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    MEETINGS
 ═══════════════════════════════════════════════════ */
 function rMeetings(){
-  var cards=DATA.meetings.map(function(m,i){
+  var cards=(DATA.meetings||[]).map(function(m,i){
     return '<div class="card" style="padding:24px">'
       +'<div class="row between" style="margin-bottom:12px;align-items:flex-start">'
-      +'<h3 style="font-family:var(--font-head);font-weight:700;font-size:15px;max-width:180px">'+e(m.name)+'</h3>'
+      +'<h3 style="font-family:var(--font-head);font-weight:700;font-size:15px;max-width:200px">'+e(m.name)+'</h3>'
       +'<span class="badge b-blue">'+e(m.freq)+'</span></div>'
       +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px"><span style="color:var(--text-soft)">Participants: </span>'+e(m.participants)+'</div>'
       +'<div style="font-size:13px;color:var(--text-muted)"><span style="color:var(--text-soft)">Purpose: </span>'+e(m.purpose)+'</div>'
-      +(isAdmin()?'<div class="row g8" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
-        +'<button class="btn-icon" onclick=\"closeModal()\">&#9998; Edit</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005; Delete</button>'
+      +(canEdit()?'<div class="row g8" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
+        +'<button class="btn-icon" onclick="editMeeting('+i+')">&#9998; Edit</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteMeeting('+i+')">&#10005; Delete</button>'
         +'</div>':'')
       +'</div>';
   }).join('');
   return '<div class="col g24">'
     +'<div><div class="label">Governance</div><h1 style="font-size:26px;font-weight:800">Meeting Cadences</h1>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"closeModal()\">+ Add Meeting</button>':'')+'</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addMeeting()">+ Add Meeting</button>':'')+'</div>'
     +'<div class="gridA">'+cards+'</div></div>';
 }
 function addMeeting(){
   showModal('<div class="modal"><h3>Add Meeting</h3>'
-    +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Meeting name"></div>'
+    +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Ad hoc</option></select></div>'
-    +'<div class="form-group"><label>Participants</label><input id="m-part" placeholder="Names / teams"></div>'
-    +'<div class="form-group"><label>Purpose</label><input id="m-pur" placeholder="Goal of meeting"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
+    +'<div class="form-group"><label>Participants</label><input id="m-part"></div>'
+    +'<div class="form-group"><label>Purpose</label><input id="m-pur"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveMeeting(-1)">Add</button></div></div>');
 }
 function editMeeting(idx){
   var m=DATA.meetings[idx];
@@ -1639,464 +1571,74 @@ function editMeeting(idx){
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option'+(m.freq==='Weekly'?' selected':'')+'>Weekly</option><option'+(m.freq==='Bi-weekly'?' selected':'')+'>Bi-weekly</option><option'+(m.freq==='Monthly'?' selected':'')+'>Monthly</option><option'+(m.freq==='Ad hoc'?' selected':'')+'>Ad hoc</option></select></div>'
     +'<div class="form-group"><label>Participants</label><input id="m-part" value="'+e(m.participants)+'"></div>'
     +'<div class="form-group"><label>Purpose</label><input id="m-pur" value="'+e(m.purpose)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveMeeting('+idx+')">Save</button></div></div>');
 }
 function saveMeeting(idx){
+  if(!DATA.meetings) DATA.meetings=[];
   var obj={name:document.getElementById('m-name').value,freq:document.getElementById('m-freq').value,participants:document.getElementById('m-part').value,purpose:document.getElementById('m-pur').value};
-  if(idx===-1)DATA.meetings.push(obj);else DATA.meetings[idx]=obj;
+  if(idx===-1) DATA.meetings.push(obj); else DATA.meetings[idx]=obj;
   closeModal();navigate('meetings');autoSave();
 }
-function deleteMeeting(idx){if(confirm('Delete this meeting?')){DATA.meetings.splice(idx,1);navigate('meetings');autoSave();}}
+function deleteMeeting(idx){if(confirm('Delete?')){DATA.meetings.splice(idx,1);navigate('meetings');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    KPIs
 ═══════════════════════════════════════════════════ */
 function rKpis(){
-  var cards=DATA.kpis.map(function(kpi,i){
+  var cards=(DATA.kpis||[]).map(function(kpi,i){
     function vc(field,color){
-      if(isAdmin())return '<div><div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;text-align:center">'+field+'</div>'
-        +'<input value="'+e(kpi[field])+'" onchange="DATA.kpis['+i+'][\''+field+'\']=this.value" style="text-align:center;font-size:16px;font-weight:700;font-family:var(--font-head);color:'+color+'"></div>';
+      if(canEdit()) return '<div><div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;text-align:center">'+field+'</div>'
+        +'<input value="'+e(kpi[field])+'" onchange="DATA.kpis['+i+'][\''+field+'\']=this.value;autoSave()" style="text-align:center;font-size:16px;font-weight:700;font-family:var(--font-head);color:'+color+'"></div>';
       return '<div style="text-align:center"><div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">'+field+'</div>'
         +'<div style="font-size:20px;font-weight:800;font-family:var(--font-head);color:'+color+'">'+e(kpi[field])
-        +(kpi[field]!=='--'&&kpi[field]!=='TBD'?'<span style="font-size:11px;color:var(--text-muted);margin-left:2px">'+e(kpi.unit)+'</span>':'')+'</div></div>';
+        +(kpi[field]!=='--'&&kpi[field]!=='TBD'?'<span style="font-size:11px;color:var(--text-muted);margin-left:2px">'+e(kpi.unit||'')+'</span>':'')+'</div></div>';
     }
     return '<div class="card-el" style="padding:26px">'
       +'<div class="row between center" style="margin-bottom:14px">'
-      +'<div style="font-size:12px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase">'
-      +(isAdmin()?'<input value="'+e(kpi.label)+'" onchange="DATA.kpis['+i+'].label=this.value" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">':e(kpi.label))+'</div>'
-      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')
+      +(canEdit()?'<input value="'+e(kpi.label)+'" onchange="DATA.kpis['+i+'].label=this.value;autoSave()" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">':'<div style="font-size:12px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase">'+e(kpi.label)+'</div>')
+      +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteKpi('+i+')">&#10005;</button>':'')
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
       +vc('baseline','var(--text-soft)')+vc('current','var(--accent)')+vc('target','#4caf82')+'</div>'
-      +(isAdmin()?'<div style="margin-top:10px"><label>Unit</label><input value="'+e(kpi.unit)+'" onchange="DATA.kpis['+i+'].unit=this.value" style="font-size:12px"></div>':'')
+      +(canEdit()?'<div style="margin-top:10px"><label>Unit</label><input value="'+e(kpi.unit||'')+'" onchange="DATA.kpis['+i+'].unit=this.value;autoSave()" style="font-size:12px"></div>':'')
       +'</div>';
   }).join('');
   return '<div class="col g24">'
-    +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1>'
-    +(isAdmin()?'<p style="font-size:13px;color:var(--accent);margin-top:6px">&#9998; Admin: edit all values inline</p>':'')+'</div>'
+    +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1></div>'
     +'<div class="gridA">'+cards+'</div>'
-    +(isAdmin()?'<div><button class="btn-ghost" onclick=\"closeModal()\">+ Add KPI</button></div>':'')
-    +'</div>';
+    +(canEdit()?'<button class="btn-ghost" onclick="addKpi()">+ Add KPI</button>':'')+'</div>';
 }
-function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis');autoSave()}
-function deleteKpi(idx){if(confirm('Delete this KPI?')){DATA.kpis.splice(idx,1);navigate('kpis');autoSave();}}
+function addKpi(){ if(!DATA.kpis) DATA.kpis=[]; DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''}); navigate('kpis'); autoSave(); }
+function deleteKpi(idx){ if(confirm('Delete?')){ DATA.kpis.splice(idx,1); navigate('kpis'); autoSave(); } }
 
 /* ═══════════════════════════════════════════════════
-   FLOWCHART BUILDER
+   FLOWCHART
 ═══════════════════════════════════════════════════ */
-var FC = {
-  nodes:[],edges:[],lanes:[],
-  selectedNode:null,selectedEdge:null,
-  dragging:null,dragOffX:0,dragOffY:0,
-  connecting:null,connectStart:null,
-  svgW:1200,svgH:700,
-  currentChart:null,
-  editingLabel:null
-};
-
-var FC_LANE_COLORS=[
-  {fill:'rgba(201,168,76,.07)',stroke:'rgba(201,168,76,.3)',label:'#c9a84c'},
-  {fill:'rgba(74,158,255,.07)',stroke:'rgba(74,158,255,.3)',label:'#4a9eff'},
-  {fill:'rgba(76,175,130,.07)',stroke:'rgba(76,175,130,.3)',label:'#4caf82'},
-  {fill:'rgba(232,93,93,.07)',stroke:'rgba(232,93,93,.3)',label:'#e85d5d'}
-];
-
 function rFlowchart(){
-  var chartList=DATA.flowcharts.map(function(fc,i){
-    return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick=\"closeModal()\">'
+  var list=(DATA.flowcharts||[]).map(function(fc,i){
+    return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick="openFC('+i+')">'
       +'<span style="font-size:24px">&#9875;</span>'
       +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+e(fc.name)+'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted)">'+fc.nodes.length+' nodes &middot; '+fc.edges.length+' connections</div></div>'
-      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')+'</div>';
+      +'<div style="font-size:12px;color:var(--text-muted)">'+(fc.nodes||[]).length+' nodes &middot; '+(fc.edges||[]).length+' connections</div></div>'
+      +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();deleteFC('+i+')">&#10005;</button>':'')
+      +'</div>';
   }).join('');
   return '<div class="col g24">'
     +'<div class="row between center wrap" style="gap:12px">'
     +'<div><div class="label">Visual Tools</div><h1 style="font-size:26px;font-weight:800">Flowchart Builder</h1>'
     +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Build process flow diagrams with swim lanes</p></div>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">+ New Flowchart</button></div>'
-    +(DATA.flowcharts.length?'<div><div class="sec-title">Saved Flowcharts</div><div class="col g10">'+chartList+'</div></div>'
+    +'<button class="btn-primary" onclick="newFC()">+ New Flowchart</button></div>'
+    +((DATA.flowcharts||[]).length?'<div><div class="sec-title">Saved Flowcharts</div><div class="col g10">'+list+'</div></div>'
       :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
       +'<div style="font-size:40px;margin-bottom:12px">&#9875;</div>'
       +'<div style="font-size:16px;font-weight:700;margin-bottom:6px">No flowcharts yet</div>'
-      +'<div style="font-size:13px">Click <strong>+ New Flowchart</strong> to build a process diagram</div></div>')
+      +'<div style="font-size:13px">Click <strong>+ New Flowchart</strong> to start</div></div>')
     +'</div>';
 }
 
-function newFC(){
-  showModal('<div class="modal"><h3>New Flowchart</h3>'
-    +'<div class="form-group"><label>Name</label><input id="fc-name" placeholder="e.g. UC1 Process Flow"></div>'
-    +'<div class="form-group"><label>Number of swim lanes</label><select id="fc-lanes">'
-    +[1,2,3,4].map(function(n){return '<option'+(n===3?' selected':'')+'>'+n+'</option>'}).join('')+'</select></div>'
-    +'<div class="form-group"><label>Lane names (comma-separated)</label><input id="fc-lnames" value="Channel,Agentforce,Data 360,Data"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"saveNewCustomer()\">Create</button></div></div>');
-}
-
-function createFC(){
-  var name=document.getElementById('fc-name').value||'Untitled';
-  var laneCount=parseInt(document.getElementById('fc-lanes').value)||3;
-  var laneNames=document.getElementById('fc-lnames').value.split(',').map(function(s){return s.trim()});
-  var laneH=Math.floor(FC.svgH/laneCount);
-  var lanes=[];
-  for(var i=0;i<laneCount;i++){
-    lanes.push({id:uid(),name:laneNames[i]||('Lane '+(i+1)),y:i*laneH,h:laneH});
-  }
-  var chart={name:name,nodes:[],edges:[],lanes:lanes,svgW:FC.svgW,svgH:FC.svgH};
-  DATA.flowcharts.push(chart);
-  closeModal();
-  openFC(DATA.flowcharts.length-1);
-}
-
-function deleteFC(idx){if(confirm('Delete this flowchart?')){DATA.flowcharts.splice(idx,1);navigate('flowchart')}}
-
-function openFC(idx){
-  var chart=DATA.flowcharts[idx];
-  FC.currentChart=idx;
-  FC.nodes=chart.nodes;FC.edges=chart.edges;FC.lanes=chart.lanes;
-  FC.svgW=chart.svgW||1200;FC.svgH=chart.svgH||700;
-  FC.selectedNode=null;FC.selectedEdge=null;FC.connecting=false;
-  document.getElementById('main-content').innerHTML=renderFCEditor(chart.name,idx);
-  renderFCSVG();
-  bindFCEvents();
-}
-
-function renderFCEditor(name){
-  return '<div class="col" style="height:calc(100vh - 72px)">'
-    +'<div class="row center g12" style="padding:0 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px">'
-    +'<button class="btn-ghost" onclick=\"closeModal()\">&#8592; Back</button>'
-    +'<h2 style="font-size:18px;font-weight:700;flex:1">'+e(name)+'</h2>'
-    +'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#10004; Save</button>'
-    +'</div>'
-    +'<div class="fc-toolbar">'
-    // Shape buttons
-    +'<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Add Shape:</span>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9645; Process</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9671; Decision</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9711; Start/End</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9641; Database</button>'
-    +'<span style="width:1px;height:24px;background:var(--border);margin:0 4px"></span>'
-    +'<button class="btn-ghost btn-sm" id="fc-connect-btn" onclick=\"closeModal()\">&#8594; Connect</button>'
-    +'<span style="width:1px;height:24px;background:var(--border);margin:0 4px"></span>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#10005; Delete</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9746; Clear All</button>'
-    +'<span style="font-size:11px;color:var(--text-muted);margin-left:8px" id="fc-hint">Click canvas to place shape &middot; Drag nodes to reposition &middot; Double-click to edit label</span>'
-    +'</div>'
-    +'<div class="row" style="flex:1;overflow:hidden">'
-    +'<div id="fc-canvas-wrap"><svg id="fc-svg" width="'+FC.svgW+'" height="'+FC.svgH+'">'
-    +'<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
-    +'<polygon points="0 0, 10 3.5, 0 7" fill="var(--accent)"/></marker></defs>'
-    +'</svg></div>'
-    +'<div id="fc-props-panel" class="fc-panel">'
-    +'<h4>Properties</h4>'
-    +'<div id="fc-props-content" style="font-size:13px;color:var(--text-muted)">Select a node or edge to edit its properties.</div>'
-    +'</div>'
-    +'</div></div>';
-}
-
-function renderFCSVG(){
-  var svg=document.getElementById('fc-svg');
-  if(!svg)return;
-  // Clear
-  while(svg.firstChild&&svg.firstChild.id!=='defs')svg.removeChild(svg.firstChild);
-  svg.innerHTML='<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
-    +'<polygon points="0 0, 10 3.5, 0 7" fill="var(--accent)"/></marker></defs>';
-
-  // Draw lanes
-  FC.lanes.forEach(function(lane,li){
-    var col=FC_LANE_COLORS[li%FC_LANE_COLORS.length];
-    var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-    rect.setAttribute('x','60');rect.setAttribute('y',lane.y);
-    rect.setAttribute('width',FC.svgW-60);rect.setAttribute('height',lane.h);
-    rect.setAttribute('fill',col.fill);rect.setAttribute('stroke',col.stroke);rect.setAttribute('stroke-width','1');
-    svg.appendChild(rect);
-    // Lane label (rotated)
-    var labelG=document.createElementNS('http://www.w3.org/2000/svg','text');
-    labelG.setAttribute('x','28');labelG.setAttribute('y',lane.y+lane.h/2);
-    labelG.setAttribute('fill',col.label);labelG.setAttribute('font-size','11');
-    labelG.setAttribute('font-weight','700');labelG.setAttribute('font-family','Syne,sans-serif');
-    labelG.setAttribute('letter-spacing','1');labelG.setAttribute('text-anchor','middle');
-    labelG.setAttribute('transform','rotate(-90,28,'+(lane.y+lane.h/2)+')');
-    labelG.textContent=lane.name;
-    svg.appendChild(labelG);
-    // Lane divider
-    if(li>0){var line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1','60');line.setAttribute('y1',lane.y);line.setAttribute('x2',FC.svgW);line.setAttribute('y2',lane.y);
-      line.setAttribute('stroke',col.stroke);line.setAttribute('stroke-width','1');svg.appendChild(line);}
-  });
-
-  // Draw edges
-  FC.edges.forEach(function(edge){
-    var src=FC.nodes.find(function(n){return n.id===edge.from});
-    var tgt=FC.nodes.find(function(n){return n.id===edge.to});
-    if(!src||!tgt)return;
-    var x1=src.x+src.w/2,y1=src.y+src.h/2,x2=tgt.x+tgt.w/2,y2=tgt.y+tgt.h/2;
-    // Curved path
-    var dx=x2-x1,dy=y2-y1,mx=(x1+x2)/2,my=(y1+y2)/2;
-    var cx=mx,cy=my-(Math.abs(dx)*0.2);
-    var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','M'+x1+','+y1+' Q'+cx+','+cy+' '+x2+','+y2);
-    path.setAttribute('class','fc-edge'+(FC.selectedEdge===edge.id?' selected':''));
-    path.setAttribute('data-eid',edge.id);
-    svg.appendChild(path);
-    // Edge label
-    if(edge.label){
-      var lt=document.createElementNS('http://www.w3.org/2000/svg','text');
-      lt.setAttribute('x',cx);lt.setAttribute('y',cy-6);
-      lt.setAttribute('class','fc-edge-label');lt.textContent=edge.label;svg.appendChild(lt);
-    }
-  });
-
-  // Draw nodes
-  FC.nodes.forEach(function(node){
-    var g=document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','fc-node'+(FC.selectedNode===node.id?' selected':''));
-    g.setAttribute('data-nid',node.id);
-    g.setAttribute('transform','translate('+node.x+','+node.y+')');
-
-    var shape;
-    if(node.shape==='diamond'){
-      var hw=node.w/2,hh=node.h/2;
-      shape=document.createElementNS('http://www.w3.org/2000/svg','polygon');
-      shape.setAttribute('points',hw+',0 '+node.w+','+hh+' '+hw+','+node.h+' 0,'+hh);
-    } else if(node.shape==='rounded'){
-      shape=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      shape.setAttribute('width',node.w);shape.setAttribute('height',node.h);
-      shape.setAttribute('rx',node.h/2);shape.setAttribute('ry',node.h/2);
-    } else if(node.shape==='cylinder'){
-      var g2=document.createElementNS('http://www.w3.org/2000/svg','g');
-      var body=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      body.setAttribute('width',node.w);body.setAttribute('height',node.h-14);body.setAttribute('y','7');
-      body.setAttribute('fill','var(--bg-light)');body.setAttribute('stroke','var(--accent)');body.setAttribute('stroke-width','2');
-      var top=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-      top.setAttribute('cx',node.w/2);top.setAttribute('cy','7');top.setAttribute('rx',node.w/2);top.setAttribute('ry','7');
-      top.setAttribute('fill','var(--bg-light)');top.setAttribute('stroke','var(--accent)');top.setAttribute('stroke-width','2');
-      var bot=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-      bot.setAttribute('cx',node.w/2);bot.setAttribute('cy',node.h-7);bot.setAttribute('rx',node.w/2);bot.setAttribute('ry','7');
-      bot.setAttribute('fill','var(--bg-light)');bot.setAttribute('stroke','var(--accent)');bot.setAttribute('stroke-width','2');
-      g2.appendChild(body);g2.appendChild(top);g2.appendChild(bot);
-      g.appendChild(g2);shape=null;
-    } else {
-      shape=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      shape.setAttribute('width',node.w);shape.setAttribute('height',node.h);shape.setAttribute('rx','8');
-    }
-    if(shape){
-      shape.setAttribute('fill',node.fill||'var(--bg-light)');
-      shape.setAttribute('stroke',node.stroke||'var(--accent)');
-      shape.setAttribute('stroke-width','2');
-      g.appendChild(shape);
-    }
-
-    // Text (wrapped)
-    var words=(node.label||'').split(' ');
-    var lineH=16,maxW=node.w-14,lines=[],cur='';
-    words.forEach(function(w){var t=cur?(cur+' '+w):w;if(t.length*7>maxW&&cur){lines.push(cur);cur=w;}else cur=t;});
-    if(cur)lines.push(cur);
-    var totalH=lines.length*lineH;
-    var startY=(node.h-totalH)/2+lineH/2;
-    lines.forEach(function(line,li){
-      var txt=document.createElementNS('http://www.w3.org/2000/svg','text');
-      txt.setAttribute('x',node.w/2);txt.setAttribute('y',startY+li*lineH);
-      txt.setAttribute('fill',node.textColor||'var(--text)');txt.setAttribute('font-size','12');
-      txt.setAttribute('font-family','DM Sans,sans-serif');txt.setAttribute('text-anchor','middle');
-      txt.setAttribute('dominant-baseline','middle');txt.textContent=line;
-      g.appendChild(txt);
-    });
-
-    // Connection handles (small circles) — visible on select
-    if(FC.selectedNode===node.id){
-      [[node.w/2,0,'top'],[node.w,node.h/2,'right'],[node.w/2,node.h,'bottom'],[0,node.h/2,'left']].forEach(function(pt){
-        var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-        c.setAttribute('cx',pt[0]);c.setAttribute('cy',pt[1]);c.setAttribute('r','6');
-        c.setAttribute('fill','var(--accent)');c.setAttribute('stroke','var(--bg)');c.setAttribute('stroke-width','2');
-        c.setAttribute('class','fc-handle');c.setAttribute('data-nid',node.id);c.setAttribute('data-side',pt[2]);
-        c.style.cursor='crosshair';
-        g.appendChild(c);
-      });
-    }
-    svg.appendChild(g);
-  });
-}
-
-function bindFCEvents(){
-  var svg=document.getElementById('fc-svg');
-  if(!svg)return;
-  var wrap=document.getElementById('fc-canvas-wrap');
-
-  svg.addEventListener('mousedown',function(ev){
-    var nid=findNodeAtEvent(ev);
-    var eid=findEdgeAtEvent(ev);
-
-    if(FC.connecting){
-      // Second click = connect to
-      if(nid&&FC.connectStart&&nid!==FC.connectStart){
-        var label=prompt('Edge label (optional):','')||'';
-        FC.edges.push({id:uid(),from:FC.connectStart,to:nid,label:label});
-        saveCurrentFC();
-      }
-      FC.connectStart=null;FC.connecting=false;
-      document.getElementById('fc-connect-btn').style.background='';
-      document.getElementById('fc-hint').textContent='Click canvas to place shape';
-      renderFCSVG();bindFCEvents();
-      return;
-    }
-
-    if(nid){
-      // Check if clicking a handle for connecting
-      if(ev.target.classList.contains('fc-handle')){
-        FC.connecting=true;FC.connectStart=nid;
-        document.getElementById('fc-connect-btn').style.background='rgba(201,168,76,.2)';
-        document.getElementById('fc-hint').textContent='Now click the destination node to connect';
-        return;
-      }
-      FC.selectedNode=nid;FC.selectedEdge=null;
-      var node=FC.nodes.find(function(n){return n.id===nid});
-      var rect=svg.getBoundingClientRect();
-      FC.dragging=node;FC.dragOffX=ev.clientX-rect.left-node.x;FC.dragOffY=ev.clientY-rect.top-node.y;
-      renderFCSVG();bindFCEvents();showNodeProps(nid);
-    } else if(eid){
-      FC.selectedEdge=eid;FC.selectedNode=null;
-      renderFCSVG();bindFCEvents();showEdgeProps(eid);
-    } else {
-      // Click on empty canvas = place new node if type set, else deselect
-      if(FC.pendingShape){
-        var rect2=svg.getBoundingClientRect();
-        var x=ev.clientX-rect2.left-60,y=ev.clientY-rect2.top-25;
-        addNodeAt(FC.pendingShape,x,y);
-        FC.pendingShape=null;
-        document.querySelectorAll('.btn-ghost').forEach(function(b){b.style.background=''});
-        document.getElementById('fc-hint').textContent='Click canvas to place shape';
-      } else {
-        FC.selectedNode=null;FC.selectedEdge=null;
-        renderFCSVG();bindFCEvents();
-        document.getElementById('fc-props-content').innerHTML='<span style="font-size:13px;color:var(--text-muted)">Select a node or edge.</span>';
-      }
-    }
-  });
-
-  svg.addEventListener('mousemove',function(ev){
-    if(!FC.dragging)return;
-    var rect=svg.getBoundingClientRect();
-    FC.dragging.x=Math.max(62,ev.clientX-rect.left-FC.dragOffX);
-    FC.dragging.y=Math.max(0,ev.clientY-rect.top-FC.dragOffY);
-    renderFCSVG();bindFCEvents();
-  });
-
-  svg.addEventListener('mouseup',function(){
-    if(FC.dragging){saveCurrentFC();}
-    FC.dragging=null;
-  });
-
-  svg.addEventListener('dblclick',function(ev){
-    var nid=findNodeAtEvent(ev);
-    if(nid){
-      var node=FC.nodes.find(function(n){return n.id===nid});
-      var nl=prompt('Edit label:',node.label);
-      if(nl!==null){node.label=nl;saveCurrentFC();renderFCSVG();bindFCEvents();}
-    }
-  });
-}
-
-function findNodeAtEvent(ev){
-  var svg=document.getElementById('fc-svg');
-  var rect=svg.getBoundingClientRect();
-  var mx=ev.clientX-rect.left,my=ev.clientY-rect.top;
-  for(var i=FC.nodes.length-1;i>=0;i--){
-    var n=FC.nodes[i];
-    if(mx>=n.x&&mx<=n.x+n.w&&my>=n.y&&my<=n.y+n.h)return n.id;
-  }
-  return null;
-}
-function findEdgeAtEvent(ev){
-  // Simple proximity check
-  var svg=document.getElementById('fc-svg');
-  var rect=svg.getBoundingClientRect();
-  var mx=ev.clientX-rect.left,my=ev.clientY-rect.top;
-  for(var i=0;i<FC.edges.length;i++){
-    var edge=FC.edges[i];
-    var src=FC.nodes.find(function(n){return n.id===edge.from});
-    var tgt=FC.nodes.find(function(n){return n.id===edge.to});
-    if(!src||!tgt)continue;
-    var x1=src.x+src.w/2,y1=src.y+src.h/2,x2=tgt.x+tgt.w/2,y2=tgt.y+tgt.h/2;
-    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-    if(len<1)continue;
-    var t=((mx-x1)*dx+(my-y1)*dy)/(len*len);
-    t=Math.max(0,Math.min(1,t));
-    var px=x1+t*dx,py=y1+t*dy;
-    var dist=Math.sqrt((mx-px)*(mx-px)+(my-py)*(my-py));
-    if(dist<10)return edge.id;
-  }
-  return null;
-}
-
-function addNode(shape){
-  FC.pendingShape=shape;
-  document.getElementById('fc-hint').textContent='Click on the canvas to place the '+shape+' shape';
-}
-function addNodeAt(shape,x,y){
-  var w=shape==='diamond'?140:shape==='rounded'?130:shape==='cylinder'?110:140;
-  var h=shape==='diamond'?80:shape==='rounded'?44:shape==='cylinder'?80:70;
-  FC.nodes.push({id:uid(),shape:shape,x:x,y:y,w:w,h:h,label:'New Step'});
-  FC.selectedNode=FC.nodes[FC.nodes.length-1].id;
-  saveCurrentFC();renderFCSVG();bindFCEvents();
-  showNodeProps(FC.selectedNode);
-}
-function toggleConnect(){
-  FC.connecting=!FC.connecting;
-  FC.connectStart=null;
-  var btn=document.getElementById('fc-connect-btn');
-  btn.style.background=FC.connecting?'rgba(201,168,76,.15)':'';
-  document.getElementById('fc-hint').textContent=FC.connecting?'Click source node, then destination':'Click canvas to place shape';
-}
-function fcDeleteSelected(){
-  if(FC.selectedNode){FC.nodes=FC.nodes.filter(function(n){return n.id!==FC.selectedNode});FC.edges=FC.edges.filter(function(e){return e.from!==FC.selectedNode&&e.to!==FC.selectedNode});FC.selectedNode=null;}
-  else if(FC.selectedEdge){FC.edges=FC.edges.filter(function(e){return e.id!==FC.selectedEdge});FC.selectedEdge=null;}
-  saveCurrentFC();renderFCSVG();bindFCEvents();
-}
-function fcClear(){if(confirm('Clear all nodes and edges?')){FC.nodes=[];FC.edges=[];saveCurrentFC();renderFCSVG();bindFCEvents();}}
-function saveFC(){saveCurrentFC();alert('Flowchart saved!');}
-function saveCurrentFC(){
-  if(FC.currentChart===null)return;
-  DATA.flowcharts[FC.currentChart].nodes=FC.nodes;
-  DATA.flowcharts[FC.currentChart].edges=FC.edges;
-}
-function showNodeProps(nid){
-  var node=FC.nodes.find(function(n){return n.id===nid});
-  if(!node)return;
-  var panel=document.getElementById('fc-props-content');
-  if(!panel)return;
-  var fillColors=['var(--bg-light)','rgba(201,168,76,.25)','rgba(74,158,255,.25)','rgba(76,175,130,.25)','rgba(232,93,93,.25)'];
-  panel.innerHTML='<div class="col g10">'
-    +'<div><label>Label</label><input value="'+e(node.label)+'" onchange="updateNodeProp(\''+nid+'\',\'label\',this.value)"></div>'
-    +'<div><label>Width</label><input type="number" value="'+node.w+'" onchange="updateNodeProp(\''+nid+'\',\'w\',+this.value)"></div>'
-    +'<div><label>Height</label><input type="number" value="'+node.h+'" onchange="updateNodeProp(\''+nid+'\',\'h\',+this.value)"></div>'
-    +'<div><label>Fill Color</label><div class="row wrap g6">'
-    +fillColors.map(function(c){return '<div onclick=\"closeModal()\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.fill===c?'var(--accent)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
-    +'<div><label>Text Color</label><div class="row g6">'
-    +['var(--text)','var(--accent)','#4a9eff','#4caf82','#e85d5d'].map(function(c){return '<div onclick=\"closeModal()\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.textColor===c?'var(--text)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
-    +'<button class="btn-danger" onclick=\"closeModal()\">&#10005; Delete Node</button>'
-    +'</div>';
-}
-function showEdgeProps(eid){
-  var edge=FC.edges.find(function(e){return e.id===eid});
-  if(!edge)return;
-  var panel=document.getElementById('fc-props-content');
-  if(!panel)return;
-  panel.innerHTML='<div class="col g10">'
-    +'<div><label>Label</label><input value="'+e(edge.label||'')+'" onchange="updateEdgeProp(\''+eid+'\',\'label\',this.value)"></div>'
-    +'<button class="btn-danger" onclick=\"closeModal()\">&#10005; Delete Edge</button>'
-    +'</div>';
-}
-function updateNodeProp(nid,prop,val){
-  var node=FC.nodes.find(function(n){return n.id===nid});
-  if(node){node[prop]=val;saveCurrentFC();renderFCSVG();bindFCEvents();showNodeProps(nid);}
-}
-function updateEdgeProp(eid,prop,val){
-  var edge=FC.edges.find(function(e){return e.id===eid});
-  if(edge){edge[prop]=val;saveCurrentFC();renderFCSVG();bindFCEvents();}
-}
 /* ═══════════════════════════════════════════════════
-   USER MANAGEMENT PAGE (superadmin only)
+   USERS PAGE
 ═══════════════════════════════════════════════════ */
 function rUsers(){
   if(!isSuperAdmin()) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Access denied.</div>';
@@ -2105,52 +1647,47 @@ function rUsers(){
     return '<tr>'
       +'<td style="font-weight:700">'+e(u)+'</td>'
       +'<td>'+e(usr.name||'—')+'</td>'
-      +'<td><span class="badge b-blue" style="font-size:10px">'+e(usr.role)+'</span></td>'
+      +'<td>'+badge(usr.role==='superadmin'?'Done':usr.role==='project_admin'?'In Progress':'Planning')+'<span style="font-size:12px;color:var(--text-muted);margin-left:6px">'+e(usr.role)+'</span></td>'
       +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedCustomers&&usr.assignedCustomers.length?usr.assignedCustomers.join(', '):'All')+'</td>'
       +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedProjects&&usr.assignedProjects.length?usr.assignedProjects.join(', '):'All')+'</td>'
-      +'<td><div class="row g4">'
-      +'<button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
-      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')
-      +'</div></td>'
-      +'</tr>';
+      +'<td><div class="row g4"><button class="btn-icon" onclick="editUser(\''+e(u)+'\')">&#9998;</button>'
+      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteUser(\''+e(u)+'\')">&#10005;</button>':'')
+      +'</div></td></tr>';
   }).join('');
   return '<div class="col g24">'
     +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
-    +'<button class="btn-primary" onclick=\"closeModal()\">+ Add User</button></div>'
+    +'<button class="btn-primary" onclick="addUser()">+ Add User</button></div>'
     +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
     +'<thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Customer Scope</th><th>Project Scope</th><th></th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table></div></div>'
     +'<div class="card-accent" style="padding:16px 20px">'
     +'<div style="font-size:12px;color:var(--text-muted);line-height:1.8">'
-    +'<strong style="color:var(--text)">superadmin</strong> — full access, GitHub settings, user management<br>'
-    +'<strong style="color:var(--text)">project_admin</strong> — edit assigned customers/projects, no GitHub or user management<br>'
-    +'<strong style="color:var(--text)">viewer</strong> — read-only access (can be scoped to customer or project)'
+    +'<strong style="color:var(--text)">superadmin</strong> — full access, GitHub, user management<br>'
+    +'<strong style="color:var(--text)">project_admin</strong> — edit assigned projects, no GitHub or user management<br>'
+    +'<strong style="color:var(--text)">viewer</strong> — read-only (can be scoped to customer or project)'
     +'</div></div></div>';
-}
-
-function userModal(title, username, usr, onSave){
-  var allProjects=[];
-  CUSTOMERS.forEach(function(c){(c.projects||[]).forEach(function(p){allProjects.push({cid:c.id,cname:c.name,pid:p.id,pname:p.name});});});
-  showModal('<div class="modal"><h3>'+title+'</h3>'
-    +'<div class="form-row"><div class="form-group"><label>Username</label><input id="u-uname" value="'+e(username)+'"'+(username&&usr.role==='superadmin'?' disabled':'')+' placeholder="lowercase, no spaces"></div>'
-    +'<div class="form-group"><label>Display Name</label><input id="u-name" value="'+e(usr.name||'')+'"></div></div>'
-    +'<div class="form-row"><div class="form-group"><label>Role</label><select id="u-role">'
-    +['superadmin','project_admin','viewer'].map(function(r){return '<option'+(r===usr.role?' selected':'')+'>'+r+'</option>';}).join('')
-    +'</select></div>'
-    +'<div class="form-group"><label>Password '+(username?'(leave blank to keep)':'')+'</label><input type="password" id="u-pass" placeholder="'+(username?'Leave blank to keep':'Required')+'"></div></div>'
-    +'<div class="form-group"><label>Customer Scope (leave empty = all customers)</label>'
-    +'<div class="row wrap g6" style="margin-top:6px">'
-    +CUSTOMERS.map(function(c){var sel=(usr.assignedCustomers||[]).indexOf(c.id)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-cus" value="'+e(c.id)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(c.name)+'</label>';}).join('')
-    +'</div></div>'
-    +'<div class="form-group"><label>Project Scope (leave empty = all projects)</label>'
-    +'<div class="row wrap g6" style="margin-top:6px">'
-    +allProjects.map(function(p){var sel=(usr.assignedProjects||[]).indexOf(p.pid)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-prj" value="'+e(p.pid)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(p.cname)+' / '+e(p.pname)+'</label>';}).join('')
-    +'</div></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"saveEditProject()\">Save</button></div></div>');
 }
 function addUser(){ userModal('Add User','',{role:'viewer'},'saveAddUser()'); }
 function editUser(u){ userModal('Edit User — '+u, u, USERS[u]||{}, 'saveEditUser(\''+u+'\')'); }
+function userModal(title,username,usr,onSave){
+  var allProjects=[]; CUSTOMERS.forEach(function(c){(c.projects||[]).forEach(function(p){allProjects.push({cid:c.id,cname:c.name,pid:p.id,pname:p.name});});});
+  showModal('<div class="modal"><h3>'+title+'</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Username</label><input id="u-uname" value="'+e(username)+'" placeholder="lowercase, no spaces"></div>'
+    +'<div class="form-group"><label>Display Name</label><input id="u-name" value="'+e(usr.name||'')+'"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Role</label><select id="u-role">'
+    +['superadmin','project_admin','viewer'].map(function(r){return '<option'+(r===usr.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div>'
+    +'<div class="form-group"><label>Password '+(username?'(blank = keep)':'')+'</label><input type="password" id="u-pass"></div></div>'
+    +'<div class="form-group"><label>Customer Scope (empty = all)</label><div class="row wrap g6" style="margin-top:6px">'
+    +CUSTOMERS.map(function(c){var sel=(usr.assignedCustomers||[]).indexOf(c.id)!==-1;
+      return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-cus" value="'+e(c.id)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(c.name)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Project Scope (empty = all)</label><div class="row wrap g6" style="margin-top:6px">'
+    +allProjects.map(function(p){var sel=(usr.assignedProjects||[]).indexOf(p.pid)!==-1;
+      return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-prj" value="'+e(p.pid)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(p.cname)+' / '+e(p.pname)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+onSave+'">Save</button></div></div>');
+}
 async function saveUserFromForm(existingUsername){
   var uname=(document.getElementById('u-uname').value||'').trim().toLowerCase().replace(/\s+/g,'_');
   var name=document.getElementById('u-name').value;
@@ -2159,16 +1696,15 @@ async function saveUserFromForm(existingUsername){
   var cus=[]; document.querySelectorAll('.u-cus:checked').forEach(function(cb){cus.push(cb.value);});
   var prjs=[]; document.querySelectorAll('.u-prj:checked').forEach(function(cb){prjs.push(cb.value);});
   if(!uname){alert('Username required');return;}
-  var hash = existingUsername&&USERS[existingUsername]&&!pass ? USERS[existingUsername].hash : (pass?await sha256(pass):null);
+  var hash=existingUsername&&USERS[existingUsername]&&!pass?USERS[existingUsername].hash:(pass?await sha256(pass):null);
   if(!hash){alert('Password required for new users');return;}
   if(existingUsername&&existingUsername!==uname) delete USERS[existingUsername];
   USERS[uname]={hash:hash,role:role,name:name,assignedCustomers:cus,assignedProjects:prjs};
-  closeModal(); navigate('users'); autoSave();
+  closeModal();navigate('users');autoSave();
 }
 function saveAddUser(){ saveUserFromForm(null); }
 function saveEditUser(u){ saveUserFromForm(u); }
 function deleteUser(u){ if(confirm('Delete user '+u+'?')){ delete USERS[u]; navigate('users'); autoSave(); } }
-
 
 function initFC(){}
 
