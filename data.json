@@ -153,12 +153,12 @@
               ],
               "scope": {
                 "agentRole": "AI-powered FAQ bot handling common insurance questions",
-                "channels": "Web Chat, WhatsApp, Customer Portal",
+                "channels": "Web Chat, WhatsApp, Customer Portal, Mail",
                 "currentProcess": "Customers call or email service center for basic FAQ questions.",
                 "functionalScopeIn": "Standard FAQ questions",
                 "functionalScopeOut": "Complex claims, policy mutations, legal advice",
                 "data": "- FAQ knowledge base\n- Policy documentation\n- Product catalogue",
-                "actions": "- Answer FAQ\n- Route to human agent\n- Escalate complex query",
+                "actions": "- Answer FAQ\n- Route to human agent\n- Escalate complex query\n- Create case",
                 "guardrails": "- Never provide legal advice\n- Always offer human handoff option",
                 "relatedFlows": []
               },
