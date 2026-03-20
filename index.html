@@ -281,7 +281,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
       <div class="col g16">
         <div>
           <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Username</label>
-          <input id="l-user" type="text" placeholder="salesforce · belfius · admin" autocomplete="off" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
+          <input id="l-user" type="text" placeholder="superadmin · viewer · belfius" autocomplete="off" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
         </div>
         <div>
           <label style="color:#3e3e3c;font-size:13px;font-weight:600;margin-bottom:5px;display:block">Password</label>
@@ -297,7 +297,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
       <div style="width:1px;height:16px;background:rgba(255,255,255,.3)"></div>
       <span style="color:white;font-size:11px;font-weight:600;letter-spacing:.05em">BELFIUS INSURANCE</span>
     </div>
-    <p style="text-align:center;font-size:11px;color:rgba(255,255,255,.4);margin-top:12px">Confidential — Salesforce Professional Services</p>
+    <p style="text-align:center;font-size:11px;color:rgba(255,255,255,.5);margin-top:12px">superadmin/admin2026 &nbsp;&middot;&nbsp; viewer/sf2026 &nbsp;&middot;&nbsp; belfius/bel2026</p><p style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);margin-top:4px">Confidential — Salesforce Professional Services</p>
   </div>
 </div>
 
@@ -305,8 +305,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 <div id="app-screen" class="hidden">
   <div class="app">
     <aside class="sidebar" id="sidebar">
-      <!-- Salesforce brand header -->
-      <div style="padding:4px 8px 16px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
+      <div id="sidebar-header" style="padding:4px 8px 16px;border-bottom:1px solid var(--sidebar-border);margin-bottom:8px">
         <!-- Salesforce cloud logo SVG -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -357,159 +356,124 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
    DATA
 ═══════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════
-   AUTH — SHA-256 hashed passwords
-   Default hashes (can be changed via admin UI + saved to GitHub):
-   salesforce/sf2026 · belfius/bel2026 · admin/admin2026
+   MULTI-TENANT AUTH & USER MANAGEMENT
+   Users stored in data.json, hashed with SHA-256.
+   Roles: superadmin | project_admin | viewer
+   superadmin  — full access + GitHub/user management
+   project_admin — edit assigned customers/projects
+   viewer      — read-only (all or scoped)
 ═══════════════════════════════════════════════════ */
-var CREDS = {
-  salesforce: { hash:'1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148', role:'salesforce' },
-  belfius:    { hash:'e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3', role:'belfius' },
-  admin:      { hash:'6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6', role:'admin' }
+
+// Default users baked in — overridden from data.json on load
+// superadmin/admin2026 · viewer/sf2026 · belfius/bel2026
+var USERS = {
+  superadmin: { hash:'6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6', role:'superadmin', name:'Super Admin', assignedCustomers:[], assignedProjects:[] },
+  viewer:     { hash:'1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148', role:'viewer',      name:'Salesforce Viewer', assignedCustomers:[], assignedProjects:[] },
+  belfius:    { hash:'e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3', role:'viewer',      name:'Belfius Viewer', assignedCustomers:['belfius'], assignedProjects:[] }
 };
-/* Passwords: salesforce=sf2026 · belfius=bel2026 · admin=admin2026
-   Stored as SHA-256 hashes. Change via Admin → Change Passwords.
-   Real hashes are loaded from data.json on login so they can be
-   updated without editing this file. */
 
 async function sha256(str){
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
 }
+var currentUser = null;   // logged-in user object
+var currentRole = null;   // 'superadmin' | 'project_admin' | 'viewer'
+var currentUsername = null;
+var currentPage = 'overview';
+var currentTheme = 'default';
+var currentCustomerIdx = 0;  // which customer is active
+var currentProjectIdx  = 0;  // which project is active within customer
 
-var currentRole=null, currentPage='overview', currentTheme='default';
+/* ═══════════════════════════════════════════════════
+   MULTI-TENANT DATA MODEL
+   CUSTOMERS → PROJECTS → (useCases, blockers, kpis, team, raci, meetings, flowcharts)
+═══════════════════════════════════════════════════ */
+var CUSTOMERS = [
+  {
+    id: 'belfius',
+    name: 'Belfius',
+    logo: '⚡',
+    projects: [
+      {
+        id: 'belfius-agentic',
+        name: 'Agentic Transformation',
+        description: 'Salesforce Agentforce POC — 90-day program to build 3 AI agents across Belfius Insurance',
+        technologies: ['Agentforce','Einstein AI','Data Cloud','MuleSoft'],
+        useCases: [
+          {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
+            description:'Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.',
+            businessPriority:'High – value driver = productivity / target KPIs = minutes saved',
+            targetUsers:'Customers',
+            expectedOutcomes:'100% of new car policy required documents and data gathered by an AI agent',
+            jobStories:[
+              {story:'When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. I want to be able to generate a quote entirely conversation driven.',painPoints:'Long response time\nWork in multiple systems\nIntegration between Core platform (Keylane Axon), Salesforce',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'},
+              {story:'When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and hand off to a customer agent.',painPoints:'Long response time\nWork in multiple systems\nMultiple email between customer and service agent',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'}
+            ],
+            scope:{agentRole:'AI agent (Agentforce) deployed in Salesforce to automate handling of gathering all required documents and data for completion of a new car policy request',channels:'Chat',currentProcess:'Manual: after an offer has been accepted, multiple mails between customer and service agent to gather documents and data',functionalScopeIn:'New car policy request',functionalScopeOut:'Any other car policy mutation request',data:'- Case record\n- Contract records in Salesforce\n- Documents in Axon\n- Conversation history',actions:'- Request document\n- Check document correct\n- Check document complete\n- Consolidate cases\n- Hand off service agent\n- Escalate',guardrails:"- Never provide advise\n- Don't use subjective adjectives\n- Don't compare to other insurers\n- If about claims, route to claims department",relatedFlows:[]},
+            milestones:[{label:'Architecture design (Robin + Jeroen)',date:'Before mid-April',done:false,atRisk:false},{label:'Integration design (Koen + Belfius)',date:'Mid-April',done:false,atRisk:true},{label:'Test execution',date:'Mid-June',done:false,atRisk:false},{label:'UAT & sign-off',date:'Mid-June',done:false,atRisk:false}]},
+          {id:'UC2',title:'FAQ Agent',subtitle:'Multi-Channel Scale-Up',progress:10,status:'Planning',description:'Scalable FAQ agent deployed across multiple customer-facing channels.',businessPriority:'Medium – reduce inbound call volume',targetUsers:'Customers, Prospects',expectedOutcomes:'30% deflection of FAQ-type queries from human agents',jobStories:[{story:'When a customer has a question about their policy, I want an AI agent to answer it immediately.',painPoints:'Long wait times\nHigh volume of repetitive questions',desiredOutcomes:'Accurate FAQ answers 24/7',kpis:'Deflection rate\nCSAT score'}],scope:{agentRole:'AI-powered FAQ bot handling common insurance questions',channels:'Web Chat, WhatsApp, Customer Portal',currentProcess:'Customers call or email service center for basic FAQ questions.',functionalScopeIn:'Standard FAQ questions',functionalScopeOut:'Complex claims, policy mutations, legal advice',data:'- FAQ knowledge base\n- Policy documentation\n- Product catalogue',actions:'- Answer FAQ\n- Route to human agent\n- Escalate complex query',guardrails:'- Never provide legal advice\n- Always offer human handoff option',relatedFlows:[]},milestones:[{label:'Authentication approach decision',date:'Open',done:false,atRisk:true},{label:'Channel integration design',date:'April-May',done:false,atRisk:false},{label:'Agent build & testing',date:'May',done:false,atRisk:false}]},
+          {id:'UC3',title:'Service Rep Assistant',subtitle:'Employee Agent',progress:5,status:'Planning',description:'Internal AI assistant for service representatives — surfacing policy info and next-best-action guidance.',businessPriority:'High – reduce average handling time',targetUsers:'Internal Service Representatives',expectedOutcomes:'20% reduction in average handling time',jobStories:[{story:'When a service rep is on a call, I want an AI assistant to surface relevant policy info so the rep can resolve the query faster.',painPoints:'Switching between multiple systems\nSlow information retrieval',desiredOutcomes:'Faster resolution, consistent answers',kpis:'Average handling time\nFirst-call resolution rate'}],scope:{agentRole:'Internal copilot for service reps providing real-time context and guided next-best-action recommendations',channels:'Salesforce Service Console (internal)',currentProcess:'Reps manually search multiple systems during calls.',functionalScopeIn:'Policy lookup, customer 360 view, next-best-action',functionalScopeOut:'Autonomous customer-facing actions',data:'- Customer record\n- Policy & contract data\n- Interaction history\n- Knowledge base articles',actions:'- Surface policy info\n- Suggest next best action\n- Draft response\n- Summarise case',guardrails:'- Rep must confirm all AI suggestions before acting\n- No autonomous customer communication',relatedFlows:[]},milestones:[{label:'Process mapping & documentation',date:'April-May',done:false,atRisk:false},{label:'Agent configuration',date:'May',done:false,atRisk:false},{label:'Pilot with service reps',date:'June',done:false,atRisk:false}]}
+        ],
+        blockers:[
+          {id:'D1',type:'Decision',item:'Authentication approach for UC2 customer zone agent',owner:'Belfius (Jonas)',status:'Open'},
+          {id:'D2',type:'Decision',item:'Scope alignment with BDI on 3 use cases (formal sign-off)',owner:'Gilles + Francis',status:'In Progress'},
+          {id:'D3',type:'Decision',item:'Integration design for Keylane Axon',owner:'Koen + Belfius',status:'At Risk'},
+          {id:'D4',type:'Decision',item:'AP (legal/compliance) pre-approval process start (~10 week lead time)',owner:'Belfius (Jonas)',status:'Not Started'},
+          {id:'D5',type:'Decision',item:'Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)',owner:'Jonas to CISO',status:'Pending'},
+          {id:'B1',type:'Blocker',item:'Belfius environment / sandbox access',owner:'Belfius',status:'Due end of March'},
+          {id:'B2',type:'Blocker',item:'As-is process mapping for UC1 not started',owner:'Belfius primary',status:'Blocked'}
+        ],
+        kpis:[
+          {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min'},
+          {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%'},
+          {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min'},
+          {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10'}
+        ],
+        team:[
+          {name:'Francis Verscheure',role:'Solution Orchestrator / Coordinator',company:'Salesforce'},
+          {name:'Robin De Bondt',role:'Implementation Lead (PS TA)',company:'Salesforce'},
+          {name:'Koen Vermachelen',role:'Integration Advisor',company:'Salesforce'},
+          {name:'Jeroen Tiekstra',role:'Industry Architect (Insurance)',company:'Salesforce'},
+          {name:'Maarten Laukens',role:'Tech Executive Sponsor',company:'Salesforce'},
+          {name:'Jonas Hubert',role:'IT Project Manager',company:'Belfius'},
+          {name:'Rudi Meys',role:'Enterprise Architect',company:'Belfius'},
+          {name:'Laure-Anne',role:'Business Lead AI',company:'Belfius'},
+          {name:'Bart',role:'IT Contact / Architect',company:'Belfius'},
+          {name:'Stijn',role:'IT Developer',company:'Belfius'}
+        ],
+        raci:[
+          {a:'POC coordination & planning',M:'I',F:'R',J:'C',R:'C',K:'I',B:'C'},
+          {a:'Use case & process documentation',M:'I',F:'A',J:'R',R:'C',K:'C',B:'R'},
+          {a:'Technical architecture & design',M:'I',F:'A',J:'C',R:'R',K:'C',B:'I'},
+          {a:'Integration design & validation',M:'I',F:'A',J:'I',R:'C',K:'R',B:'C'},
+          {a:'Agent build & configuration',M:'I',F:'A',J:'I',R:'R',K:'C',B:'I'},
+          {a:'Test execution',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
+          {a:'UAT & business sign-off',M:'I',F:'A',J:'I',R:'I',K:'I',B:'R'},
+          {a:'Steering & go/no-go decisions',M:'A',F:'R',J:'I',R:'I',K:'I',B:'R'}
+        ],
+        meetings:[
+          {name:'Internal SF Sync',freq:'Weekly',participants:'Francis, Robin, Koen, Jeroen, Maarten',purpose:'Blockers, capacity, progress'},
+          {name:'Customer Working Session',freq:'Bi-weekly',participants:'SF team + Jonas, Bart, Stijn',purpose:'Use case delivery progress'},
+          {name:'Monthly Governance',freq:'Monthly',participants:'Gilles + BDI leadership (Pieter, Hannes)',purpose:'Executive alignment, escalations'},
+          {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
+        ],
+        flowcharts:[],
+        execSponsors:[
+          {name:'Pieter Bamps',title:'Head of IT BDI',company:'Belfius'},
+          {name:'Hannes Heylen',title:'CIO Belfius Insurance',company:'Belfius'}
+        ]
+      }
+    ]
+  }
+];
 
-var DATA={
-  useCases:[
-    {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
-      description:'Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.',
-      businessPriority:'High – value driver = productivity / target KPIs = minutes saved',
-      targetUsers:'Customers',
-      expectedOutcomes:'100% of new car policy required documents and data gathered by an AI agent',
-      jobStories:[
-        {story:'When a customer is interested in a new car insurance, he needs to go through the flow to get a quote. I want to be able to generate a quote entirely conversation driven. It needs to capture all the required information to generate a quote.',painPoints:'Long response time\nWork in multiple systems\nIntegration between Core platform (Keylane Axon), Salesforce',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'},
-        {story:'When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and hand off to a customer agent so a customer agent can finalize the new car policy.',painPoints:'Long response time\nWork in multiple systems\nMultiple email between customer and service agent',desiredOutcomes:'95% accuracy in responses',kpis:'Time saved\nAverage handling time'}
-      ],
-      scope:{
-        agentRole:'AI agent (Agentforce) deployed in Salesforce to automate handling of gathering all required documents and data for completion of a new car policy request',
-        channels:'Chat',
-        currentProcess:'Manual: after an offer has been accepted, multiple mails between customer and service agent to gather documents and data\n\nInefficient:\n- Long response time\n- Work in multiple systems\n- Multiple email between customer and service agent',
-        functionalScopeIn:'New car policy request',
-        functionalScopeOut:'Any other car policy mutation request',
-        data:'- Case record\n- Contract records in Salesforce\n- Documents in Axon\n- Conversation history',
-        actions:'- Request document\n- Check document correct\n- Check document complete\n- Consolidate cases\n- Hand off service agent\n- Escalate',
-        guardrails:'- Never provide advise\n- Don\'t use subjective adjectives (best, cheapest…)\n- Don\'t compare to other insurers\n- If the subject is about claims, route to the claims department\n- Always hand off in case of:\n  - Claims history doc contains more than 2 accidents within 5 years\n  - Pink form contain grey boxes\n  - If it does not fit acceptance criteria',
-        relatedFlows:[]
-      },
-      milestones:[
-        {label:'Architecture design (Robin + Jeroen)',date:'Before mid-April',done:false,atRisk:false},
-        {label:'Integration design (Koen + Belfius)',date:'Mid-April',done:false,atRisk:true},
-        {label:'Test execution',date:'Mid-June',done:false,atRisk:false},
-        {label:'UAT & sign-off',date:'Mid-June',done:false,atRisk:false}
-      ]},
-    {id:'UC2',title:'FAQ Agent',subtitle:'Multi-Channel Scale-Up',progress:10,status:'Planning',
-      description:'Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.',
-      businessPriority:'Medium – reduce inbound call volume, improve self-service rate',
-      targetUsers:'Customers, Prospects',
-      expectedOutcomes:'30% deflection of FAQ-type queries from human agents',
-      jobStories:[
-        {story:'When a customer has a question about their policy, I want an AI agent to answer it immediately so that the customer gets instant help without waiting for an agent.',painPoints:'Long wait times\nHigh volume of repetitive questions',desiredOutcomes:'Accurate FAQ answers 24/7',kpis:'Deflection rate\nCustomer satisfaction score'}
-      ],
-      scope:{
-        agentRole:'AI-powered FAQ bot handling common insurance questions across digital channels',
-        channels:'Web Chat, WhatsApp, Customer Portal',
-        currentProcess:'Customers call or email service center for basic FAQ questions, creating unnecessary load on agents.',
-        functionalScopeIn:'Standard FAQ questions about policies, coverage, payments',
-        functionalScopeOut:'Complex claims, policy mutations, legal advice',
-        data:'- FAQ knowledge base\n- Policy documentation\n- Product catalogue',
-        actions:'- Answer FAQ\n- Route to human agent\n- Escalate complex query',
-        guardrails:'- Never provide legal advice\n- Always offer human handoff option\n- Don\'t make promises about coverage',
-        relatedFlows:[]
-      },
-      milestones:[
-        {label:'Authentication approach decision (D1)',date:'Open',done:false,atRisk:true},
-        {label:'Channel integration design',date:'April-May',done:false,atRisk:false},
-        {label:'Agent build & testing',date:'May',done:false,atRisk:false}
-      ]},
-    {id:'UC3',title:'Service Rep Assistant',subtitle:'Employee Agent',progress:5,status:'Planning',
-      description:'Internal AI assistant for service representatives — surfacing policy info, next-best-action guidance, and customer context in real time.',
-      businessPriority:'High – reduce average handling time, improve first-call resolution',
-      targetUsers:'Internal Service Representatives',
-      expectedOutcomes:'20% reduction in average handling time; improved first-call resolution rate',
-      jobStories:[
-        {story:'When a service rep is on a call with a customer, I want an AI assistant to surface relevant policy info and next-best actions so that the rep can resolve the query faster.',painPoints:'Switching between multiple systems\nSlow information retrieval\nInconsistent advice given',desiredOutcomes:'Faster resolution, consistent answers',kpis:'Average handling time\nFirst-call resolution rate'}
-      ],
-      scope:{
-        agentRole:'Internal copilot for service reps providing real-time context, policy lookup and guided next-best-action recommendations',
-        channels:'Salesforce Service Console (internal)',
-        currentProcess:'Reps manually search multiple systems during calls, leading to long handling times and inconsistent advice.',
-        functionalScopeIn:'Policy lookup, customer 360 view, next-best-action suggestions',
-        functionalScopeOut:'Autonomous customer-facing actions',
-        data:'- Customer record\n- Policy & contract data\n- Interaction history\n- Knowledge base articles',
-        actions:'- Surface policy info\n- Suggest next best action\n- Draft response\n- Summarise case',
-        guardrails:'- Rep must confirm all AI suggestions before acting\n- No autonomous customer communication\n- Flag sensitive cases for supervisor review',
-        relatedFlows:[]
-      },
-      milestones:[
-        {label:'Process mapping & documentation',date:'April-May',done:false,atRisk:false},
-        {label:'Agent configuration',date:'May',done:false,atRisk:false},
-        {label:'Pilot with service reps',date:'June',done:false,atRisk:false}
-      ]}
-  ],
-  blockers:[
-    {id:'D1',type:'Decision',item:'Authentication approach for UC2 customer zone agent',owner:'Belfius (Jonas)',status:'Open'},
-    {id:'D2',type:'Decision',item:'Scope alignment with BDI on 3 use cases (formal sign-off)',owner:'Gilles + Francis',status:'In Progress'},
-    {id:'D3',type:'Decision',item:'Integration design for Keylane Axon',owner:'Koen + Belfius',status:'At Risk'},
-    {id:'D4',type:'Decision',item:'AP (legal/compliance) pre-approval process start (~10 week lead time)',owner:'Belfius (Jonas)',status:'Not Started'},
-    {id:'D5',type:'Decision',item:'Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)',owner:'Jonas to CISO',status:'Pending'},
-    {id:'B1',type:'Blocker',item:'Belfius environment / sandbox access',owner:'Belfius',status:'Due end of March'},
-    {id:'B2',type:'Blocker',item:'As-is process mapping for UC1 not started',owner:'Belfius primary',status:'Blocked'}
-  ],
-  kpis:[
-    {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min'},
-    {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%'},
-    {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min'},
-    {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10'}
-  ],
-  team:[
-    {name:'Francis Verscheure',role:'Solution Orchestrator / Coordinator',company:'Salesforce'},
-    {name:'Robin De Bondt',role:'Implementation Lead (PS TA)',company:'Salesforce'},
-    {name:'Koen Vermachelen',role:'Integration Advisor',company:'Salesforce'},
-    {name:'Jeroen Tiekstra',role:'Industry Architect (Insurance)',company:'Salesforce'},
-    {name:'Maarten Laukens',role:'Tech Executive Sponsor',company:'Salesforce'},
-    {name:'Jonas Hubert',role:'IT Project Manager',company:'Belfius'},
-    {name:'Rudi Meys',role:'Enterprise Architect',company:'Belfius'},
-    {name:'Laure-Anne',role:'Business Lead AI',company:'Belfius'},
-    {name:'Bart',role:'IT Contact / Architect',company:'Belfius'},
-    {name:'Stijn',role:'IT Developer',company:'Belfius'}
-  ],
-  raci:[
-    {a:'POC coordination & planning',M:'I',F:'R',J:'C',R:'C',K:'I',B:'C'},
-    {a:'Use case & process documentation',M:'I',F:'A',J:'R',R:'C',K:'C',B:'R'},
-    {a:'As-is / to-be process mapping',M:'I',F:'A',J:'C',R:'I',K:'I',B:'R'},
-    {a:'Technical architecture & design',M:'I',F:'A',J:'C',R:'R',K:'C',B:'I'},
-    {a:'Integration design & validation',M:'I',F:'A',J:'I',R:'C',K:'R',B:'C'},
-    {a:'Agent build & configuration',M:'I',F:'A',J:'I',R:'R',K:'C',B:'I'},
-    {a:'Data provisioning & test data',M:'I',F:'A',J:'I',R:'I',K:'C',B:'R'},
-    {a:'Environment setup & access',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
-    {a:'Test execution',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
-    {a:'UAT & business sign-off',M:'I',F:'A',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Legal & compliance pre-approval',M:'I',F:'I',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Steering & go/no-go decisions',M:'A',F:'R',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Scope change management',M:'A',F:'R',J:'I',R:'I',K:'I',B:'C'},
-    {a:'Executive alignment & escalation',M:'R',F:'I',J:'I',R:'I',K:'I',B:'R'}
-  ],
-  meetings:[
-    {name:'Internal SF Sync',freq:'Weekly',participants:'Francis, Robin, Koen, Jeroen, Maarten',purpose:'Blockers, capacity, progress'},
-    {name:'Customer Working Session',freq:'Bi-weekly',participants:'SF team + Jonas, Bart, Stijn',purpose:'Use case delivery progress'},
-    {name:'Monthly Governance',freq:'Monthly',participants:'Gilles + BDI leadership (Pieter, Hannes)',purpose:'Executive alignment, escalations'},
-    {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
-  ],
-  flowcharts:[],
-  execSponsors:[
-    {name:'Pieter Bamps',title:'Head of IT BDI',company:'Belfius'},
-    {name:'Hannes Heylen',title:'CIO Belfius Insurance',company:'Belfius'}
-  ]
-};
+// Helpers to get current customer/project data
+function CUS(){ return CUSTOMERS[currentCustomerIdx]||CUSTOMERS[0]; }
+function PRJ(){ return (CUS().projects||[])[currentProjectIdx]||(CUS().projects||[])[0]||{}; }
+// Alias DATA to current project for backward compatibility
+function syncDATA(){ DATA = PRJ(); }
+var DATA = {};
+syncDATA();
 
 var KEY_DATES=[
   {date:'End of March 2026',label:'Belfius sandbox access deadline',owner:'Belfius',urgent:true},
@@ -535,7 +499,6 @@ function av(name,company){
   return '<div class="avatar avatar-'+(company==='Salesforce'?'sf':'bel')+'">'+i+'</div>';
 }
 function pb(pct){return '<div class="prog-bar"><div class="prog-fill" style="width:'+Math.min(100,pct)+'%"></div></div>'}
-function isAdmin(){return currentRole==='admin'}
 function adminBar(txt){return isAdmin()?'<div class="admin-bar">&#9998; '+txt+'</div>':''}
 function closeModal(){document.getElementById('modal-container').innerHTML=''}
 function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick="closeModalCheck(event)">'+html+'</div>'}
@@ -564,112 +527,305 @@ function setTheme(t){
    AUTH
 ═══════════════════════════════════════════════════ */
 async function doLogin(){
-  var u=document.getElementById('l-user').value.trim().toLowerCase();
-  var p=document.getElementById('l-pass').value;
-  var er=document.getElementById('l-err');
-  var btn=document.getElementById('l-btn');
-  var entry=CREDS[u];
-  if(!entry){ er.classList.remove('hidden'); er.textContent='Unknown username. Use: salesforce, belfius, or admin'; return; }
+  var u = document.getElementById('l-user').value.trim().toLowerCase();
+  var p = document.getElementById('l-pass').value;
+  var er = document.getElementById('l-err');
+  var btn = document.getElementById('l-btn');
+  if(!u||!p){ er.classList.remove('hidden'); er.textContent='Please enter username and password.'; return; }
   if(btn){ btn.textContent='Checking…'; btn.disabled=true; }
-
-  // Try to load latest hashes from GitHub first (so password changes take effect)
-  // If it fails, fall back to the hashes baked into this file — login still works
-  try { await ghFetchCreds(); } catch(ignored){}
-
+  // Try fetching latest user list from GitHub first
+  try { await ghFetchUsers(); } catch(e){}
+  var entry = USERS[u];
+  if(!entry){ 
+    if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
+    er.classList.remove('hidden'); er.textContent='Unknown username.'; return; 
+  }
   var h = await sha256(p);
   if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
-
-  // Re-read entry after potential GitHub update
-  entry = CREDS[u];
-  if(h === entry.hash){
-    er.classList.add('hidden');
-    currentRole=entry.role;
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
-    buildSidebar();
-    navigate('overview');
-  } else {
-    er.classList.remove('hidden');
-    er.textContent='Incorrect password.';
+  if(h !== entry.hash){ 
+    er.classList.remove('hidden'); er.textContent='Incorrect password.'; return; 
   }
+  er.classList.add('hidden');
+  currentUsername = u;
+  currentUser     = entry;
+  currentRole     = entry.role;
+  // Set default customer/project for scoped users
+  if(entry.assignedCustomers && entry.assignedCustomers.length){
+    var ci = CUSTOMERS.findIndex(function(c){ return entry.assignedCustomers.indexOf(c.id)!==-1; });
+    if(ci!==-1) currentCustomerIdx = ci;
+  }
+  if(entry.assignedProjects && entry.assignedProjects.length){
+    var pi = (CUS().projects||[]).findIndex(function(p){ return entry.assignedProjects.indexOf(p.id)!==-1; });
+    if(pi!==-1) currentProjectIdx = pi;
+  }
+  syncDATA();
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  buildSidebar();
+  navigate('overview');
 }
 
-// Fetch only the creds hashes from data.json — lightweight, no full data load
-// Uses hardcoded repo values so it works before GH object is fully initialized
-async function ghFetchCreds(){
-  var url='https://api.github.com/repos/frakke11/BelfiusTracker/contents/data.json'
-          +'?ref=main&nocache='+Date.now();
+async function ghFetchUsers(){
+  var url='https://api.github.com/repos/frakke11/BelfiusTracker/contents/data.json?ref=main&nocache='+Date.now();
   var res=await fetch(url,{headers:{'Accept':'application/vnd.github.v3+json'}});
   if(!res.ok) return;
   var json=await res.json();
   var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
   var loaded=JSON.parse(raw);
-  if(loaded.creds){
-    if(loaded.creds.salesforce) CREDS.salesforce.hash=loaded.creds.salesforce;
-    if(loaded.creds.belfius)    CREDS.belfius.hash   =loaded.creds.belfius;
-    if(loaded.creds.admin)      CREDS.admin.hash     =loaded.creds.admin;
-  }
+  // Restore users
+  if(loaded.users){ USERS = loaded.users; }
+  // Restore customers/projects
+  if(loaded.customers && loaded.customers.length){ CUSTOMERS = loaded.customers; syncDATA(); }
 }
-
 document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
-function logout(){currentRole=null;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
+function logout(){currentRole=null;currentUser=null;currentUsername=null;currentCustomerIdx=0;currentProjectIdx=0;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
 
 /* ═══════════════════════════════════════════════════
    NAV
 ═══════════════════════════════════════════════════ */
-var NAV_SF=[{id:'overview',icon:'&#9638;',label:'Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'raci',icon:'&#9633;',label:'RACI Matrix'},{id:'blockers',icon:'&#9888;',label:'Blockers'},{id:'meetings',icon:'&#9702;',label:'Cadences'},{id:'kpis',icon:'&#9650;',label:'KPIs'},{id:'flowchart',icon:'&#10136;',label:'Flowcharts'}];
-var NAV_BEL=[{id:'overview',icon:'&#9638;',label:'Program Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'kpis',icon:'&#9650;',label:'KPIs'}];
+var NAV_ITEMS=[
+  {id:'overview',   icon:'&#9638;',  label:'Overview'},
+  {id:'usecases',   icon:'&#10830;', label:'Use Cases', hasSubmenu:true},
+  {id:'timeline',   icon:'&#9711;',  label:'Timeline'},
+  {id:'team',       icon:'&#9673;',  label:'Team'},
+  {id:'raci',       icon:'&#9633;',  label:'RACI Matrix', sfOnly:true},
+  {id:'blockers',   icon:'&#9888;',  label:'Blockers'},
+  {id:'meetings',   icon:'&#9702;',  label:'Cadences', sfOnly:true},
+  {id:'kpis',       icon:'&#9650;',  label:'KPIs'},
+  {id:'flowchart',  icon:'&#10136;', label:'Flowcharts'},
+  {id:'users', icon:'&#128100;', label:'Users', adminOnly:true}
+];
+
+function canEdit(){
+  // superadmin can edit anything
+  if(currentRole==='superadmin') return true;
+  // project_admin can edit if assigned to current project
+  if(currentRole==='project_admin'){
+    var prj=PRJ();
+    if(!currentUser.assignedProjects||!currentUser.assignedProjects.length) return true; // all projects
+    return currentUser.assignedProjects.indexOf(prj.id)!==-1;
+  }
+  return false;
+}
+function isAdmin(){ return canEdit(); } // keep backward compat alias
+function isSuperAdmin(){ return currentRole==='superadmin'; }
+
+var ucSubmenuOpen = true;
 
 function buildSidebar(){
+  syncDATA();
+  var cus = CUS();
+  var prj = PRJ();
+
+  // ── Customer dropdown header ──
   var rb=document.getElementById('role-badge-wrap');
-  var isBel=currentRole==='belfius';
-  var col=isBel?'rgba(204,0,0,.15)':'rgba(74,158,255,.15)';
-  var tc=isBel?'var(--accent)':'#4a9eff';
-  var bc=isBel?'rgba(204,0,0,.3)':'rgba(74,158,255,.3)';
-  var icon=currentRole==='admin'?'Admin':currentRole==='salesforce'?'Salesforce':'Belfius';
-  rb.innerHTML='<span class="badge" style="background:'+col+';color:'+tc+';border:1px solid '+bc+';font-size:10px">'+icon+'</span>';
-  var items=currentRole==='belfius'?NAV_BEL:NAV_SF;
+  rb.innerHTML='<span class="badge" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);font-size:10px">'+currentRole.replace('_',' ')+'</span>';
+
+  // Rebuild sidebar header customer/project selector
+  var header = document.querySelector('.sidebar > div:first-child');
+  if(header){
+    header.innerHTML =
+      // Customer dropdown
+      '<div style="position:relative;margin-bottom:10px">'
+      +'<div id="cus-dropdown-btn" onclick="toggleCusDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);transition:all .2s" onmouseover="this.style.background=\'rgba(255,255,255,.18)\'" onmouseout="this.style.background=\'rgba(255,255,255,.1)\'">'
+      +'<span style="font-size:18px;flex-shrink:0">'+e(cus.logo||'🏢')+'</span>'
+      +'<div style="flex:1;min-width:0"><div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(cus.name)+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase;margin-top:1px">Customer</div></div>'
+      +'<span style="color:rgba(255,255,255,.6);font-size:11px">&#9660;</span>'
+      +'</div>'
+      +'<div id="cus-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
+      +CUSTOMERS.map(function(c,ci){
+        return '<div onclick="switchCustomer('+ci+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;background:'+(ci===currentCustomerIdx?'var(--bg-light)':'transparent')+';" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\''+(ci===currentCustomerIdx?'var(--bg-light)':'transparent')+'\'">'
+          +'<span>'+e(c.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(c.name)+'</span>'
+          +(ci===currentCustomerIdx?'<span style="color:var(--accent);font-size:11px">&#10003;</span>':'')
+          +'</div>';
+      }).join('')
+      +(isSuperAdmin()?'<div onclick="addCustomer()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\'\'">+ New Customer</div>':'')
+      +'</div></div>'
+      // Project selector
+      +'<div style="position:relative">'
+      +'<div id="prj-dropdown-btn" onclick="togglePrjDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);transition:all .2s" onmouseover="this.style.background=\'rgba(255,255,255,.14)\'" onmouseout="this.style.background=\'rgba(255,255,255,.08)\'">'
+      +'<div style="width:20px;height:20px;border-radius:4px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.3)" stroke="#fff" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>'
+      +'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:12px;color:rgba(255,255,255,.9);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(prj.name||'No project')+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em">Project</div></div>'
+      +'<span style="color:rgba(255,255,255,.5);font-size:11px">&#9660;</span>'
+      +'</div>'
+      +'<div id="prj-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
+      +(cus.projects||[]).map(function(p,pi){
+        return '<div onclick="switchProject('+pi+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;background:'+(pi===currentProjectIdx?'var(--bg-light)':'transparent')+';" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\''+(pi===currentProjectIdx?'var(--bg-light)':'transparent')+'\'">'
+          +'<span style="flex:1;color:var(--text)">'+e(p.name)+'</span>'
+          +(pi===currentProjectIdx?'<span style="color:var(--accent);font-size:11px">&#10003;</span>':'')
+          +'</div>';
+      }).join('')
+      +(canEdit()?'<div onclick="addProject()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\'\'">+ New Project</div>':'')
+      +'</div></div>';
+  }
+
+  // ── Nav items ──
+  var items = NAV_ITEMS.filter(function(it){
+    if(it.adminOnly && !isSuperAdmin()) return false;
+    if(it.sfOnly && currentRole==='viewer' && currentUser&&currentUser.assignedCustomers && currentUser.assignedCustomers.length) return false;
+    return true;
+  });
   var nav=document.getElementById('nav-items');
-  nav.innerHTML=items.map(function(it){
-    return '<div class="nav-item" id="nav-'+it.id+'" onclick="navigate(\''+it.id+'\')">'
-      +'<span class="nav-icon">'+it.icon+'</span><span>'+it.label+'</span>'
-      +(it.id==='blockers'?'<span class="dot-red" style="margin-left:auto"></span>':'')+'</div>';
-  }).join('');
+  var navHtml='';
+  items.forEach(function(it){
+    var isUC=it.hasSubmenu;
+    var ucActive=currentPage==='usecases'||currentPage.startsWith('uc-');
+    var active=(isUC&&ucActive)||(currentPage===it.id);
+    navHtml+='<div class="nav-item'+(active?' active':'')+'" id="nav-'+it.id+'" onclick="'+(isUC?'toggleUCSubmenu()':'navigate(\''+it.id+'\')')+'">'
+      +'<span class="nav-icon">'+it.icon+'</span>'
+      +'<span style="flex:1">'+it.label+'</span>'
+      +(it.id==='blockers'&&(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length?'<span class="dot-red"></span>':'')
+      +(isUC?'<span style="font-size:10px;transition:transform .2s;display:inline-block;transform:'+(ucSubmenuOpen?'rotate(90deg)':'rotate(0deg)')+'">&#9654;</span>':'')
+      +'</div>';
+    if(isUC&&ucSubmenuOpen){
+      navHtml+='<div>';
+      (DATA.useCases||[]).forEach(function(uc,idx){
+        var a=currentPage==='uc-'+idx;
+        navHtml+='<div class="nav-item'+(a?' active':'')+'" style="padding-left:28px;font-size:12px" onclick="navigate(\'uc-'+idx+'\')">'
+          +'<span style="font-size:10px;font-weight:700;min-width:28px;color:'+(a?'inherit':'var(--accent)')+'">'+e(uc.id)+'</span>'
+          +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(uc.title)+'</span>'
+          +'</div>';
+      });
+      navHtml+='<div class="nav-item'+(currentPage==='usecases'?' active':'')+'" style="padding-left:28px;font-size:11px;opacity:.7" onclick="navigate(\'usecases\')">&#8230; All</div>';
+      navHtml+='</div>';
+    }
+  });
+  nav.innerHTML=navHtml;
+
+  // Inject GH bar for superadmin
+  if(isSuperAdmin()){
+    injectGhBar();
+    ghLoadData();
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(ev){
+  if(!ev.target.closest('#cus-dropdown-btn')&&!ev.target.closest('#cus-dropdown')){
+    var d=document.getElementById('cus-dropdown'); if(d) d.classList.add('hidden');
+  }
+  if(!ev.target.closest('#prj-dropdown-btn')&&!ev.target.closest('#prj-dropdown')){
+    var d=document.getElementById('prj-dropdown'); if(d) d.classList.add('hidden');
+  }
+});
+
+function toggleCusDropdown(){
+  var d=document.getElementById('cus-dropdown'); if(d){d.classList.toggle('hidden'); document.getElementById('prj-dropdown')&&document.getElementById('prj-dropdown').classList.add('hidden');}
+}
+function togglePrjDropdown(){
+  var d=document.getElementById('prj-dropdown'); if(d){d.classList.toggle('hidden'); document.getElementById('cus-dropdown')&&document.getElementById('cus-dropdown').classList.add('hidden');}
+}
+function switchCustomer(idx){
+  currentCustomerIdx=idx; currentProjectIdx=0; syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview');
+}
+function switchProject(idx){
+  currentProjectIdx=idx; syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview');
+}
+function addCustomer(){
+  closeModal();
+  showModal('<div class="modal"><h3>New Customer</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Customer Name</label><input id="nc-name" placeholder="e.g. ING Bank"></div>'
+    +'<div class="form-group"><label>Logo (emoji)</label><input id="nc-logo" value="🏢" style="font-size:20px;text-align:center"></div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewCustomer()">Create</button></div></div>');
+}
+function saveNewCustomer(){
+  var name=document.getElementById('nc-name').value.trim();
+  if(!name) return;
+  var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-');
+  CUSTOMERS.push({id:id,name:name,logo:document.getElementById('nc-logo').value||'🏢',projects:[]});
+  currentCustomerIdx=CUSTOMERS.length-1; currentProjectIdx=0; syncDATA();
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+function addProject(){
+  closeModal();
+  var techs=['Agentforce','Einstein AI','Data Cloud','MuleSoft','Slack','Sales Cloud','Service Cloud','Marketing Cloud','Field Service','Commerce Cloud'];
+  showModal('<div class="modal"><h3>New Project</h3>'
+    +'<div class="form-group"><label>Project Name</label><input id="np-name" placeholder="e.g. Agentic Transformation"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="np-desc" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Technologies</label>'
+    +'<div class="row wrap g8" style="margin-top:6px">'
+    +techs.map(function(t){return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="np-tech" style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewProject()">Create</button></div></div>');
+}
+function saveNewProject(){
+  var name=document.getElementById('np-name').value.trim();
+  if(!name) return;
+  var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
+  var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
+  var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
+    useCases:[],blockers:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],execSponsors:[]};
+  CUS().projects.push(prj);
+  currentProjectIdx=CUS().projects.length-1; syncDATA();
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+function editProject(){
+  var prj=PRJ();
+  var techs=['Agentforce','Einstein AI','Data Cloud','MuleSoft','Slack','Sales Cloud','Service Cloud','Marketing Cloud','Field Service','Commerce Cloud'];
+  showModal('<div class="modal"><h3>Edit Project</h3>'
+    +'<div class="form-group"><label>Project Name</label><input id="ep-name" value="'+e(prj.name||'')+'"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ep-desc" rows="2">'+e(prj.description||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Technologies</label>'
+    +'<div class="row wrap g8" style="margin-top:6px">'
+    +techs.map(function(t){var sel=(prj.technologies||[]).indexOf(t)!==-1;return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="ep-tech"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditProject()">Save</button></div></div>');
+}
+function saveEditProject(){
+  var prj=PRJ();
+  prj.name=document.getElementById('ep-name').value;
+  prj.description=document.getElementById('ep-desc').value;
+  var techs=[]; document.querySelectorAll('.ep-tech:checked').forEach(function(cb){techs.push(cb.value);});
+  prj.technologies=techs;
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+
+function toggleUCSubmenu(){
+  ucSubmenuOpen=!ucSubmenuOpen; buildSidebar();
 }
 
 function navigate(page){
-  currentPage=page;
-  document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active')});
-  var el=document.getElementById('nav-'+page);
-  if(el)el.classList.add('active');
+  currentPage=page; buildSidebar();
   var mc=document.getElementById('main-content');
   mc.innerHTML=renderPage(page);
-  mc.classList.remove('fade-up');
-  void mc.offsetWidth;
-  mc.classList.add('fade-up');
-  if(page==='flowchart')initFC();
+  mc.classList.remove('fade-up'); void mc.offsetWidth; mc.classList.add('fade-up');
+  if(page==='flowchart') initFC();
 }
 
 function renderPage(page){
-  var map={overview:rOverview,usecases:rUseCases,timeline:rTimeline,team:rTeam,raci:rRaci,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart};
+  if(page.startsWith('uc-')){ return rUseCasePage(parseInt(page.replace('uc-',''))); }
+  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
   return (map[page]||rOverview)();
 }
 
+
 /* ═══════════════════════════════════════════════════
-   OVERVIEW
+   OVERVIEW — dynamic from use case data
 ═══════════════════════════════════════════════════ */
 function rOverview(){
+  // Derive stats dynamically from DATA
   var atRisk=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'}).length;
   var open=DATA.blockers.filter(function(b){return b.status==='Open'}).length;
+  var totalUCs=DATA.useCases.length;
+  var doneUCs=DATA.useCases.filter(function(u){return u.status==='Done'}).length;
+  var avgProgress=totalUCs?Math.round(DATA.useCases.reduce(function(s,u){return s+Number(u.progress);},0)/totalUCs):0;
 
-  // Hero banner with Astro character and SF cloud decorations
+  // Hero banner
   var heroBanner='<div style="background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border-radius:var(--radius);padding:28px 32px;position:relative;overflow:hidden">'
     +'<div style="position:absolute;right:-20px;top:-30px;opacity:.12;pointer-events:none">'
     +'<svg width="240" height="160" viewBox="0 0 240 160" fill="none"><path d="M78 64C83 44 101 29 122 29c25 0 46 15 57 37 9-4 19-5 30-5 37 0 66 30 66 66s-29 66-66 66H48C21 193 0 173 0 147c0-26 20-47 46-51 3-10 12-18 22-22 9-3 18-3 27 1z" fill="white"/></svg>'
     +'</div>'
     +'<div style="position:absolute;right:80px;bottom:0;pointer-events:none;opacity:.95">'
-    // Astro character
     +'<svg width="68" height="85" viewBox="0 0 68 85" fill="none">'
     +'<ellipse cx="34" cy="72" rx="16" ry="5" fill="rgba(0,0,0,.2)"/>'
     +'<rect x="20" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
@@ -684,119 +840,224 @@ function rOverview(){
     +'<rect x="8" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
     +'<rect x="50" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
     +'<rect x="18" y="3" width="32" height="4" rx="2" fill="rgba(255,255,255,.4)"/>'
-    +'</svg>'
-    +'</div>'
-    // Einstein cloud icon top right
+    +'</svg></div>'
     +'<div style="position:absolute;right:20px;top:16px;pointer-events:none;opacity:.8">'
     +'<svg width="36" height="26" viewBox="0 0 36 26" fill="none"><path d="M11 8.5C11.7 5.8 13.9 4 16.4 4c3.1 0 5.7 2 6.6 4.8 1.1-.5 2.3-.7 3.6-.7 4.4 0 8 3.6 8 8s-3.6 8-8 8H7C3.7 24.1 1 21.4 1 18c0-3.2 2.4-5.8 5.5-6.2.5-1.5 1.5-2.7 2.8-3.4.9-.5 1.9-.5 2.8.2z" fill="rgba(255,255,255,0.6)"/></svg>'
     +'</div>'
     +'<div style="position:relative;z-index:1;max-width:62%">'
     +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
-    +'<h1 style="font-size:26px;font-weight:700;color:#ffffff;line-height:1.2;margin-bottom:8px">Belfius Agentic<br>Transformation</h1>'
-    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">90-day POC &middot; Q1&ndash;Q2 2026 &middot; Salesforce Professional Services</p>'
+    +'<h1 style="font-size:26px;font-weight:700;color:#ffffff;line-height:1.2;margin-bottom:8px">'+e(PRJ().name||'Agentic Transformation')+'</h1>'
+    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(PRJ().description||'Salesforce Professional Services')+'</p>'
     +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
-    +['Agentforce','Einstein AI','Data Cloud','MuleSoft'].map(function(t){
+    +(PRJ().technologies&&PRJ().technologies.length?PRJ().technologies:['Agentforce']).map(function(t){
       return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+t+'</span>';
     }).join('')
+    +'</div>'
+    +(canEdit()?'<button onclick="editProject()" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-family:var(--font-head);font-weight:600">&#9998; Edit Project</button>':'')
     +'</div></div></div>';
 
-  var ucHtml=DATA.useCases.map(function(uc){
-    return '<div class="card" style="padding:20px">'
-      +'<div class="row between center wrap" style="gap:10px;margin-bottom:12px">'
-      +'<div><div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em">'+uc.id+'</div>'
-      +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px;margin-top:2px">'+e(uc.title)+'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted)">'+e(uc.subtitle)+'</div></div>'+badge(uc.status)+'</div>'
-      +pb(uc.progress)
-      +'<div class="row between" style="margin-top:6px">'
-      +'<span style="font-size:11px;color:var(--text-muted)">Progress</span>'
-      +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'%</span></div></div>';
-  }).join('');
-
-  var riskHtml=currentRole!=='belfius'?DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started'}).map(function(b){
-    return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2)">'
-      +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
-      +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
-      +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'+badge(b.status)+'</div>';
-  }).join(''):'';
-
-  var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
-    var dates=['March-April 2026','April-May 2026','May-June 2026'][i];
-    var ms=['Scope agreement, arch design, env access','Agent builds, iterative cycles','UAT, go-live, handover'][i];
-    var icons=['🏗','⚙️','🚀'];
-    return '<div class="card" style="padding:20px'+(i===0?';border-left:3px solid var(--accent)':'')+'">'
-      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
-      +'<div style="font-size:20px;margin-bottom:8px">'+icons[i]+'</div>'
-      +'<div style="font-family:var(--font-head);font-weight:700;font-size:17px">'+ph+'</div>'
-      +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+dates+'</div>'
-      +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+ms+'</div></div>';
-  }).join('');
-
-  return '<div class="col g24">'
-    +heroBanner
-    +'<div class="row wrap g12">'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+DATA.useCases.length+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(232,93,93,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:80px;border-color:rgba(240,168,67,.3)"><div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div></div>'
+  // Dynamic stat cards
+  var statCards='<div class="row wrap g12">'
+    // Total UCs — clickable to usecases
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick="navigate(\'usecases\')" title="View all use cases">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+totalUCs+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div>'
+    +'<div style="font-size:10px;color:var(--green);margin-top:3px">'+doneUCs+' done</div></div>'
+    // Avg progress
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--blue)">'+avgProgress+'%</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
+    +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
+    // At risk — clickable to blockers
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'blockers\')" title="View blockers">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
+    +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
+    // Open items — clickable to blockers
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick="navigate(\'blockers\')" title="View open decisions">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div>'
+    +'<div style="font-size:10px;color:var(--amber);margin-top:3px">click to view</div></div>'
+    // Exec meeting
     +'<div class="card-accent f1" style="padding:16px 20px;min-width:220px">'
     +'<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">&#128197; KEY EXEC MEETING</div>'
     +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">April 21, 2026 &mdash; F2F Eran Agrios + BDI C-suite</div>'
     +'<div style="font-size:12px;color:var(--text-muted);margin-top:3px">Fabian Delava &middot; Guillaume De Meus &middot; Hannes Heylen &middot; Pieter Bamps</div>'
-    +'</div></div>'
-    +'<div><div class="sec-title">Use Case Progress</div><div class="gridA">'+ucHtml+'</div></div>'
-    +(currentRole!=='belfius'&&riskHtml?'<div><div class="sec-title">Active Risks &amp; Blockers</div><div class="col g8">'+riskHtml+'</div></div>':'')
-    +'<div><div class="sec-title">Phases</div><div class="grid3">'+phases+'</div></div>'
-    +'</div>';
-}
+    +'</div></div>';
 
+  // UC cards — clickable, show target users + expected outcomes from canvas
+  var ucCards='<div><div class="sec-title">Use Cases</div><div class="gridA">'
+    +DATA.useCases.map(function(uc,idx){
+      var totalStories=(uc.jobStories||[]).length;
+      var hasScope=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card" style="padding:20px;cursor:pointer;transition:all .2s" onclick="navigate(\'uc-'+idx+'\')" '
+        +'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,.15)\'" '
+        +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">'
+        +'<div class="row between center" style="gap:10px;margin-bottom:10px">'
+        +'<div class="row center g8">'
+        +'<div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:11px;color:var(--btn-primary-text);flex-shrink:0">'+e(uc.id)+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(uc.title)+'</div>'
+        +'</div>'+badge(uc.status)+'</div>'
+        +(uc.targetUsers?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">&#128100; '+e(uc.targetUsers)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
+        +pb(uc.progress)
+        +'<div class="row between" style="margin-top:6px">'
+        +'<div class="row g8">'
+        +(totalStories?'<span style="font-size:10px;color:var(--text-muted)">&#128221; '+totalStories+' stories</span>':'')
+        +(hasScope?'<span style="font-size:10px;color:var(--text-muted)">&#9881; scope defined</span>':'')
+        +'</div>'
+        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'%</span></div>'
+        +'<div style="font-size:11px;color:var(--accent);margin-top:8px;font-weight:600">View canvas &rarr;</div>'
+        +'</div>';
+    }).join('')
+    +'</div></div>';
+
+  // Active blockers — clickable rows
+  var riskHtml='';
+  if(currentRole!=='belfius'){
+    var risks=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started'});
+    if(risks.length){
+      riskHtml='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="navigate(\'blockers\')">View all &rarr;</span></div>'
+        +'<div class="col g8">'
+        +risks.map(function(b){
+          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" '
+            +'onclick="navigate(\'blockers\')" '
+            +'onmouseover="this.style.borderColor=\'rgba(232,93,93,.5)\'" onmouseout="this.style.borderColor=\'rgba(232,93,93,.2)\'">'
+            +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
+            +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
+            +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'
+            +badge(b.status)
+            +'<span style="font-size:11px;color:var(--accent)">&#8594;</span>'
+            +'</div>';
+        }).join('')+'</div></div>';
+    }
+  }
+
+  // Phases
+  var phases='<div><div class="sec-title">Phases</div><div class="grid3">'
+    +['Foundation','Realization','Deployment'].map(function(ph,i){
+      var dates=['March-April 2026','April-May 2026','May-June 2026'][i];
+      var ms=['Scope agreement, arch design, env access','Agent builds, iterative cycles','UAT, go-live, handover'][i];
+      var icons=['🏗','⚙️','🚀'];
+      return '<div class="card" style="padding:20px'+(i===0?';border-left:3px solid var(--accent)':'')+'">'
+        +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
+        +'<div style="font-size:20px;margin-bottom:8px">'+icons[i]+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:17px">'+ph+'</div>'
+        +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+dates+'</div>'
+        +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+ms+'</div></div>';
+    }).join('')+'</div></div>';
+
+  return '<div class="col g24">'+heroBanner+statCards+ucCards+riskHtml+phases+'</div>';
+}
 /* ═══════════════════════════════════════════════════
    USE CASES — Canvas View
 ═══════════════════════════════════════════════════ */
 var ucTab = {};
 
-function rUseCases(){
-  var cards=DATA.useCases.map(function(uc,idx){
-    var tab=ucTab[idx]||'overview';
-    var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'}];
-    var tabBar='<div class="row" style="gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">'
-      +tabs.map(function(t){
-        var active=tab===t.id;
-        return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:9px 20px;font-size:13px;font-weight:'+(active?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(active?'2px solid var(--accent)':'2px solid transparent')+';color:'+(active?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px;transition:all .15s">'+t.label+'</button>';
-      }).join('')+'</div>';
-    var content='';
-    if(tab==='overview') content=renderUCOverviewTab(uc,idx);
-    else if(tab==='jobstories') content=renderUCJobStoriesTab(uc,idx);
-    else if(tab==='scope') content=renderUCScopeTab(uc,idx);
-    return '<div class="card-el" style="margin-bottom:20px;overflow:hidden">'
-      +'<div style="background:var(--btn-primary);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
-      +'<div style="display:flex;align-items:center;gap:14px">'
-      +'<div style="width:44px;height:44px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:15px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
-      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:18px;color:#fff">'+e(uc.title)+'</div>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:10px">'+badge(uc.status)
-      +(isAdmin()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
-        +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
-      +'</div></div>'
-      +'<div style="height:4px;background:rgba(0,0,0,.08)"><div style="height:4px;background:rgba(255,255,255,.5);width:'+uc.progress+'%;transition:width .8s"></div></div>'
-      +'<div style="padding:22px">'
-      +tabBar
-      +(isAdmin()?'<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);flex-wrap:wrap">'
-        +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
-        +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:140px;accent-color:var(--accent)">'
-        +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
-        +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
-        +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
-        +'</select></div>':'')
-      +content+'</div></div>';
-  }).join('');
-  return '<div class="col g8">'
-    +'<div class="row between center" style="margin-bottom:8px">'
+/* ═══════════════════════════════════════════════════
+   USE CASES LIST — index of all use cases
+═══════════════════════════════════════════════════ */
+function rUseCasesList(){
+  return '<div class="col g16">'
+    +'<div class="row between center" style="margin-bottom:4px">'
     +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
     +(isAdmin()?'<button class="btn-primary" onclick="addUC()">+ Add Use Case</button>':'')
-    +'</div>'+cards+'</div>';
+    +'</div>'
+    +'<div class="gridA">'
+    +DATA.useCases.map(function(uc,idx){
+      var totalStories=(uc.jobStories||[]).length;
+      var hasScope=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card-el" style="padding:0;overflow:hidden;cursor:pointer" onclick="navigate('uc-'+idx+'')">'
+        +'<div style="background:var(--btn-primary);padding:16px 18px">'
+        +'<div class="row between center" style="gap:8px">'
+        +'<div class="row center g8">'
+        +'<div style="width:34px;height:34px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff">'+e(uc.title)+'</div>'
+        +'</div>'+badge(uc.status)+'</div>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px">'+e(uc.subtitle)+'</div>'
+        +'</div>'
+        +'<div style="height:3px;background:rgba(0,0,0,.08)"><div style="height:3px;background:rgba(255,255,255,.4);width:'+uc.progress+'%"></div></div>'
+        +'<div style="padding:16px 18px">'
+        +(uc.targetUsers?'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">&#128100; <strong>Users:</strong> '+e(uc.targetUsers)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
+        +'<div class="row between center">'
+        +'<div class="row g8">'
+        +(totalStories?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+totalStories+' job stories</span>':'')
+        +(hasScope?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')
+        +'</div>'
+        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span>'
+        +'</div></div></div>';
+    }).join('')
+    +'</div></div>';
 }
 
-function setUCTab(idx,tab){ucTab[idx]=tab;navigate('usecases');}
+/* ═══════════════════════════════════════════════════
+   USE CASE PAGE — single UC with canvas tabs
+═══════════════════════════════════════════════════ */
+function rUseCasePage(idx){
+  var uc=DATA.useCases[idx];
+  if(!uc) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Use case not found.</div>';
+  var tab=ucTab[idx]||'overview';
+  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'}];
+
+  var tabBar='<div class="row" style="gap:0;border-bottom:2px solid var(--border);margin-bottom:22px">'
+    +tabs.map(function(t){
+      var active=tab===t.id;
+      return '<button onclick="setUCTab('+idx+',''+t.id+'')" style="padding:10px 22px;font-size:13px;font-weight:'+(active?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(active?'2px solid var(--accent)':'2px solid transparent')+';color:'+(active?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px;transition:all .15s">'+t.label+'</button>';
+    }).join('')+'</div>';
+
+  var prevIdx=idx>0?idx-1:null;
+  var nextIdx=idx<DATA.useCases.length-1?idx+1:null;
+
+  var content='';
+  if(tab==='overview') content=renderUCOverviewTab(uc,idx);
+  else if(tab==='jobstories') content=renderUCJobStoriesTab(uc,idx);
+  else if(tab==='scope') content=renderUCScopeTab(uc,idx);
+
+  return '<div class="col g0">'
+    // Breadcrumb
+    +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
+    +'<span style="cursor:pointer;color:var(--accent)" onclick="navigate('usecases')">Use Cases</span>'
+    +'<span>&#8250;</span>'
+    +'<span style="color:var(--text)">'+e(uc.id)+' — '+e(uc.title)+'</span>'
+    +'</div>'
+    // Header card
+    +'<div style="background:var(--btn-primary);border-radius:var(--radius) var(--radius) 0 0;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+    +'<div class="row center g14">'
+    +'<div style="width:48px;height:48px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:15px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
+    +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:20px;color:#fff">'+e(uc.title)+'</div>'
+    +'<div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
+    +'</div>'
+    +'<div class="row center g10">'+badge(uc.status)
+    +(isAdmin()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
+      +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
+    +'</div></div>'
+    // Progress stripe
+    +'<div style="height:5px;background:rgba(0,0,0,.1);border-radius:0">'
+    +'<div style="height:5px;background:rgba(255,255,255,.55);width:'+uc.progress+'%;transition:width .8s"></div></div>'
+    // Admin progress controls
+    +(isAdmin()?'<div style="background:var(--bg-light);padding:10px 20px;border:1px solid var(--border);border-top:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+      +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
+      +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+'%';autoSave()" style="width:140px;accent-color:var(--accent)">'
+      +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
+      +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
+      +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
+      +'</select></div>':'')
+    // Canvas body
+    +'<div style="background:var(--card-bg);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:24px">'
+    +tabBar+content+'</div>'
+    // Navigation between UCs
+    +'<div class="row between" style="margin-top:20px">'
+    +(prevIdx!==null?'<button class="btn-ghost" onclick="navigate('uc-'+prevIdx+'')">&larr; '+e(DATA.useCases[prevIdx].id)+' '+e(DATA.useCases[prevIdx].title)+'</button>':'<div></div>')
+    +(nextIdx!==null?'<button class="btn-ghost" onclick="navigate('uc-'+nextIdx+'')">' +e(DATA.useCases[nextIdx].id)+' '+e(DATA.useCases[nextIdx].title)+' &rarr;</button>':'<div></div>')
+    +'</div>'
+    +'</div>';
+}
+
+function rUseCases(){ return rUseCasesList(); }  // keep old ref working
+
+function setUCTab(idx, tab){ucTab[idx]=tab; navigate('uc-'+idx);}
+
 
 function renderUCOverviewTab(uc,idx){
   var idx2=DATA.useCases.indexOf(uc);
@@ -1830,6 +2091,81 @@ function updateEdgeProp(eid,prop,val){
   var edge=FC.edges.find(function(e){return e.id===eid});
   if(edge){edge[prop]=val;saveCurrentFC();renderFCSVG();bindFCEvents();}
 }
+/* ═══════════════════════════════════════════════════
+   USER MANAGEMENT PAGE (superadmin only)
+═══════════════════════════════════════════════════ */
+function rUsers(){
+  if(!isSuperAdmin()) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Access denied.</div>';
+  var rows=Object.keys(USERS).map(function(u){
+    var usr=USERS[u];
+    return '<tr>'
+      +'<td style="font-weight:700">'+e(u)+'</td>'
+      +'<td>'+e(usr.name||'—')+'</td>'
+      +'<td><span class="badge b-blue" style="font-size:10px">'+e(usr.role)+'</span></td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedCustomers&&usr.assignedCustomers.length?usr.assignedCustomers.join(', '):'All')+'</td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedProjects&&usr.assignedProjects.length?usr.assignedProjects.join(', '):'All')+'</td>'
+      +'<td><div class="row g4">'
+      +'<button class="btn-icon" onclick="editUser(\''+e(u)+'\')">&#9998;</button>'
+      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteUser(\''+e(u)+'\')">&#10005;</button>':'')
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+  return '<div class="col g24">'
+    +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
+    +'<button class="btn-primary" onclick="addUser()">+ Add User</button></div>'
+    +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
+    +'<thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Customer Scope</th><th>Project Scope</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div></div>'
+    +'<div class="card-accent" style="padding:16px 20px">'
+    +'<div style="font-size:12px;color:var(--text-muted);line-height:1.8">'
+    +'<strong style="color:var(--text)">superadmin</strong> — full access, GitHub settings, user management<br>'
+    +'<strong style="color:var(--text)">project_admin</strong> — edit assigned customers/projects, no GitHub or user management<br>'
+    +'<strong style="color:var(--text)">viewer</strong> — read-only access (can be scoped to customer or project)'
+    +'</div></div></div>';
+}
+
+function userModal(title, username, usr, onSave){
+  var allProjects=[];
+  CUSTOMERS.forEach(function(c){(c.projects||[]).forEach(function(p){allProjects.push({cid:c.id,cname:c.name,pid:p.id,pname:p.name});});});
+  showModal('<div class="modal"><h3>'+title+'</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Username</label><input id="u-uname" value="'+e(username)+'"'+(username&&usr.role==='superadmin'?' disabled':'')+' placeholder="lowercase, no spaces"></div>'
+    +'<div class="form-group"><label>Display Name</label><input id="u-name" value="'+e(usr.name||'')+'"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Role</label><select id="u-role">'
+    +['superadmin','project_admin','viewer'].map(function(r){return '<option'+(r===usr.role?' selected':'')+'>'+r+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Password '+(username?'(leave blank to keep)':'')+'</label><input type="password" id="u-pass" placeholder="'+(username?'Leave blank to keep':'Required')+'"></div></div>'
+    +'<div class="form-group"><label>Customer Scope (leave empty = all customers)</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +CUSTOMERS.map(function(c){var sel=(usr.assignedCustomers||[]).indexOf(c.id)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-cus" value="'+e(c.id)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(c.name)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Project Scope (leave empty = all projects)</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +allProjects.map(function(p){var sel=(usr.assignedProjects||[]).indexOf(p.pid)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-prj" value="'+e(p.pid)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(p.cname)+' / '+e(p.pname)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+onSave+'">Save</button></div></div>');
+}
+function addUser(){ userModal('Add User','',{role:'viewer'},'saveAddUser()'); }
+function editUser(u){ userModal('Edit User — '+u, u, USERS[u]||{}, 'saveEditUser(\''+u+'\')'); }
+async function saveUserFromForm(existingUsername){
+  var uname=(document.getElementById('u-uname').value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  var name=document.getElementById('u-name').value;
+  var role=document.getElementById('u-role').value;
+  var pass=document.getElementById('u-pass').value;
+  var cus=[]; document.querySelectorAll('.u-cus:checked').forEach(function(cb){cus.push(cb.value);});
+  var prjs=[]; document.querySelectorAll('.u-prj:checked').forEach(function(cb){prjs.push(cb.value);});
+  if(!uname){alert('Username required');return;}
+  var hash = existingUsername&&USERS[existingUsername]&&!pass ? USERS[existingUsername].hash : (pass?await sha256(pass):null);
+  if(!hash){alert('Password required for new users');return;}
+  if(existingUsername&&existingUsername!==uname) delete USERS[existingUsername];
+  USERS[uname]={hash:hash,role:role,name:name,assignedCustomers:cus,assignedProjects:prjs};
+  closeModal(); navigate('users'); autoSave();
+}
+function saveAddUser(){ saveUserFromForm(null); }
+function saveEditUser(u){ saveUserFromForm(u); }
+function deleteUser(u){ if(confirm('Delete user '+u+'?')){ delete USERS[u]; navigate('users'); autoSave(); } }
+
+
 function initFC(){}
 
 /* ═══════════════════════════════════════════════════
@@ -1837,7 +2173,7 @@ function initFC(){}
 ═══════════════════════════════════════════════════ */
 var _autoSaveTimer = null;
 function autoSave(){
-  if(currentRole!=='admin') return;
+  if(!canEdit()) return;
   var statusEl = document.getElementById('gh-status');
   if(statusEl){ statusEl.textContent='Unsaved changes…'; statusEl.style.color='var(--amber)'; }
   if(!GH.token) return; // no token = no auto-save, user must click manually
@@ -1848,38 +2184,11 @@ function autoSave(){
 /* ═══════════════════════════════════════════════════
    PASSWORD MANAGEMENT
 ═══════════════════════════════════════════════════ */
-function showPasswordModal(){
-  showModal('<div class="modal"><h3>&#128274; Change Passwords</h3>'
-    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">'
-    +'Set new passwords for each role. Leave blank to keep current password.<br>'
-    +'Passwords are stored as SHA-256 hashes — never as plain text.</p>'
-    +['salesforce','belfius','admin'].map(function(role){
-      return '<div class="form-group"><label>'+role.charAt(0).toUpperCase()+role.slice(1)+' password</label>'
-        +'<input type="password" id="pw-'+role+'" placeholder="Leave blank to keep current"></div>';
-    }).join('')
-    +'<div class="modal-actions">'
-    +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="btn-primary" onclick="savePasswords()">Save &amp; Commit</button>'
-    +'</div></div>');
-}
+function showPasswordModal(){ navigate('users'); closeModal(); }
 async function savePasswords(){
-  var changed = false;
-  for(var role of ['salesforce','belfius','admin']){
-    var val = (document.getElementById('pw-'+role).value||'').trim();
-    if(val){
-      CREDS[role].hash = await sha256(val);
-      changed = true;
-    }
-  }
-  closeModal();
-  if(changed){
-    // Save new hashes to data.json immediately
-    await ghSaveData(true);
-    alert('Passwords updated and saved to GitHub.');
-  } else {
-    alert('No changes made.');
-  }
+  navigate('users');
 }
+
 
 
 /* ═══════════════════════════════════════════════════
@@ -1921,22 +2230,13 @@ async function ghLoadData(){
     GH.sha = json.sha;
     var raw = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
     var loaded = JSON.parse(raw);
-    if(loaded.useCases)    DATA.useCases    = loaded.useCases;
-    if(loaded.blockers)    DATA.blockers    = loaded.blockers;
-    if(loaded.kpis)        DATA.kpis        = loaded.kpis;
-    if(loaded.team)        DATA.team        = loaded.team;
-    if(loaded.raci)        DATA.raci        = loaded.raci;
-    if(loaded.meetings)    DATA.meetings    = loaded.meetings;
-    if(loaded.flowcharts)  DATA.flowcharts  = loaded.flowcharts;
-    if(loaded.execSponsors)DATA.execSponsors= loaded.execSponsors;
-    // Restore password hashes if saved
-    if(loaded.creds){
-      if(loaded.creds.salesforce) CREDS.salesforce.hash = loaded.creds.salesforce;
-      if(loaded.creds.belfius)    CREDS.belfius.hash    = loaded.creds.belfius;
-      if(loaded.creds.admin)      CREDS.admin.hash      = loaded.creds.admin;
-    }
+    if(loaded.users){ USERS = loaded.users; }
+    if(loaded.customers && loaded.customers.length){ CUSTOMERS = loaded.customers; syncDATA(); }
+    // All data is inside customers array — no flat field restore needed
     setStatus('✓ Synced — '+new Date().toLocaleTimeString(), 'var(--green)');
     setTimeout(function(){setStatus('');}, 4000);
+    syncDATA();
+    buildSidebar();
     if(currentPage) navigate(currentPage);
   } catch(err){
     console.warn('GitHub load failed:', err);
@@ -1961,20 +2261,10 @@ async function ghSaveData(silent){
     else if(getRes.status !== 404){ throw new Error('Could not read current file: HTTP '+getRes.status); }
     else { GH.sha = null; }
 
+    // Save USERS + all CUSTOMERS (which contain all projects and their data)
     var payload = JSON.stringify({
-      useCases:    DATA.useCases,
-      blockers:    DATA.blockers,
-      kpis:        DATA.kpis,
-      team:        DATA.team,
-      raci:        DATA.raci,
-      meetings:    DATA.meetings,
-      flowcharts:  DATA.flowcharts,
-      execSponsors:DATA.execSponsors,
-      creds:{ // store only hashes, never plain text
-        salesforce: CREDS.salesforce.hash,
-        belfius:    CREDS.belfius.hash,
-        admin:      CREDS.admin.hash
-      }
+      users: USERS,
+      customers: CUSTOMERS
     }, null, 2);
 
     var encoded = btoa(unescape(encodeURIComponent(payload)));
@@ -2055,7 +2345,7 @@ function injectGhBar(force){
     '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">GitHub Sync</div>'
     +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData(false)">&#9729; Save to GitHub</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghLoadData()">&#8635; Pull latest</button>'
-    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showPasswordModal()">&#128274; Change Passwords</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="navigate('users')">&#128100; Manage Users</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
     +(GH.token ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
   // Insert before the sign-out button
@@ -2064,15 +2354,6 @@ function injectGhBar(force){
   else sidebar.appendChild(bar);
 }
 
-/* ── Wire into buildSidebar ── */
-var _origBuildSidebar = buildSidebar;
-buildSidebar = function(){
-  _origBuildSidebar();
-  if(currentRole === 'admin'){
-    injectGhBar();
-    ghLoadData();
-  }
-};
 </script>
 </body>
 </html>
