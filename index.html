@@ -214,7 +214,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <div><label>Role / Username</label><input id="l-user" type="text" placeholder="salesforce &middot; belfius &middot; admin" autocomplete="off"/></div>
         <div><label>Password</label><input id="l-pass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"/></div>
         <div id="l-err" class="err hidden"></div>
-        <button class="btn-primary" style="width:100%;padding:13px 24px;margin-top:4px;font-size:14px" onclick="doLogin()">Sign In &rarr;</button>
+        <button id="l-btn" class="btn-primary" style="width:100%;padding:13px 24px;margin-top:4px;font-size:14px" onclick="doLogin()">Sign In &rarr;</button>
       </div>
     </div>
     <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:20px;opacity:.6">Confidential &middot; Salesforce &times; Belfius Insurance</p>
@@ -413,14 +413,14 @@ async function doLogin(){
   var btn=document.getElementById('l-btn');
   var entry=CREDS[u];
   if(!entry){ er.classList.remove('hidden'); er.textContent='Unknown username. Use: salesforce, belfius, or admin'; return; }
-  btn.textContent='Checking…'; btn.disabled=true;
+  if(btn){ btn.textContent='Checking…'; btn.disabled=true; }
 
   // Try to load latest hashes from GitHub first (so password changes take effect)
   // If it fails, fall back to the hashes baked into this file — login still works
   try { await ghFetchCreds(); } catch(ignored){}
 
   var h = await sha256(p);
-  btn.textContent='Sign In →'; btn.disabled=false;
+  if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
 
   // Re-read entry after potential GitHub update
   entry = CREDS[u];
