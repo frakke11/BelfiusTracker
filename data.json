@@ -1,0 +1,382 @@
+{
+  "useCases": [
+    {
+      "id": "UC1",
+      "title": "New Car Policy Onboarding",
+      "subtitle": "Virtual Broker + IDP",
+      "progress": 25,
+      "status": "In Progress",
+      "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
+      "milestones": [
+        {
+          "label": "Architecture design (Robin + Jeroen)",
+          "date": "Before mid-April",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Integration design (Koen + Belfius)",
+          "date": "Mid-April",
+          "done": false,
+          "atRisk": true
+        },
+        {
+          "label": "Test execution",
+          "date": "Mid-June",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "UAT & sign-off",
+          "date": "Mid-June",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    },
+    {
+      "id": "UC2",
+      "title": "FAQ Agent",
+      "subtitle": "Multi-Channel Scale-Up",
+      "progress": 10,
+      "status": "Planning",
+      "description": "Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.",
+      "milestones": [
+        {
+          "label": "Authentication approach decision (D1)",
+          "date": "Open",
+          "done": false,
+          "atRisk": true
+        },
+        {
+          "label": "Channel integration design",
+          "date": "April-May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Agent build & testing",
+          "date": "May",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    },
+    {
+      "id": "UC3",
+      "title": "Service Rep Assistant",
+      "subtitle": "Employee Agent",
+      "progress": 5,
+      "status": "Planning",
+      "description": "Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.",
+      "milestones": [
+        {
+          "label": "Process mapping & documentation",
+          "date": "April-May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Agent configuration",
+          "date": "May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Pilot with service reps",
+          "date": "June",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "id": "D1",
+      "type": "Decision",
+      "item": "Authentication approach for UC2 customer zone agent",
+      "owner": "Belfius (Jonas)",
+      "status": "Open"
+    },
+    {
+      "id": "D2",
+      "type": "Decision",
+      "item": "Scope alignment with BDI on 3 use cases (formal sign-off)",
+      "owner": "Gilles + Francis",
+      "status": "In Progress"
+    },
+    {
+      "id": "D3",
+      "type": "Decision",
+      "item": "Integration design for Keylane Axon",
+      "owner": "Koen + Belfius",
+      "status": "At Risk"
+    },
+    {
+      "id": "D4",
+      "type": "Decision",
+      "item": "AP (legal/compliance) pre-approval process start (~10 week lead time)",
+      "owner": "Belfius (Jonas)",
+      "status": "Not Started"
+    },
+    {
+      "id": "D5",
+      "type": "Decision",
+      "item": "Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)",
+      "owner": "Jonas to CISO",
+      "status": "Pending"
+    },
+    {
+      "id": "B1",
+      "type": "Blocker",
+      "item": "Belfius environment / sandbox access",
+      "owner": "Belfius",
+      "status": "Due end of March"
+    },
+    {
+      "id": "B2",
+      "type": "Blocker",
+      "item": "As-is process mapping for UC1 not started",
+      "owner": "Belfius primary",
+      "status": "Blocked"
+    }
+  ],
+  "kpis": [
+    {
+      "label": "Policy Onboarding Time",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "min"
+    },
+    {
+      "label": "FAQ Deflection Rate",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "%"
+    },
+    {
+      "label": "Rep Assist Resolution Speed",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "min"
+    },
+    {
+      "label": "CSAT Score",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "/10"
+    }
+  ],
+  "team": [
+    {
+      "name": "Francis Verscheure",
+      "role": "Solution Orchestrator / Coordinator",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Robin De Bondt",
+      "role": "Implementation Lead (PS TA)",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Koen Vermachelen",
+      "role": "Integration Advisor",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Jeroen Tiekstra",
+      "role": "Industry Architect (Insurance)",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Maarten Laukens",
+      "role": "Tech Executive Sponsor",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Jonas Hubert",
+      "role": "IT Project Manager",
+      "company": "Belfius"
+    },
+    {
+      "name": "Rudi Meys",
+      "role": "Enterprise Architect",
+      "company": "Belfius"
+    },
+    {
+      "name": "Laure-Anne",
+      "role": "Business Lead AI",
+      "company": "Belfius"
+    },
+    {
+      "name": "Bart",
+      "role": "IT Contact / Architect",
+      "company": "Belfius"
+    },
+    {
+      "name": "Stijn",
+      "role": "IT Developer",
+      "company": "Belfius"
+    }
+  ],
+  "raci": [
+    {
+      "a": "POC coordination & planning",
+      "M": "I",
+      "F": "R",
+      "J": "C",
+      "R": "C",
+      "K": "I",
+      "B": "C"
+    },
+    {
+      "a": "Use case & process documentation",
+      "M": "I",
+      "F": "A",
+      "J": "R",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "As-is / to-be process mapping",
+      "M": "I",
+      "F": "A",
+      "J": "C",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Technical architecture & design",
+      "M": "I",
+      "F": "A",
+      "J": "C",
+      "R": "R",
+      "K": "C",
+      "B": "I"
+    },
+    {
+      "a": "Integration design & validation",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "R",
+      "B": "C"
+    },
+    {
+      "a": "Agent build & configuration",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "R",
+      "K": "C",
+      "B": "I"
+    },
+    {
+      "a": "Data provisioning & test data",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "I",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "Environment setup & access",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "Test execution",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "UAT & business sign-off",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Legal & compliance pre-approval",
+      "M": "I",
+      "F": "I",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Steering & go/no-go decisions",
+      "M": "A",
+      "F": "R",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Scope change management",
+      "M": "A",
+      "F": "R",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "C"
+    },
+    {
+      "a": "Executive alignment & escalation",
+      "M": "R",
+      "F": "I",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    }
+  ],
+  "meetings": [
+    {
+      "name": "Internal SF Sync",
+      "freq": "Weekly",
+      "participants": "Francis, Robin, Koen, Jeroen, Maarten",
+      "purpose": "Blockers, capacity, progress"
+    },
+    {
+      "name": "Customer Working Session",
+      "freq": "Bi-weekly",
+      "participants": "SF team + Jonas, Bart, Stijn",
+      "purpose": "Use case delivery progress"
+    },
+    {
+      "name": "Monthly Governance",
+      "freq": "Monthly",
+      "participants": "Gilles + BDI leadership (Pieter, Hannes)",
+      "purpose": "Executive alignment, escalations"
+    },
+    {
+      "name": "BDI Bi-Weekly (Signature)",
+      "freq": "Bi-weekly",
+      "participants": "Manuel Rodriguez (CSM) + BDI",
+      "purpose": "Operational touchpoint"
+    }
+  ],
+  "flowcharts": []
+}
