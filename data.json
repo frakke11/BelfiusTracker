@@ -131,6 +131,12 @@
                   "painPoints": "Long wait times\nHigh volume of repetitive questions",
                   "desiredOutcomes": "Accurate FAQ answers 24/7",
                   "kpis": "Deflection rate\nCSAT score"
+                },
+                {
+                  "story": "When the agent cannot answer the question, or it detects that the customer/prospect is getting annoyed, it needs to escalate to a human agent",
+                  "painPoints": "Lower customer satisfaction",
+                  "desiredOutcomes": "Escalate to human agent when needed",
+                  "kpis": "Increase customer satisfaction"
                 }
               ],
               "scope": {
