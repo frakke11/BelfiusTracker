@@ -378,5 +378,33 @@
       "purpose": "Operational touchpoint"
     }
   ],
-  "flowcharts": []
+  "flowcharts": [
+    {
+      "name": "test",
+      "nodes": [],
+      "edges": [],
+      "lanes": [
+        {
+          "id": "f9yqkzx",
+          "name": "Channel",
+          "y": 0,
+          "h": 233
+        },
+        {
+          "id": "iuvdf9p",
+          "name": "Agentforce",
+          "y": 233,
+          "h": 233
+        },
+        {
+          "id": "bfw9fpt",
+          "name": "Data 360",
+          "y": 466,
+          "h": 233
+        }
+      ],
+      "svgW": 1200,
+      "svgH": 700
+    }
+  ]
 }
