@@ -335,10 +335,10 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Theme</div>
         <div class="col g4">
           <div class="row g4">
-            <button class="theme-btn active" id="tb-default" onclick=\"setTheme('default')\" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
-            <button class="theme-btn" id="tb-sf-dark" onclick=\"setTheme('sf-dark')\" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
+            <button class="theme-btn active" id="tb-default" onclick="setTheme('default')" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
+            <button class="theme-btn" id="tb-sf-dark" onclick="setTheme('sf-dark')" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
           </div>
-          <button class="theme-btn" id="tb-belfius" onclick=\"setTheme('belfius')\" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
+          <button class="theme-btn" id="tb-belfius" onclick="setTheme('belfius')" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
         </div>
       </div>
       <nav id="nav-items" class="col" style="gap:2px;flex:1"></nav>
@@ -458,6 +458,16 @@ var CUSTOMERS = [
           {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
         ],
         flowcharts:[],
+        keyEvents:[
+          {id:'EVT1',title:'Exec F2F — Eran Agrios + BDI C-suite',date:'2026-04-21',type:'Executive',description:'Face-to-face with Fabian Delava (CTO Group), Guillaume De Meus (Dir. Transformation), Hannes Heylen (CIO Insurance), Pieter Bamps',urgent:true},
+          {id:'EVT2',title:'Agent Builder Workshop',date:'2026-04-28',type:'Workshop',description:'On-site 2-day agent builder workshop with full team',urgent:false},
+          {id:'EVT3',title:'Environment Access Deadline',date:'2026-03-31',type:'Deadline',description:'Belfius to provide sandbox access',urgent:true}
+        ],
+        phases:[
+          {name:'Foundation',days:'0–30 days',startDate:'2026-03-01',endDate:'2026-04-01',milestone:'Scope agreement, arch design, env access',status:'active'},
+          {name:'Realization',days:'31–60 days',startDate:'2026-04-01',endDate:'2026-05-01',milestone:'Agent builds, iterative cycles',status:'upcoming'},
+          {name:'Deployment',days:'61–90 days',startDate:'2026-05-01',endDate:'2026-06-01',milestone:'UAT, go-live, handover',status:'upcoming'}
+        ],
         execSponsors:[
           {name:'Pieter Bamps',title:'Head of IT BDI',company:'Belfius'},
           {name:'Hannes Heylen',title:'CIO Belfius Insurance',company:'Belfius'}
@@ -639,6 +649,8 @@ function buildSidebar(){
           +'<span>'+e(cu.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(cu.name)+'</span>'
           +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
       }).join('')
+      +(isSuperAdmin()?'<div onclick="editCusEntry('+currentCustomerIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">&#9998; Edit Customer</div>':'')
+      +(isSuperAdmin()&&CUSTOMERS.length>1?'<div onclick="deleteCustomer('+currentCustomerIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--red);border-top:1px solid var(--border)">&#10005; Delete Customer</div>':'')
       +(isSuperAdmin()?'<div onclick="addCustomer()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Customer</div>':'')
       +'</div></div>';
 
@@ -657,6 +669,7 @@ function buildSidebar(){
           +'<span style="flex:1;color:var(--text)">'+e(p.name)+'</span>'
           +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
       }).join('')
+      +(canEdit()&&(CUS().projects||[]).length>1?'<div onclick="deleteProject('+currentProjectIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--red);border-top:1px solid var(--border)">&#10005; Delete Project</div>':'')
       +(canEdit()?'<div onclick="addProject()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Project</div>':'')
       +'</div></div>';
 
@@ -770,7 +783,7 @@ function saveNewProject(){
   var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
   var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
   var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
-    useCases:[],blockers:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],execSponsors:[]};
+    useCases:[],blockers:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
   CUS().projects.push(prj); currentProjectIdx=CUS().projects.length-1; syncDATA();
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
@@ -793,6 +806,37 @@ function saveEditProject(){
   prj.description=document.getElementById('ep-desc').value;
   var techs=[]; document.querySelectorAll('.ep-tech:checked').forEach(function(cb){techs.push(cb.value);});
   prj.technologies=techs;
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+
+function deleteCustomer(idx){
+  if(CUSTOMERS.length<=1){alert('Cannot delete the last customer.');return;}
+  if(!confirm('Delete customer "'+CUSTOMERS[idx].name+'" and ALL its projects?')) return;
+  CUSTOMERS.splice(idx,1);
+  currentCustomerIdx=Math.min(currentCustomerIdx,CUSTOMERS.length-1);
+  currentProjectIdx=0; syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview'); autoSave();
+}
+function deleteProject(idx){
+  var projs=CUS().projects||[];
+  if(projs.length<=1){alert('Cannot delete the last project. Delete the customer instead.');return;}
+  if(!confirm('Delete project "'+projs[idx].name+'" and all its data?')) return;
+  projs.splice(idx,1);
+  currentProjectIdx=Math.min(currentProjectIdx,projs.length-1);
+  syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview'); autoSave();
+}
+function editCusEntry(idx){
+  var cus=CUSTOMERS[idx];
+  showModal('<div class="modal"><h3>Edit Customer</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Name</label><input id="ec-name" value="'+e(cus.name||'')+'"></div>'
+    +'<div class="form-group"><label>Logo (emoji)</label><input id="ec-logo" value="'+e(cus.logo||'🏢')+'" style="font-size:20px;text-align:center"></div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditCustomer('+idx+')">Save</button></div></div>');
+}
+function saveEditCustomer(idx){
+  CUSTOMERS[idx].name=document.getElementById('ec-name').value;
+  CUSTOMERS[idx].logo=document.getElementById('ec-logo').value;
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
 function toggleUCSubmenu(){ ucSubmenuOpen=!ucSubmenuOpen; buildSidebar(); }
@@ -1121,7 +1165,7 @@ function renderUCScopeTab(uc,idx){
 /* ── UC CRUD ── */
 function addUC(){
   showModal('<div class="modal"><h3>Add Use Case</h3>'
-    +'<div class="form-row"><div class="form-group"><label>ID</label><input id="m-id" value="UC4"></div>'
+    +'<div class="form-row"><div class="form-group"><label>ID (auto-generated)</label><input id="m-id" value="'+'UC'+((DATA.useCases||[]).length+1)+'"></div>'
     +'<div class="form-group"><label>Status</label><select id="m-status">'
     +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></div></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
@@ -1289,44 +1333,105 @@ function deleteLinkedFlow(idx,fi){if(confirm('Remove?')){DATA.useCases[idx].scop
    TIMELINE
 ═══════════════════════════════════════════════════ */
 function rTimeline(){
-  var dates=[
-    {date:'End of March 2026',label:'Belfius sandbox access deadline',owner:'Belfius',urgent:true},
-    {date:'April 21, 2026',label:'Exec F2F — Eran Agrios + BDI C-suite',owner:'All',urgent:false},
-    {date:'Before mid-April',label:'UC1 architecture (Robin + Jeroen)',owner:'Salesforce',urgent:false},
-    {date:'Mid-April',label:'UC1 integration design (Koen + Belfius)',owner:'Koen / Belfius',urgent:true},
-    {date:'April 28-29, 2026',label:'Agent Builder Workshop (on-site)',owner:'All',urgent:false},
-    {date:'Mid-June',label:'UC1 test execution',owner:'Belfius',urgent:false},
-    {date:'Mid-June',label:'UC1 UAT & sign-off',owner:'Belfius',urgent:false}
-  ];
-  var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
-    var d=['March-April 2026','April-May 2026','May-June 2026'][i];
-    var ms=['Scope agreement, arch design, env access','Agent builds, iterative cycles','UAT, go-live, handover'][i];
-    var icons=['🏗','⚙️','🚀'];
-    return '<div class="card" style="padding:22px'+(i===0?';border-left:3px solid var(--accent)':'')+'">'
-      +(i===0?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;font-weight:700">CURRENT</div>':'')
-      +'<div style="font-size:20px;margin-bottom:8px">'+icons[i]+'</div>'
-      +'<div style="font-family:var(--font-head);font-weight:700;font-size:18px">'+ph+'</div>'
-      +'<div style="font-size:12px;color:var(--accent);margin-top:6px">'+d+'</div>'
-      +'<div style="font-size:13px;color:var(--text-muted);margin-top:10px;line-height:1.5">'+ms+'</div></div>';
-  }).join('');
-  var timeline=dates.map(function(kd,i){
-    var last=i===dates.length-1;
-    return '<div class="row g14" style="align-items:flex-start">'
-      +'<div class="col center"><div class="tl-dot" style="border-color:'+(kd.urgent?'var(--red)':'var(--accent)')+';background:'+(kd.urgent?'rgba(232,93,93,.2)':'var(--bg)')+'"></div>'
-      +(!last?'<div class="tl-line"></div>':'')+'</div>'
-      +'<div style="padding-bottom:'+(last?0:20)+'px;flex:1">'
-      +'<div class="row center g10 wrap">'
-      +'<span style="font-family:var(--font-head);font-size:12px;color:'+(kd.urgent?'var(--red)':'var(--accent)')+';font-weight:700">'+e(kd.date)+'</span>'
-      +'<span style="font-size:14px;color:var(--text-dim)">'+e(kd.label)+'</span>'
-      +(kd.urgent?'<span class="badge b-red" style="font-size:9px">URGENT</span>':'')
+  var phases=DATA.phases||[];
+  var events=DATA.keyEvents||[];
+  var now=new Date();
+
+  function daysLeft(dateStr){
+    if(!dateStr) return null;
+    var d=new Date(dateStr); var diff=Math.round((d-now)/(1000*60*60*24));
+    return diff;
+  }
+  function phaseCard(ph,i){
+    var dl=daysLeft(ph.endDate);
+    var dlStr=dl===null?'':(dl>0?'<span style="font-size:11px;color:var(--green);margin-left:6px">'+dl+' days left</span>':'<span style="font-size:11px;color:var(--red);margin-left:6px">'+Math.abs(dl)+' days ago</span>');
+    var active=ph.status==='active';
+    return '<div class="card" style="padding:22px'+(active?';border-left:3px solid var(--accent)':'')+'">'
+      +(active?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
+      +'<div style="font-family:var(--font-head);font-weight:700;font-size:18px">'+e(ph.name)+'</div>'
+      +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+e(ph.days)+'</div>'
+      +(ph.startDate&&ph.endDate?'<div style="font-size:12px;color:var(--text-soft);margin-top:3px">'+ph.startDate+' → '+ph.endDate+dlStr+'</div>':'')
+      +'<div style="font-size:13px;color:var(--text-muted);margin-top:8px;line-height:1.5">'+e(ph.milestone||'')+'</div>'
+      +(canEdit()?'<button class="btn-icon" style="margin-top:12px;font-size:12px" onclick="editPhase('+i+')">&#9998; Edit</button>':'')
+      +'</div>';
+  }
+  var evtRows=events.map(function(ev,ei){
+    var dl=daysLeft(ev.date);
+    var dlStr=dl===null?'':(dl>0?dl+' days left':(dl===0?'Today':Math.abs(dl)+' days ago'));
+    return '<div class="card row center" style="padding:14px 18px;gap:14px;'+(ev.urgent?'border-color:rgba(232,93,93,.3)':'')+'">'
+      +'<div style="flex-shrink:0;text-align:center;min-width:52px">'
+      +'<div style="font-size:11px;font-weight:700;font-family:var(--font-head);color:'+(ev.urgent?'var(--red)':'var(--accent)')+'">'+e(ev.date)+'</div>'
+      +(dlStr?'<div style="font-size:10px;color:var(--text-muted);margin-top:2px">'+dlStr+'</div>':'')
       +'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">Owner: '+e(kd.owner)+'</div>'
-      +'</div></div>';
+      +'<div style="flex:1">'
+      +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(ev.title)+'</div>'
+      +(ev.description?'<div style="font-size:12px;color:var(--text-muted);margin-top:3px">'+e(ev.description)+'</div>':'')
+      +'</div>'
+      +'<span class="badge '+(ev.urgent?'b-red':'b-blue')+'">'+e(ev.type||'Event')+'</span>'
+      +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editEvent('+ei+')">&#9998;</button><button class="btn-icon" style="color:#e85d5d" onclick="deleteEvent('+ei+')">&#10005;</button></div>':'')
+      +'</div>';
   }).join('');
+
   return '<div class="col g24">'
     +'<div><div class="label">90-Day Roadmap</div><h1 style="font-size:26px;font-weight:800">Timeline</h1></div>'
-    +'<div class="grid3">'+phases+'</div>'
-    +'<div><div class="sec-title">Key Dates &amp; Milestones</div>'+timeline+'</div></div>';
+    +'<div class="grid3">'+(phases.length?phases.map(phaseCard).join(''):'<div class="card" style="padding:20px;color:var(--text-muted)">No phases defined yet.</div>')+'</div>'
+    +'<div>'
+    +'<div class="row between center" style="margin-bottom:14px">'
+    +'<div class="sec-title" style="margin-bottom:0">Key Events &amp; Milestones</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addEvent()">+ Add Event</button>':'')
+    +'</div>'
+    +(evtRows||'<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)">No events yet. Click + Add Event to add key milestones.</div>')
+    +'</div></div>';
+}
+function addEvent(){
+  showModal('<div class="modal"><h3>Add Key Event</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Title</label><input id="ev-title" placeholder="e.g. Exec Meeting"></div>'
+    +'<div class="form-group"><label>Date</label><input id="ev-date" type="date"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Type</label><select id="ev-type"><option>Executive</option><option>Workshop</option><option>Deadline</option><option>Milestone</option><option>Review</option><option>Other</option></select></div>'
+    +'<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="ev-urgent" style="width:auto;accent-color:var(--accent)"><label for="ev-urgent" style="display:inline;margin:0">Mark as urgent</label></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ev-desc" rows="2"></textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEvent(-1)">Add</button></div></div>');
+}
+function editEvent(idx){
+  var ev=(DATA.keyEvents||[])[idx];
+  showModal('<div class="modal"><h3>Edit Event</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Title</label><input id="ev-title" value="'+e(ev.title||'')+'"></div>'
+    +'<div class="form-group"><label>Date</label><input id="ev-date" type="date" value="'+e(ev.date||'')+'"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Type</label><select id="ev-type">'
+    +['Executive','Workshop','Deadline','Milestone','Review','Other'].map(function(t){return '<option'+(t===ev.type?' selected':'')+'>'+t+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="ev-urgent"'+(ev.urgent?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="ev-urgent" style="display:inline;margin:0">Urgent</label></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ev-desc" rows="2">'+e(ev.description||'')+'</textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEvent('+idx+')">Save</button></div></div>');
+}
+function saveEvent(idx){
+  if(!DATA.keyEvents) DATA.keyEvents=[];
+  var obj={id:'EVT'+(DATA.keyEvents.length+1),title:document.getElementById('ev-title').value,date:document.getElementById('ev-date').value,type:document.getElementById('ev-type').value,urgent:document.getElementById('ev-urgent').checked,description:document.getElementById('ev-desc').value};
+  if(idx===-1) DATA.keyEvents.push(obj); else DATA.keyEvents[idx]=obj;
+  closeModal();navigate('timeline');autoSave();
+}
+function deleteEvent(idx){if(confirm('Delete event?')){DATA.keyEvents.splice(idx,1);navigate('timeline');autoSave();}}
+function editPhase(idx){
+  var ph=(DATA.phases||[])[idx];
+  showModal('<div class="modal"><h3>Edit Phase: '+e(ph.name)+'</h3>'
+    +'<div class="form-group"><label>Phase Name</label><input id="ph-name" value="'+e(ph.name||'')+'"></div>'
+    +'<div class="form-group"><label>Label (e.g. 0–30 days)</label><input id="ph-days" value="'+e(ph.days||'')+'"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Start Date</label><input id="ph-start" type="date" value="'+e(ph.startDate||'')+'"></div>'
+    +'<div class="form-group"><label>End Date</label><input id="ph-end" type="date" value="'+e(ph.endDate||'')+'"></div></div>'
+    +'<div class="form-group"><label>Milestone Description</label><textarea id="ph-ms" rows="2">'+e(ph.milestone||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Status</label><select id="ph-status"><option'+(ph.status==='active'?' selected':'')+'>active</option><option'+(ph.status==='upcoming'?' selected':'')+'>upcoming</option><option'+(ph.status==='done'?' selected':'')+'>done</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="savePhase('+idx+')">Save</button></div></div>');
+}
+function savePhase(idx){
+  if(!DATA.phases) DATA.phases=[];
+  var ph=DATA.phases[idx];
+  ph.name=document.getElementById('ph-name').value; ph.days=document.getElementById('ph-days').value;
+  ph.startDate=document.getElementById('ph-start').value; ph.endDate=document.getElementById('ph-end').value;
+  ph.milestone=document.getElementById('ph-ms').value; ph.status=document.getElementById('ph-status').value;
+  closeModal();navigate('timeline');autoSave();
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1334,7 +1439,7 @@ function rTimeline(){
 ═══════════════════════════════════════════════════ */
 function rTeam(){
   var sfT=(DATA.team||[]).filter(function(t){return t.company==='Salesforce';});
-  var bT=(DATA.team||[]).filter(function(t){return t.company!=='Salesforce';});
+  var cusT=(DATA.team||[]).filter(function(t){return t.company!=='Salesforce';});
   function mc(m){
     var ri=DATA.team.indexOf(m);
     return '<div class="card row center g12" style="padding:12px 16px">'
@@ -1347,27 +1452,39 @@ function rTeam(){
         +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteTeamMember('+ri+')">&#10005;</button></div>':'')
       +'</div>';
   }
-  var sponsors=(DATA.execSponsors||[]).map(function(s,si){
+  function sponsorCard(s,si,isSF){
     return '<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
-      +av(s.name,'Belfius')
-      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div><div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div></div>'
-      +(canEdit()?'<div class="row g4" style="margin-left:8px"><button class="btn-icon" onclick="editExecSponsor('+si+')">&#9998;</button>'
+      +av(s.name,isSF?'Salesforce':CUS().name)
+      +'<div style="flex:1"><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div>'
+      +'<div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div>'
+      +(s.company?'<div style="font-size:11px;color:var(--text-muted)">'+e(s.company)+'</div>':'')+'</div>'
+      +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editExecSponsor('+si+')">&#9998;</button>'
         +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteExecSponsor('+si+')">&#10005;</button></div>':'')
       +'</div>';
-  }).join('');
+  }
+  var allSponsors=(DATA.execSponsors||[]);
+  var sfSponsors=allSponsors.filter(function(s){return s.company==='Salesforce';});
+  var cusSponsors=allSponsors.filter(function(s){return s.company!=='Salesforce';});
   return '<div class="col g24">'
     +'<div><div class="label">People</div><h1 style="font-size:26px;font-weight:800">Team</h1>'
     +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addTeamMember()">+ Add Member</button>':'')+'</div>'
     +'<div class="card-accent" style="padding:24px">'
-    +'<div class="row between center" style="margin-bottom:14px">'
+    +'<div class="row between center" style="margin-bottom:16px">'
     +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors</div>'
-    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addExecSponsor()">+ Add</button>':'')+'</div>'
-    +'<div class="row wrap g12">'+sponsors+'</div></div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addExecSponsor()">+ Add Sponsor</button>':'')+'</div>'
+    +(allSponsors.length?'<div class="grid2" style="gap:12px">'
+      +(sfSponsors.length?'<div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Salesforce</div>'
+        +'<div class="col g8">'+sfSponsors.map(function(s){return sponsorCard(s,allSponsors.indexOf(s),true);}).join('')+'</div></div>':'')
+      +(cusSponsors.length?'<div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">'+e(CUS().name)+'</div>'
+        +'<div class="col g8">'+cusSponsors.map(function(s){return sponsorCard(s,allSponsors.indexOf(s),false);}).join('')+'</div></div>':'')
+      +'</div>'
+      :'<div style="font-size:13px;color:rgba(255,255,255,.5)">No sponsors added yet.</div>')
+    +'</div>'
     +'<div class="grid2">'
     +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a9eff;margin-bottom:12px">Salesforce</h2>'
     +'<div class="col g10">'+sfT.map(mc).join('')+'</div></div>'
     +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">'+e(CUS().name)+'</h2>'
-    +'<div class="col g10">'+bT.map(mc).join('')+'</div></div>'
+    +'<div class="col g10">'+cusT.map(mc).join('')+'</div></div>'
     +'</div></div>';
 }
 function addTeamMember(){
@@ -1397,6 +1514,7 @@ function addExecSponsor(){
   showModal('<div class="modal"><h3>Add Executive Sponsor</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>'+e(CUS().name)+'</option></select></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveExecSponsor(-1)">Add</button></div></div>');
 }
@@ -1405,12 +1523,13 @@ function editExecSponsor(idx){
   showModal('<div class="modal"><h3>Edit Sponsor</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(s.name)+'"></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(s.title)+'"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(s.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(s.company!=='Salesforce'?' selected':'')+'>'+e(CUS().name)+'</option></select></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveExecSponsor('+idx+')">Save</button></div></div>');
 }
 function saveExecSponsor(idx){
   if(!DATA.execSponsors) DATA.execSponsors=[];
-  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:CUS().name};
+  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:document.getElementById('m-co').value};
   if(idx===-1) DATA.execSponsors.push(obj); else DATA.execSponsors[idx]=obj;
   closeModal();navigate('team');autoSave();
 }
@@ -1470,10 +1589,10 @@ function deleteRaciRow(idx){if(confirm('Delete?')){DATA.raci.splice(idx,1);navig
 function rBlockers(){
   var canE=canEdit()||currentRole==='viewer';
   var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
-  function sec(title,items,color,type){
+  function sec(title,items,color){
     return '<div><div class="row center g12" style="margin-bottom:12px">'
       +'<h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:'+color+'">'+title+'</h2>'
-      +(canEdit()?'<button class="btn-primary btn-sm" onclick="addBlocker(\''+type+'\')">+ Add</button>':'')
+      +(canEdit()?'<button class="btn-primary btn-sm" onclick="addBlocker(\'Decision\')">+ Add</button>':'')
       +'</div><div class="col g10">'
       +items.map(function(item){
         var ri=(DATA.blockers||[]).indexOf(item);
@@ -1496,8 +1615,8 @@ function rBlockers(){
   }
   return '<div class="col g28">'
     +'<div><div class="label">Risk Register</div><h1 style="font-size:26px;font-weight:800">Open Decisions &amp; Blockers</h1></div>'
-    +sec('Decisions Required',(DATA.blockers||[]).filter(function(b){return b.type==='Decision';}),'var(--amber)','Decision')
-    +sec('Blockers',(DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}),'var(--red)','Blocker')
+    +sec('Decisions Required',(DATA.blockers||[]).filter(function(b){return b.type==='Decision';}),'var(--amber)')
+    +sec('Blockers',(DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}),'var(--red)')
     +'</div>';
 }
 function addBlocker(type){
@@ -1540,47 +1659,90 @@ function deleteBlocker(idx){if(confirm('Delete?')){DATA.blockers.splice(idx,1);n
    MEETINGS
 ═══════════════════════════════════════════════════ */
 function rMeetings(){
+  var allTeam=(DATA.team||[]).map(function(m){return m.name;});
   var cards=(DATA.meetings||[]).map(function(m,i){
-    return '<div class="card" style="padding:24px">'
-      +'<div class="row between" style="margin-bottom:12px;align-items:flex-start">'
-      +'<h3 style="font-family:var(--font-head);font-weight:700;font-size:15px;max-width:200px">'+e(m.name)+'</h3>'
-      +'<span class="badge b-blue">'+e(m.freq)+'</span></div>'
-      +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px"><span style="color:var(--text-soft)">Participants: </span>'+e(m.participants)+'</div>'
-      +'<div style="font-size:13px;color:var(--text-muted)"><span style="color:var(--text-soft)">Purpose: </span>'+e(m.purpose)+'</div>'
-      +(canEdit()?'<div class="row g8" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
+    var agenda=m.agenda||[];
+    return '<div class="card-el" style="padding:0;overflow:hidden;margin-bottom:12px">'
+      +'<div style="background:var(--btn-primary);padding:14px 18px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff">'+e(m.name)+'</div>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">'+e(m.participants||'')+'</div></div>'
+      +'<span class="badge b-blue" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">'+e(m.freq)+'</span>'
+      +'</div>'
+      +'<div style="padding:16px 18px">'
+      +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px"><span style="color:var(--text-soft);font-weight:600">Purpose: </span>'+e(m.purpose)+'</div>'
+      // Agenda
+      +'<div style="margin-bottom:10px">'
+      +'<div class="row between center" style="margin-bottom:8px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Agenda</div>'
+      +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="addAgendaItem('+i+')">+ Item</button>':'')
+      +'</div>'
+      +(agenda.length?'<div class="col g4">'
+        +agenda.map(function(a,ai){
+          return '<div class="row center g8" style="padding:6px 10px;background:var(--bg-light);border-radius:var(--radius-sm)">'
+            +'<span style="font-size:13px;flex:1">'+e(a.text||a)+'</span>'
+            +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="deleteAgendaItem('+i+','+ai+')">&#10005;</button>':'')
+            +'</div>';
+        }).join('')+'</div>'
+        :'<div style="font-size:12px;color:var(--text-muted);padding:6px 0">No agenda items yet.</div>')
+      +'</div>'
+      +(canEdit()?'<div class="row g8" style="padding-top:12px;border-top:1px solid var(--border)">'
         +'<button class="btn-icon" onclick="editMeeting('+i+')">&#9998; Edit</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteMeeting('+i+')">&#10005; Delete</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteMeeting('+i+')">&#10005;</button>'
         +'</div>':'')
-      +'</div>';
+      +'</div></div>';
   }).join('');
   return '<div class="col g24">'
-    +'<div><div class="label">Governance</div><h1 style="font-size:26px;font-weight:800">Meeting Cadences</h1>'
-    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addMeeting()">+ Add Meeting</button>':'')+'</div>'
-    +'<div class="gridA">'+cards+'</div></div>';
+    +'<div class="row between center"><div><div class="label">Governance</div><h1 style="font-size:26px;font-weight:800">Meeting Cadences</h1></div>'
+    +(canEdit()?'<button class="btn-primary" onclick="addMeeting()">+ Add Meeting</button>':'')+'</div>'
+    +'<div class="col g0">'+cards+'</div></div>';
 }
+function addAgendaItem(mtgIdx){
+  showModal('<div class="modal"><h3>Add Agenda Item</h3>'
+    +'<div class="form-group"><label>Agenda Item</label><input id="ag-text" placeholder="e.g. Review blockers"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAgendaItem('+mtgIdx+')">Add</button></div></div>');
+}
+function saveAgendaItem(mtgIdx){
+  if(!DATA.meetings[mtgIdx].agenda) DATA.meetings[mtgIdx].agenda=[];
+  DATA.meetings[mtgIdx].agenda.push({text:document.getElementById('ag-text').value});
+  closeModal();navigate('meetings');autoSave();
+}
+function deleteAgendaItem(mtgIdx,ai){DATA.meetings[mtgIdx].agenda.splice(ai,1);navigate('meetings');autoSave();}
 function addMeeting(){
+  var teamNames=(DATA.team||[]).map(function(m){return m.name;});
   showModal('<div class="modal"><h3>Add Meeting</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Ad hoc</option></select></div>'
-    +'<div class="form-group"><label>Participants</label><input id="m-part"></div>'
+    +'<div class="form-group"><label>Participants</label><input id="m-part" placeholder="Names or select below"></div>'
+    +(teamNames.length?'<div class="form-group"><label>Add from team</label><div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="mt-pick" value="'+e(n)+'" style="width:auto;accent-color:var(--accent)" onchange="pickTeam()">'+e(n)+'</label>';}).join('')
+      +'</div></div>':'')
     +'<div class="form-group"><label>Purpose</label><input id="m-pur"></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveMeeting(-1)">Add</button></div></div>');
 }
+function pickTeam(){
+  var picked=[]; document.querySelectorAll('.mt-pick:checked').forEach(function(cb){picked.push(cb.value);});
+  var inp=document.getElementById('m-part'); if(inp) inp.value=picked.join(', ');
+}
 function editMeeting(idx){
   var m=DATA.meetings[idx];
+  var teamNames=(DATA.team||[]).map(function(t){return t.name;});
   showModal('<div class="modal"><h3>Edit Meeting</h3>'
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(m.name)+'"></div>'
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option'+(m.freq==='Weekly'?' selected':'')+'>Weekly</option><option'+(m.freq==='Bi-weekly'?' selected':'')+'>Bi-weekly</option><option'+(m.freq==='Monthly'?' selected':'')+'>Monthly</option><option'+(m.freq==='Ad hoc'?' selected':'')+'>Ad hoc</option></select></div>'
-    +'<div class="form-group"><label>Participants</label><input id="m-part" value="'+e(m.participants)+'"></div>'
-    +'<div class="form-group"><label>Purpose</label><input id="m-pur" value="'+e(m.purpose)+'"></div>'
+    +'<div class="form-group"><label>Participants</label><input id="m-part" value="'+e(m.participants||'')+'"></div>'
+    +(teamNames.length?'<div class="form-group"><label>Add from team</label><div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="mt-pick" value="'+e(n)+'" style="width:auto;accent-color:var(--accent)" onchange="pickTeam()">'+e(n)+'</label>';}).join('')
+      +'</div></div>':'')
+    +'<div class="form-group"><label>Purpose</label><input id="m-pur" value="'+e(m.purpose||'')+'"></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveMeeting('+idx+')">Save</button></div></div>');
 }
 function saveMeeting(idx){
   if(!DATA.meetings) DATA.meetings=[];
-  var obj={name:document.getElementById('m-name').value,freq:document.getElementById('m-freq').value,participants:document.getElementById('m-part').value,purpose:document.getElementById('m-pur').value};
-  if(idx===-1) DATA.meetings.push(obj); else DATA.meetings[idx]=obj;
+  var obj={name:document.getElementById('m-name').value,freq:document.getElementById('m-freq').value,participants:document.getElementById('m-part').value,purpose:document.getElementById('m-pur').value,agenda:idx>=0&&DATA.meetings[idx]?DATA.meetings[idx].agenda||[]:[]};
+  if(idx===-1) DATA.meetings.push(obj); else DATA.meetings[idx]=Object.assign(DATA.meetings[idx],obj);
   closeModal();navigate('meetings');autoSave();
 }
 function deleteMeeting(idx){if(confirm('Delete?')){DATA.meetings.splice(idx,1);navigate('meetings');autoSave();}}
@@ -1589,31 +1751,63 @@ function deleteMeeting(idx){if(confirm('Delete?')){DATA.meetings.splice(idx,1);n
    KPIs
 ═══════════════════════════════════════════════════ */
 function rKpis(){
-  var cards=(DATA.kpis||[]).map(function(kpi,i){
-    function vc(field,color){
-      if(canEdit()) return '<div><div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;text-align:center">'+field+'</div>'
-        +'<input value="'+e(kpi[field])+'" onchange="DATA.kpis['+i+'][\''+field+'\']=this.value;autoSave()" style="text-align:center;font-size:16px;font-weight:700;font-family:var(--font-head);color:'+color+'"></div>';
-      return '<div style="text-align:center"><div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">'+field+'</div>'
-        +'<div style="font-size:20px;font-weight:800;font-family:var(--font-head);color:'+color+'">'+e(kpi[field])
-        +(kpi[field]!=='--'&&kpi[field]!=='TBD'?'<span style="font-size:11px;color:var(--text-muted);margin-left:2px">'+e(kpi.unit||'')+'</span>':'')+'</div></div>';
-    }
-    return '<div class="card-el" style="padding:26px">'
+  var kpis=DATA.kpis||[];
+  var cards=kpis.map(function(kpi,i){
+    return '<div class="card" style="padding:20px">'
       +'<div class="row between center" style="margin-bottom:14px">'
-      +(canEdit()?'<input value="'+e(kpi.label)+'" onchange="DATA.kpis['+i+'].label=this.value;autoSave()" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">':'<div style="font-size:12px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase">'+e(kpi.label)+'</div>')
-      +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteKpi('+i+')">&#10005;</button>':'')
+      +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px">'+e(kpi.label)+'</div>'
+      +(canEdit()?'<div class="row g4">'
+        +'<button class="btn-icon" onclick="editKpi('+i+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteKpi('+i+')">&#10005;</button>'
+        +'</div>':'')
       +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
-      +vc('baseline','var(--text-soft)')+vc('current','var(--accent)')+vc('target','#4caf82')+'</div>'
-      +(canEdit()?'<div style="margin-top:10px"><label>Unit</label><input value="'+e(kpi.unit||'')+'" onchange="DATA.kpis['+i+'].unit=this.value;autoSave()" style="font-size:12px"></div>':'')
-      +'</div>';
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">'
+      +[['Baseline','baseline','var(--text-soft)'],['Current','current','var(--accent)'],['Target','target','var(--green)']].map(function(f){
+        return '<div style="background:var(--bg-light);border-radius:var(--radius-sm);padding:12px 8px">'
+          +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">'+f[0]+'</div>'
+          +'<div style="font-size:22px;font-weight:800;font-family:var(--font-head);color:'+f[2]+'">'+e(kpi[f[1]]||'—')
+          +(kpi[f[1]]&&kpi[f[1]]!=='--'&&kpi[f[1]]!=='TBD'&&kpi.unit?'<span style="font-size:12px;margin-left:2px;color:var(--text-muted)">'+e(kpi.unit)+'</span>':'')
+          +'</div></div>';
+      }).join('')
+      +'</div></div>';
   }).join('');
   return '<div class="col g24">'
-    +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1></div>'
-    +'<div class="gridA">'+cards+'</div>'
-    +(canEdit()?'<button class="btn-ghost" onclick="addKpi()">+ Add KPI</button>':'')+'</div>';
+    +'<div class="row between center"><div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1></div>'
+    +(canEdit()?'<button class="btn-primary" onclick="addKpi()">+ Add KPI</button>':'')+'</div>'
+    +'<div class="gridA">'+cards+'</div></div>';
 }
-function addKpi(){ if(!DATA.kpis) DATA.kpis=[]; DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''}); navigate('kpis'); autoSave(); }
-function deleteKpi(idx){ if(confirm('Delete?')){ DATA.kpis.splice(idx,1); navigate('kpis'); autoSave(); } }
+function addKpi(){
+  showModal('<div class="modal"><h3>Add KPI</h3>'
+    +'<div class="form-group"><label>KPI Name</label><input id="kp-label" placeholder="e.g. Policy Onboarding Time"></div>'
+    +'<div class="form-group"><label>Unit</label><input id="kp-unit" placeholder="e.g. min, %, /10"></div>'
+    +'<div class="form-row">'
+    +'<div class="form-group"><label>Baseline</label><input id="kp-base" value="--"></div>'
+    +'<div class="form-group"><label>Current</label><input id="kp-cur" value="--"></div>'
+    +'<div class="form-group"><label>Target</label><input id="kp-tgt" value="TBD"></div>'
+    +'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveKpi(-1)">Add</button></div></div>');
+}
+function editKpi(idx){
+  var kpi=(DATA.kpis||[])[idx];
+  showModal('<div class="modal"><h3>Edit KPI</h3>'
+    +'<div class="form-group"><label>KPI Name</label><input id="kp-label" value="'+e(kpi.label||'')+'"></div>'
+    +'<div class="form-group"><label>Unit</label><input id="kp-unit" value="'+e(kpi.unit||'')+'"></div>'
+    +'<div class="form-row">'
+    +'<div class="form-group"><label>Baseline</label><input id="kp-base" value="'+e(kpi.baseline||'--')+'"></div>'
+    +'<div class="form-group"><label>Current</label><input id="kp-cur" value="'+e(kpi.current||'--')+'"></div>'
+    +'<div class="form-group"><label>Target</label><input id="kp-tgt" value="'+e(kpi.target||'TBD')+'"></div>'
+    +'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveKpi('+idx+')">Save</button></div></div>');
+}
+function saveKpi(idx){
+  if(!DATA.kpis) DATA.kpis=[];
+  var obj={label:document.getElementById('kp-label').value,unit:document.getElementById('kp-unit').value,baseline:document.getElementById('kp-base').value,current:document.getElementById('kp-cur').value,target:document.getElementById('kp-tgt').value};
+  if(idx===-1) DATA.kpis.push(obj); else DATA.kpis[idx]=obj;
+  closeModal();navigate('kpis');autoSave();
+}
+function deleteKpi(idx){if(confirm('Delete?')){DATA.kpis.splice(idx,1);navigate('kpis');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    FLOWCHART
