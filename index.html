@@ -276,6 +276,20 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
   .main{margin-left:200px;padding:20px 16px}
   .grid2,.grid3{grid-template-columns:1fr}
 }
+
+/* ── Rich text editor ── */
+.rich-wrap{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--card-bg)}
+.rich-toolbar{display:flex;gap:2px;padding:4px 6px;background:var(--bg-light);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.rich-btn{background:transparent;border:1px solid transparent;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:12px;color:var(--text-muted);font-family:var(--font-body);transition:all .15s;min-width:26px;text-align:center}
+.rich-btn:hover{background:var(--bg-mid);border-color:var(--border);color:var(--text)}
+.rich-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rich-editor{min-height:80px;padding:10px 12px;outline:none;font-size:13px;font-family:var(--font-body);color:var(--text);line-height:1.7;word-wrap:break-word}
+.rich-view ul,.rich-view ol,.rich-editor ul,.rich-editor ol{padding-left:20px;margin:4px 0}
+.rich-view li,.rich-editor li{margin:2px 0}
+.rich-view b,.rich-view strong,.rich-editor b,.rich-editor strong{font-weight:700}
+.rich-view i,.rich-view em,.rich-editor i,.rich-editor em{font-style:italic}
+.rich-view u,.rich-view u,.rich-editor u{text-decoration:underline}
+.rich-view h4,.rich-editor h4{font-size:13px;font-weight:700;margin:8px 0 4px;color:var(--text)}
 </style>
 </head>
 <body class="theme-default bg-grid">
@@ -388,6 +402,54 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 /* ═══════════════════════════════════════════════════
    DATA
 ═══════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   RICH TEXT EDITOR — lightweight contenteditable with toolbar
+   Usage: richField(id, initialHtml, rows) → returns HTML string
+   To get value: richGetVal(id) → returns innerHTML
+   Applied to all long textarea fields in modals
+═══════════════════════════════════════════════════════════════ */
+function richField(id, html, rows){
+  var minH=Math.max(60,(rows||3)*22);
+  return '<div class="rich-wrap">'
+    +'<div class="rich-toolbar" data-for="'+id+'">'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'bold\')" title="Bold"><b>B</b></button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'italic\')" title="Italic"><i>I</i></button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'underline\')" title="Underline"><u>U</u></button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'insertUnorderedList\')" title="Bullet list">&#8226; List</button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'insertOrderedList\')" title="Numbered list">1. List</button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'formatBlock\',\'h4\')" title="Heading">H</button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'formatBlock\',\'p\')" title="Paragraph">P</button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'removeFormat\')" title="Clear formatting">&#10005; Clear</button>'
+    +'</div>'
+    +'<div class="rich-editor" id="'+id+'" contenteditable="true" spellcheck="true" style="min-height:'+minH+'px" oninput="richUpdate(\''+id+'\')">'
+    +(html||'')
+    +'</div></div>';
+}
+function richCmd(id, cmd, val){
+  var el=document.getElementById(id); if(!el) return;
+  el.focus();
+  document.execCommand(cmd, false, val||null);
+  el.focus();
+}
+function richGetVal(id){
+  var el=document.getElementById(id); if(!el) return '';
+  return el.innerHTML;
+}
+function richUpdate(id){
+  // Trigger autosave if in-place editor (not modal)
+}
+// Strip HTML tags for plain-text previews
+function stripTags(html){ return (html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+// Helper: render stored rich text safely in display
+function richDisplay(html){
+  if(!html) return '';
+  // Already HTML — just return; e() would escape it
+  return html;
+}
 /* ═══════════════════════════════════════════════════
    MULTI-TENANT AUTH & USER MANAGEMENT
    Users stored in data.json, hashed with SHA-256.
@@ -457,10 +519,10 @@ var CUSTOMERS = [
           {id:'B2',type:'Blocker',item:'As-is process mapping for UC1 not started',owner:'Belfius primary',status:'Blocked'}
         ],
         kpis:[
-          {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min'},
-          {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%'},
-          {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min'},
-          {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10'}
+          {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min',links:[]},
+          {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%',links:[]},
+          {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min',links:[]},
+          {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10',links:[]}
         ],
         team:[
           {name:'Francis Verscheure',role:'Solution Orchestrator / Coordinator',company:'Salesforce'},
@@ -723,6 +785,9 @@ function buildSidebar(){
       +'<span style="color:rgba(255,255,255,.6);font-size:11px">&#9660;</span></div>'
       +'<div id="cus-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
       +CUSTOMERS.map(function(cu,ci){
+        // Security: only show customers the user is assigned to (empty = all)
+        var allowed=!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length||currentUser.assignedCustomers.indexOf(cu.id)!==-1;
+        if(!allowed) return '';
         var sel=ci===currentCustomerIdx;
         return '<div onclick="switchCustomer('+ci+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
           +'<span>'+e(cu.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(cu.name)+'</span>'
@@ -743,6 +808,9 @@ function buildSidebar(){
       +'<span style="color:rgba(255,255,255,.5);font-size:11px">&#9660;</span></div>'
       +'<div id="prj-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
       +(cus.projects||[]).map(function(p,pi){
+        // Security: only show projects the user is assigned to (empty = all)
+        var allowed=!currentUser||!currentUser.assignedProjects||!currentUser.assignedProjects.length||currentUser.assignedProjects.indexOf(p.id)!==-1;
+        if(!allowed) return '';
         var sel=pi===currentProjectIdx;
         return '<div onclick="switchProject('+pi+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
           +'<span style="flex:1;color:var(--text)">'+e(p.name)+'</span>'
@@ -825,15 +893,35 @@ document.addEventListener('click',function(ev){
 });
 
 function switchCustomer(idx){
+  // Security check: user must have access to this customer
+  var cu=CUSTOMERS[idx];
+  if(cu&&currentUser&&currentUser.assignedCustomers&&currentUser.assignedCustomers.length){
+    if(currentUser.assignedCustomers.indexOf(cu.id)===-1) return; // no access
+  }
   currentCustomerIdx=idx; currentProjectIdx=0; syncDATA(); ucTab={};
+  // Auto-select first accessible project
+  var projs=CUS().projects||[];
+  if(currentUser&&currentUser.assignedProjects&&currentUser.assignedProjects.length){
+    var pi=projs.findIndex(function(p){return currentUser.assignedProjects.indexOf(p.id)!==-1;});
+    if(pi!==-1) currentProjectIdx=pi;
+  }
+  syncDATA();
   buildSidebar();
-  if(currentTheme==='customer') applyCustomerTheme();
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
   var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
   navigate('overview');
 }
 function switchProject(idx){
+  // Security check
+  var prj=(CUS().projects||[])[idx];
+  if(prj&&currentUser&&currentUser.assignedProjects&&currentUser.assignedProjects.length){
+    if(currentUser.assignedProjects.indexOf(prj.id)===-1) return;
+  }
   currentProjectIdx=idx; syncDATA(); ucTab={};
-  buildSidebar(); navigate('overview');
+  buildSidebar();
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
+  var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
+  navigate('overview');
 }
 function addCustomer(){
   showModal('<div class="modal"><h3>New Customer</h3>'
@@ -929,6 +1017,7 @@ function toggleUCSubmenu(){ ucSubmenuOpen=!ucSubmenuOpen; buildSidebar(); }
 function goUC(i){ navigate('uc-'+i); }
 function goTimeline(){ navigate('timeline'); }
 function goUsers(){ navigate('users'); }
+function goKpis(){ navigate('kpis'); }
 
 function navigate(page){
   currentPage=page;
@@ -1021,7 +1110,7 @@ function rOverview(){
         +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(uc.title)+'</div>'
         +'</div>'+badge(uc.status)+'</div>'
         +(uc.targetUsers?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">&#128100; '+e(uc.targetUsers)+'</div>':'')
-        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
         +pb(uc.progress)
         +'<div class="row between" style="margin-top:6px">'
         +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted)">&#128221; '+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted)">&#9881; scope</span>':'')+'</div>'
@@ -1159,7 +1248,7 @@ function rUseCasesList(){
         +'<div style="height:3px;background:rgba(0,0,0,.08)"><div style="height:3px;background:rgba(255,255,255,.4);width:'+uc.progress+'%"></div></div>'
         +'<div style="padding:16px 18px">'
         +(uc.targetUsers?'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">&#128100; <strong>Users:</strong> '+e(uc.targetUsers)+'</div>':'')
-        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+e(uc.expectedOutcomes)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
         +'<div class="row between center">'
         +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')+'</div>'
         +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span>'
@@ -1219,7 +1308,7 @@ function renderUCOverviewTab(uc,idx){
   function infoCard(title,value){
     return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
-      +'<div style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;white-space:pre-line">'+value+'</div></div>';
+      +'<div class="rich-view" style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+value+'</div></div>';
   }
   // Sort milestones by date for display
   var sortedMils=(uc.milestones||[]).map(function(m,i){return {m:m,i:i};}).sort(function(a,b){
@@ -1257,10 +1346,10 @@ function renderUCOverviewTab(uc,idx){
   }).join('');
   return '<div>'
     +'<div class="grid2" style="gap:14px;margin-bottom:16px">'
-    +infoCard('Use Case', e(uc.title)+(uc.description?'\n'+e(uc.description):''))
-    +infoCard('Business Priority', e(uc.businessPriority||'—'))
+    +infoCard('Use Case', '<strong>'+e(uc.title)+'</strong>'+(uc.description?'<div class="rich-view" style="margin-top:6px;font-weight:400">'+richDisplay(uc.description)+'</div>':''))
+    +infoCard('Business Priority', richDisplay(uc.businessPriority||'—'))
     +infoCard('Target Users', e(uc.targetUsers||'—'))
-    +infoCard('Expected Outcomes', e(uc.expectedOutcomes||'—'))
+    +infoCard('Expected Outcomes', richDisplay(uc.expectedOutcomes||'—'))
     +'</div>'
     +(canE?'<div style="margin-bottom:16px"><button class="btn-primary btn-sm" onclick="editUCOverview('+idx+')">&#9998; Edit Overview</button></div>':'')
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">'
@@ -1272,21 +1361,40 @@ function renderUCOverviewTab(uc,idx){
 
 
 /* ── UC Job Stories Tab ── */
+
+var JS_STATUS_COLORS={'Active':'b-blue','In Progress':'b-amber','Accepted':'b-green','Paused':'b-slate','Declined':'b-red','Done':'b-green'};
+function jsStatusBadge(status){
+  var s=status||'Active';
+  return '<span class="badge '+(JS_STATUS_COLORS[s]||'b-slate')+'" style="font-size:10px">'+e(s)+'</span>';
+}
+function setJSStatus(ucIdx,ji,status){
+  if(DATA.useCases[ucIdx]&&DATA.useCases[ucIdx].jobStories[ji]){
+    DATA.useCases[ucIdx].jobStories[ji].status=status;
+    autoSave();
+    // Re-render to update badge
+    navigate('uc-'+ucIdx);
+  }
+}
+
 function renderUCJobStoriesTab(uc,idx){
   var stories=uc.jobStories||[];
   return '<div>'
     +'<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent)">'
     +'"When (situation/context), I want (motivation/action), so that (outcome/benefit)."</div>'
     +(stories.length?'<div class="overflow-x"><table><thead><tr>'
-      +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th>'
+      +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th><th style="min-width:100px">Status</th>'
       +(canEdit()?'<th></th>':'')
       +'</tr></thead><tbody>'
       +stories.map(function(js,ji){
         return '<tr><td style="text-align:center;font-weight:700;color:var(--accent)">'+(ji+1)+'</td>'
-          +'<td style="min-width:240px;line-height:1.6">'+e(js.story||'')+'</td>'
-          +'<td style="min-width:150px"><div style="white-space:pre-line;font-size:12px;line-height:1.5">'+e(js.painPoints||'')+'</div></td>'
-          +'<td style="min-width:140px;font-size:12px">'+e(js.desiredOutcomes||'')+'</td>'
-          +'<td style="min-width:120px;font-size:12px"><div style="white-space:pre-line">'+e(js.kpis||'')+'</div></td>'
+          +'<td style="min-width:240px;line-height:1.6"><div class="rich-view">'+richDisplay(js.story||'')+'</div></td>'
+          +'<td style="min-width:150px"><div class="rich-view" style="font-size:12px;line-height:1.5">'+richDisplay(js.painPoints||'')+'</div></td>'
+          +'<td style="min-width:140px;font-size:12px"><div class="rich-view">'+richDisplay(js.desiredOutcomes||'')+'</div></td>'
+          +'<td style="min-width:120px;font-size:12px">'
+          +'<div class="row wrap g4" style="margin-bottom:4px">'
+          +(js.kpiLinks&&js.kpiLinks.length?(js.kpiLinks.map(function(ki){var kp=(DATA.kpis||[])[ki];return kp?'<span class="badge b-blue" style="font-size:9px;cursor:pointer" onclick="goKpis()">'+e(kp.label)+'</span>':'';}).join('')):'')+'</div>'
+          +(js.kpis?'<div style="white-space:pre-line;color:var(--text-muted)">'+e(js.kpis)+'</div>':'')+'</td>'
+          +'<td>'+jsStatusBadge(js.status)+(canEdit()?'<select onchange="setJSStatus('+idx+','+ji+',this.value)" style="width:auto;font-size:11px;margin-top:4px">'+['Active', 'In Progress', 'Accepted', 'Paused', 'Declined', 'Done'].map(function(s){return '<option'+(s===(js.status||'Active')?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')+'</td>'
           +(canEdit()?'<td><div class="row g4">'
             +'<button class="btn-icon" style="font-size:11px" onclick="editJobStory('+idx+','+ji+')">&#9998;</button>'
             +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteJobStory('+idx+','+ji+')">&#10005;</button>'
@@ -1304,11 +1412,11 @@ function renderUCScopeTab(uc,idx){
   function scard(title,content,fullWidth){
     return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden'+(fullWidth?';grid-column:1/-1':'')+'">'
       +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
-      +'<div style="padding:14px;font-size:13px;color:var(--text-muted);white-space:pre-line;line-height:1.7">'+content+'</div></div>';
+      +'<div class="rich-view" style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.7">'+content+'</div></div>';
   }
   return '<div class="col g12">'
     +'<div class="grid2" style="gap:12px">'
-    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>'+(uc.description?'\n'+e(uc.description):''))
+    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>'+(uc.description?'<div class="rich-view" style="margin-top:6px">'+richDisplay(uc.description)+'</div>':''))
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Functional Scope</div>'
     +'<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
@@ -1318,15 +1426,15 @@ function renderUCScopeTab(uc,idx){
     +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(sc.functionalScopeOut||'—')+'</div></div>'
     +'</div></div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
-    +scard('Agent Role',e(sc.agentRole||'—'))
+    +scard('Agent Role',richDisplay(sc.agentRole)||'—')
     +scard('Channel(s)',e(sc.channels||'—'))
-    +scard('Current Process',e(sc.currentProcess||'—'))
+    +scard('Current Process',richDisplay(sc.currentProcess)||'—')
     +'</div>'
     +'<div class="grid2" style="gap:12px">'
-    +scard('Data',e(sc.data||'—'))
-    +scard('Actions',e(sc.actions||'—'))
+    +scard('Data',richDisplay(sc.data)||'—')
+    +scard('Actions',richDisplay(sc.actions)||'—')
     +'</div>'
-    +scard('Guardrails Summary',e(sc.guardrails||'—'),true)
+    +scard('Guardrails Summary',richDisplay(sc.guardrails)||'—',true)
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
     +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Related Flows</div>'
     +'<div style="padding:14px">'
@@ -1394,40 +1502,42 @@ function saveEditUC(idx){
 function editUCOverview(idx){
   var uc=DATA.useCases[idx];
   showModal('<div class="modal"><h3>Edit Overview</h3>'
-    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="3">'+e(uc.description||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Description</label>'+richField('m-desc',uc.description||'',3)+'</div>'
     +'<div class="form-group"><label>Business Priority</label><input id="m-bprio" value="'+e(uc.businessPriority||'')+'"></div>'
     +'<div class="form-group"><label>Target Users</label><input id="m-tusers" value="'+e(uc.targetUsers||'')+'"></div>'
-    +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2">'+e(uc.expectedOutcomes||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Expected Outcomes</label>'+richField('m-outcomes',uc.expectedOutcomes||'',2)+'</div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveUCOverview('+idx+')">Save</button></div></div>');
 }
 function saveUCOverview(idx){
   var uc=DATA.useCases[idx];
-  uc.description=document.getElementById('m-desc').value; uc.businessPriority=document.getElementById('m-bprio').value;
-  uc.targetUsers=document.getElementById('m-tusers').value; uc.expectedOutcomes=document.getElementById('m-outcomes').value;
+  uc.description=richGetVal('m-desc')||document.getElementById('m-desc')&&document.getElementById('m-desc').value||'';
+  uc.businessPriority=document.getElementById('m-bprio').value;
+  uc.targetUsers=document.getElementById('m-tusers').value;
+  uc.expectedOutcomes=richGetVal('m-outcomes')||document.getElementById('m-outcomes')&&document.getElementById('m-outcomes').value||'';
   closeModal();navigate('uc-'+idx);autoSave();
 }
 function editUCScope(idx){
   var sc=DATA.useCases[idx].scope||{};
   showModal('<div class="modal modal-lg"><h3>Edit Agent Scope</h3>'
-    +'<div class="form-group"><label>Agent Role</label><textarea id="sc-role" rows="2">'+e(sc.agentRole||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Agent Role</label>'+richField('sc-role',sc.agentRole||'',2)+'</div>'
     +'<div class="form-row"><div class="form-group"><label>Channel(s)</label><input id="sc-chan" value="'+e(sc.channels||'')+'"></div>'
     +'<div class="form-group"><label>In Scope</label><input id="sc-in" value="'+e(sc.functionalScopeIn||'')+'"></div></div>'
     +'<div class="form-group"><label>Out of Scope</label><input id="sc-out" value="'+e(sc.functionalScopeOut||'')+'"></div>'
-    +'<div class="form-group"><label>Current Process</label><textarea id="sc-proc" rows="3">'+e(sc.currentProcess||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Current Process</label>'+richField('sc-proc',sc.currentProcess||'',3)+'</div>'
     +'<div class="form-row"><div class="form-group"><label>Data</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
     +'<div class="form-group"><label>Actions</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
-    +'<div class="form-group"><label>Guardrails</label><textarea id="sc-guard" rows="5">'+e(sc.guardrails||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Guardrails</label>'+richField('sc-guard',sc.guardrails||'',5)+'</div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveUCScope('+idx+')">Save</button></div></div>');
 }
 function saveUCScope(idx){
   if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
   var sc=DATA.useCases[idx].scope;
-  sc.agentRole=document.getElementById('sc-role').value; sc.channels=document.getElementById('sc-chan').value;
+  sc.agentRole=richGetVal('sc-role'); sc.channels=document.getElementById('sc-chan').value;
   sc.functionalScopeIn=document.getElementById('sc-in').value; sc.functionalScopeOut=document.getElementById('sc-out').value;
-  sc.currentProcess=document.getElementById('sc-proc').value; sc.data=document.getElementById('sc-data').value;
-  sc.actions=document.getElementById('sc-acts').value; sc.guardrails=document.getElementById('sc-guard').value;
+  sc.currentProcess=richGetVal('sc-proc'); sc.data=richGetVal('sc-data');
+  sc.actions=richGetVal('sc-acts'); sc.guardrails=richGetVal('sc-guard');
   closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
 }
 function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
@@ -1513,28 +1623,41 @@ function recalcUCProgress(idx){
 
 function addJobStory(idx){
   showModal('<div class="modal"><h3>Add Job Story</h3>'
-    +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3" placeholder="When... I want... so that..."></textarea></div>'
-    +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3"></textarea></div>'
-    +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3"></textarea></div></div>'
-    +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi"></div>'
+    +'<div class="form-group"><label>Job Story</label>'+richField('js-story','',3)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label>'+richField('js-pain','',3)+'</div>'
+    +'<div class="form-group"><label>Desired Outcomes</label>'+richField('js-out','',3)+'</div></div>'
+    +'<div class="form-group"><label>Link to Project KPIs</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +(DATA.kpis||[]).map(function(kp,ki){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="js-kpi-link" value="'+ki+'" style="width:auto;accent-color:var(--accent)">'+e(kp.label)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Additional KPI notes (free text)</label><input id="js-kpi" placeholder="e.g. Time saved, Avg handling time"></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveJobStory('+idx+',-1)">Add</button></div></div>');
 }
 function editJobStory(idx,ji){
   var js=(DATA.useCases[idx].jobStories||[])[ji]||{};
   showModal('<div class="modal"><h3>Edit Job Story</h3>'
-    +'<div class="form-group"><label>Job Story</label><textarea id="js-story" rows="3">'+e(js.story||'')+'</textarea></div>'
-    +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3">'+e(js.painPoints||'')+'</textarea></div>'
-    +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3">'+e(js.desiredOutcomes||'')+'</textarea></div></div>'
-    +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi" value="'+e(js.kpis||'')+'"></div>'
+    +'<div class="form-group"><label>Job Story</label>'+richField('js-story',js.story||'',3)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label>'+richField('js-pain',js.painPoints||'',3)+'</div>'
+    +'<div class="form-group"><label>Desired Outcomes</label>'+richField('js-out',js.desiredOutcomes||'',3)+'</div></div>'
+    +'<div class="form-group"><label>Link to Project KPIs</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +(DATA.kpis||[]).map(function(kp,ki){var linked=(js.kpiLinks||[]).indexOf(ki)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid '+(linked?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="js-kpi-link" value="'+ki+'"'+(linked?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(kp.label)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Additional KPI notes (free text)</label><input id="js-kpi" value="'+e(js.kpis||'')+'" placeholder="e.g. Time saved, Avg handling time"></div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveJobStory('+idx+','+ji+')">Save</button></div></div>');
 }
 function saveJobStory(idx,ji){
   if(!DATA.useCases[idx].jobStories) DATA.useCases[idx].jobStories=[];
-  var obj={story:document.getElementById('js-story').value,painPoints:document.getElementById('js-pain').value,
-    desiredOutcomes:document.getElementById('js-out').value,kpis:document.getElementById('js-kpi').value};
+  var kpiLinks=[]; document.querySelectorAll('.js-kpi-link:checked').forEach(function(cb){kpiLinks.push(parseInt(cb.value));});
+  var statusEl=document.getElementById('js-status');
+  var obj={story:richGetVal('js-story'),painPoints:richGetVal('js-pain'),
+    desiredOutcomes:richGetVal('js-out'),kpis:document.getElementById('js-kpi').value,kpiLinks:kpiLinks,
+    status:statusEl?statusEl.value:'Active'};
   if(ji===-1) DATA.useCases[idx].jobStories.push(obj); else DATA.useCases[idx].jobStories[ji]=obj;
+  // Update reverse links on KPIs
+  syncKpiLinks();
   closeModal();ucTab[idx]='jobstories';navigate('uc-'+idx);autoSave();
 }
 function deleteJobStory(idx,ji){if(confirm('Delete?')){DATA.useCases[idx].jobStories.splice(ji,1);navigate('uc-'+idx);autoSave();}}
@@ -2179,30 +2302,162 @@ function deleteMeeting(idx){if(confirm('Delete?')){DATA.meetings.splice(idx,1);n
 ═══════════════════════════════════════════════════ */
 function rKpis(){
   var kpis=DATA.kpis||[];
+  // Build reverse index: kpiIdx -> [{ucIdx, ucId, ucTitle, storyIdx, story, kpiNote}]
+  var kpiMap={};
+  kpis.forEach(function(_,ki){ kpiMap[ki]=[]; });
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      (js.kpiLinks||[]).forEach(function(ki){
+        if(!kpiMap[ki]) kpiMap[ki]=[];
+        kpiMap[ki].push({ucIdx:ui,ucId:uc.id,ucTitle:uc.title,storyIdx:ji,story:js.story,kpiNote:js.kpis||''});
+      });
+    });
+  });
+
   var cards=kpis.map(function(kpi,i){
-    return '<div class="card" style="padding:20px">'
-      +'<div class="row between center" style="margin-bottom:14px">'
-      +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px">'+e(kpi.label)+'</div>'
-      +(canEdit()?'<div class="row g4">'
-        +'<button class="btn-icon" onclick="editKpi('+i+')">&#9998;</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteKpi('+i+')">&#10005;</button>'
+    var links=kpiMap[i]||[];
+    return '<div class="card-el" style="padding:0;overflow:hidden;margin-bottom:16px">'
+      // Header
+      +'<div style="background:var(--btn-primary);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      +'<div>'
+      +'<div style="font-family:var(--font-head);font-weight:700;font-size:16px;color:#fff">'+e(kpi.label)+'</div>'
+      +(kpi.unit?'<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px">Unit: '+e(kpi.unit)+'</div>':'')
+      +'</div>'
+      +(canEdit()?'<div class="row g6">'
+        +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editKpi('+i+')">&#9998;</button>'
+        +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="linkKpiToStory('+i+')">&#128279; Link</button>'
+        +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteKpi('+i+')">&#10005;</button>'
         +'</div>':'')
       +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">'
+      // Values row
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border)">'
       +[['Baseline','baseline','var(--text-soft)'],['Current','current','var(--accent)'],['Target','target','var(--green)']].map(function(f){
-        return '<div style="background:var(--bg-light);border-radius:var(--radius-sm);padding:12px 8px">'
-          +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">'+f[0]+'</div>'
-          +'<div style="font-size:22px;font-weight:800;font-family:var(--font-head);color:'+f[2]+'">'+e(kpi[f[1]]||'—')
-          +(kpi[f[1]]&&kpi[f[1]]!=='--'&&kpi[f[1]]!=='TBD'&&kpi.unit?'<span style="font-size:12px;margin-left:2px;color:var(--text-muted)">'+e(kpi.unit)+'</span>':'')
+        return '<div style="background:var(--card-bg);padding:12px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">'+f[0]+'</div>'
+          +'<div style="font-size:20px;font-weight:800;font-family:var(--font-head);color:'+f[2]+'">'+e(kpi[f[1]]||'—')
+          +(kpi[f[1]]&&kpi[f[1]]!=='--'&&kpi[f[1]]!=='TBD'&&kpi.unit?'<span style="font-size:11px;margin-left:2px;color:var(--text-muted)">'+e(kpi.unit)+'</span>':'')
           +'</div></div>';
       }).join('')
+      +'</div>'
+      // Linked stories
+      +'<div style="padding:14px 18px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">'
+      +'Linked to '+links.length+' job '+(links.length===1?'story':'stories')
+      +(canEdit()&&links.length>1?'&nbsp;<button class="btn-icon" style="font-size:11px" onclick="mergeKpiLinks('+i+')" title="Merge linked stories into one">&#10697; Merge view</button>':'')
+      +'</div>'
+      +(links.length?'<div class="col g8">'
+        +links.map(function(lk,li){
+          return '<div class="card" style="padding:10px 14px;'+(lk.ucIdx!==undefined?'cursor:pointer':'')+';" '+(lk.ucIdx!==undefined?'onclick="goUC('+lk.ucIdx+')"':'')+' onmouseover="if(this.style)this.style.borderColor=\'var(--border-hover)\'" onmouseout="if(this.style)this.style.borderColor=\'\'">'
+            +'<div class="row between center" style="margin-bottom:4px">'
+            +'<div class="row center g8">'
+            +'<span class="badge b-blue" style="font-size:10px">'+e(lk.ucId)+'</span>'
+            +'<span style="font-size:12px;font-weight:600;color:var(--text-dim)">'+e(lk.ucTitle)+'</span>'
+            +'<span style="font-size:11px;color:var(--text-muted)">Story '+(lk.storyIdx+1)+'</span>'
+            +'</div>'
+            +(canEdit()?'<button class="btn-icon" style="font-size:11px;color:#e85d5d" onclick="event.stopPropagation();unlinkKpiStory('+i+','+lk.ucIdx+','+lk.storyIdx+')" title="Unlink">&#128279;&#10005;</button>':'')
+            +'</div>'
+            +'<div class="rich-view" style="font-size:12px;color:var(--text-muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+richDisplay(lk.story||'')+'</div>'
+            +(lk.kpiNote?'<div style="font-size:11px;color:var(--accent);margin-top:4px">&#128203; '+e(lk.kpiNote)+'</div>':'')
+            +'</div>';
+        }).join('')
+        +'</div>'
+        :'<div style="padding:10px 0;font-size:13px;color:var(--text-muted);font-style:italic">No stories linked yet.'
+          +(canEdit()?' <span style="cursor:pointer;color:var(--accent)" onclick="linkKpiToStory('+i+')">Link a story &rarr;</span>':'')+'</div>')
       +'</div></div>';
   }).join('');
+
   return '<div class="col g24">'
-    +'<div class="row between center"><div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1></div>'
-    +(canEdit()?'<button class="btn-primary" onclick="addKpi()">+ Add KPI</button>':'')+'</div>'
-    +'<div class="gridA">'+cards+'</div></div>';
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Link KPIs to job stories to show impact across use cases</p></div>'
+    +'<div class="row g8">'
+    +(canEdit()?'<button class="btn-primary" onclick="addKpi()">+ Add KPI</button>':'')
+    +'</div></div>'
+    +cards+'</div>';
 }
+
+/* ── KPI ↔ Story link management ── */
+function syncKpiLinks(){
+  // No-op: links are stored on job stories (kpiLinks:[kpiIdx,...])
+  // rKpis() builds the reverse map dynamically on render
+}
+
+function linkKpiToStory(kpiIdx){
+  var options=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      var alreadyLinked=(js.kpiLinks||[]).indexOf(kpiIdx)!==-1;
+      options.push({ui:ui,ji:ji,ucId:uc.id,ucTitle:uc.title,story:js.story,linked:alreadyLinked});
+    });
+  });
+  if(!options.length){alert('No job stories exist yet. Add stories to a use case first.');return;}
+  var kpi=(DATA.kpis||[])[kpiIdx];
+  var rows=options.map(function(o,oi){
+    var borderCol=o.linked?'var(--accent)':'var(--border)';
+    var bgCol=o.linked?'rgba(0,112,210,.05)':'var(--bg)';
+    return '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid '+borderCol+';border-radius:var(--radius-sm);cursor:pointer;margin-bottom:6px;background:'+bgCol+'">'
+      +'<input type="checkbox" class="kl-pick" value="'+oi+'"'+(o.linked?' checked':'')+' style="width:auto;accent-color:var(--accent);margin-top:2px;flex-shrink:0">'
+      +'<div style="min-width:0"><span class="badge b-blue" style="font-size:10px;margin-right:4px">'+e(o.ucId)+'</span>'
+      +'<span style="font-size:12px;color:var(--text-dim);line-height:1.5">'+e((o.story||'').slice(0,120))+'</span></div>'
+      +'</label>';
+  }).join('');
+  // Store options for save
+  window._kpiLinkOpts=options;
+  showModal('<div class="modal modal-lg"><h3>Link stories to: <em>'+e(kpi.label)+'</em></h3>'
+    +'<p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Check all job stories that impact this KPI</p>'
+    +'<div style="max-height:340px;overflow-y:auto">'+rows+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveLinkKpiStories('+kpiIdx+')">Save Links</button>'
+    +'</div></div>');
+}
+
+function saveLinkKpiStories(kpiIdx){
+  var opts=window._kpiLinkOpts||[];
+  var checked=[];
+  document.querySelectorAll('.kl-pick:checked').forEach(function(cb){checked.push(parseInt(cb.value));});
+  opts.forEach(function(o,oi){
+    var js=DATA.useCases[o.ui].jobStories[o.ji];
+    if(!js.kpiLinks) js.kpiLinks=[];
+    var hasLink=js.kpiLinks.indexOf(kpiIdx)!==-1;
+    var shouldLink=checked.indexOf(oi)!==-1;
+    if(shouldLink&&!hasLink) js.kpiLinks.push(kpiIdx);
+    if(!shouldLink&&hasLink) js.kpiLinks=js.kpiLinks.filter(function(k){return k!==kpiIdx;});
+  });
+  closeModal();navigate('kpis');autoSave();
+}
+
+function unlinkKpiStory(kpiIdx, ucIdx, storyIdx){
+  var js=(DATA.useCases[ucIdx]||{}).jobStories;
+  if(!js||!js[storyIdx]) return;
+  js[storyIdx].kpiLinks=(js[storyIdx].kpiLinks||[]).filter(function(k){return k!==kpiIdx;});
+  navigate('kpis');autoSave();
+}
+
+function mergeKpiLinks(kpiIdx){
+  var kpi=(DATA.kpis||[])[kpiIdx];
+  var links=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      if((js.kpiLinks||[]).indexOf(kpiIdx)!==-1) links.push({uc:uc,js:js,ui:ui,ji:ji});
+    });
+  });
+  var rows=links.map(function(lk){
+    return '<div class="card" style="padding:12px 16px;margin-bottom:10px">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span class="badge b-blue">'+e(lk.uc.id)+'</span>'
+      +'<span style="font-size:13px;font-weight:600">'+e(lk.uc.title)+'</span>'
+      +'<span style="font-size:11px;color:var(--text-muted)">Story '+(lk.ji+1)+'</span></div>'
+      +'<div class="rich-view" style="font-size:13px;color:var(--text-dim);line-height:1.5">'+richDisplay(lk.js.story||'')+'</div>'
+      +(lk.js.desiredOutcomes?'<div style="font-size:12px;color:var(--green);margin-top:6px">&#10003; '+e(lk.js.desiredOutcomes)+'</div>':'')
+      +(lk.js.kpis?'<div style="font-size:11px;color:var(--accent);margin-top:4px">&#128203; '+e(lk.js.kpis)+'</div>':'')
+      +'</div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>All stories impacting: <em>'+e(kpi.label)+'</em></h3>'
+    +'<div style="max-height:400px;overflow-y:auto;margin-bottom:16px">'+rows+'</div>'
+    +'<div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Close</button></div></div>');
+}
+
+
 function addKpi(){
   showModal('<div class="modal"><h3>Add KPI</h3>'
     +'<div class="form-group"><label>KPI Name</label><input id="kp-label" placeholder="e.g. Policy Onboarding Time"></div>'
@@ -2230,7 +2485,8 @@ function editKpi(idx){
 }
 function saveKpi(idx){
   if(!DATA.kpis) DATA.kpis=[];
-  var obj={label:document.getElementById('kp-label').value,unit:document.getElementById('kp-unit').value,baseline:document.getElementById('kp-base').value,current:document.getElementById('kp-cur').value,target:document.getElementById('kp-tgt').value};
+  var existing=idx===-1?{}:(DATA.kpis[idx]||{});
+  var obj={label:document.getElementById('kp-label').value,unit:document.getElementById('kp-unit').value,baseline:document.getElementById('kp-base').value,current:document.getElementById('kp-cur').value,target:document.getElementById('kp-tgt').value,links:existing.links||[]};
   if(idx===-1) DATA.kpis.push(obj); else DATA.kpis[idx]=obj;
   closeModal();navigate('kpis');autoSave();
 }
@@ -2239,6 +2495,25 @@ function deleteKpi(idx){if(confirm('Delete?')){DATA.kpis.splice(idx,1);navigate(
 /* ═══════════════════════════════════════════════════
    FLOWCHART
 ═══════════════════════════════════════════════════ */
+
+function renameFC(idx){
+  var fc=DATA.flowcharts[idx]; if(!fc) return;
+  showModal('<div class="modal"><h3>Rename Flowchart</h3>'
+    +'<div class="form-group"><label>Name</label><input id="fc-rename-val" value="'+e(fc.name)+'" style="font-size:15px"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveRenameFC('+idx+')">Save</button></div></div>');
+  setTimeout(function(){ var inp=document.getElementById('fc-rename-val'); if(inp){inp.focus();inp.select();} },50);
+}
+function saveRenameFC(idx){
+  var val=document.getElementById('fc-rename-val').value.trim();
+  if(!val) return;
+  DATA.flowcharts[idx].name=val;
+  closeModal(); navigate('flowchart'); autoSave();
+}
+function renameFCCurrent(){
+  if(FC.currentChart===null) return;
+  renameFC(FC.currentChart);
+}
 function rFlowchart(){
   var list=(DATA.flowcharts||[]).map(function(fc,i){
     return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick="openFC('+i+')">'
@@ -2247,6 +2522,7 @@ function rFlowchart(){
       +'<div style="font-size:12px;color:var(--text-muted)">'+(fc.nodes||[]).length+' nodes &middot; '+(fc.edges||[]).length+' connections'
       +(fc.ucIdx!==null&&fc.ucIdx!==undefined&&(DATA.useCases||[])[fc.ucIdx]?' &middot; <span style="color:var(--accent)">'+e((DATA.useCases[fc.ucIdx]||{}).id||'')+'</span>':'')
       +'</div></div>'
+      +(canEdit()?'<button class="btn-icon" style="margin-right:4px" onclick="event.stopPropagation();renameFC('+i+')">&#9998;</button>':'')
       +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();deleteFC('+i+')">&#10005;</button>':'')
       +'</div>';
   }).join('');
@@ -2375,7 +2651,7 @@ function buildFCEditor(name){
   return '<div class="col" style="height:calc(100vh - 80px)">'
     +'<div class="row center g12" style="padding:0 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">'
     +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">&larr; Back</button>'
-    +'<h2 style="font-size:17px;font-weight:700;flex:1">'+e(name)+'</h2>'
+    +(canEdit()?'<div style="flex:1;display:flex;align-items:center;gap:6px">'+'<span style="font-size:17px;font-weight:700">'+e(name)+'</span>'+'<button class="btn-icon" style="font-size:11px" onclick="renameFCCurrent()" title="Rename">&#9998;</button></div>':'<h2 style="font-size:17px;font-weight:700;flex:1">'+e(name)+'</h2>')
     +(canEdit()?'<button class="btn-ghost btn-sm" id="fc-conn-btn" onclick="toggleConnect()">&#8594; Connect</button>'
       +'<button class="btn-ghost btn-sm" onclick="fcDel()">&#10005; Delete</button>':'')
     +'<button class="btn-primary btn-sm" onclick="saveFC()">&#10004; Save</button>'
