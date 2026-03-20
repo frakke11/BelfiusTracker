@@ -440,7 +440,17 @@
           "flowcharts": [
             {
               "name": "test",
-              "nodes": [],
+              "nodes": [
+                {
+                  "id": "c29oghy",
+                  "shape": "diamond",
+                  "x": 91,
+                  "y": 26,
+                  "w": 140,
+                  "h": 80,
+                  "label": "New Step"
+                }
+              ],
               "edges": [],
               "lanes": [
                 {
@@ -475,6 +485,16 @@
               "name": "Pieter Bamps",
               "title": "Head of IT BDI",
               "company": "Belfius"
+            }
+          ],
+          "keyEvents": [
+            {
+              "id": "EVT1774040680098",
+              "title": "test",
+              "date": "2026-04-01",
+              "type": "Executive",
+              "urgent": false,
+              "description": ""
             }
           ]
         }
