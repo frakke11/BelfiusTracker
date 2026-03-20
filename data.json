@@ -199,6 +199,12 @@
                   "painPoints": "Switching between multiple systems\nSlow information retrieval",
                   "desiredOutcomes": "Faster resolution, consistent answers",
                   "kpis": "Average handling time\nFirst-call resolution rate"
+                },
+                {
+                  "story": "Have access to internal documentation",
+                  "painPoints": "currently access to same knowledge as external agents / customers",
+                  "desiredOutcomes": "Access to internal documentation, work guides, policy data, ... ",
+                  "kpis": "reduce average handling time"
                 }
               ],
               "scope": {
