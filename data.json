@@ -59,10 +59,10 @@
                   "kpis": "Time savedAverage handling time"
                 },
                 {
-                  "story": "When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and hand off to a customer agent.",
-                  "painPoints": "Long response time\nWork in multiple systems\nMultiple email between customer and service agent",
+                  "story": "When a customer has accepted a new car policy offer, I want Agentforce to gather all required documents and data, validate it and if acceptable issue the new policy. If there is any doubt there should be a hand off to a customer agent.",
+                  "painPoints": "\nWork in multiple systems\nMultiple email between customer and service agent",
                   "desiredOutcomes": "95% accuracy in responses",
-                  "kpis": "Time saved\nAverage handling time"
+                  "kpis": "Time savedAverage handling time"
                 }
               ],
               "scope": {
