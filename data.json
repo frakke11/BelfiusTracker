@@ -81,7 +81,7 @@
                   "label": "Architecture design (Robin + Jeroen)",
                   "date": "Before mid-April",
                   "done": false,
-                  "atRisk": true
+                  "atRisk": false
                 },
                 {
                   "label": "Integration design (Koen + Belfius)",
