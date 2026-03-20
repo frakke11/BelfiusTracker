@@ -452,6 +452,12 @@
           ]
         }
       ]
+    },
+    {
+      "id": "argenta",
+      "name": "Argenta",
+      "logo": "🏢",
+      "projects": []
     }
   ]
 }
