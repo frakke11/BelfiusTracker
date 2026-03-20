@@ -63,6 +63,12 @@
                   "painPoints": "\nWork in multiple systems\nMultiple email between customer and service agent",
                   "desiredOutcomes": "95% accuracy in responses",
                   "kpis": "Time savedAverage handling time"
+                },
+                {
+                  "story": "All the required documents (such as proof for damage free years) should be asked and interpreted automatically and update on axon and/or salesforce to make sure that no unnecessary mails are send",
+                  "painPoints": "Over communication to the customer\nmanual validation is low priority but risk",
+                  "desiredOutcomes": "Automatically approve received documents",
+                  "kpis": "less time spend by back-office teams"
                 }
               ],
               "scope": {
