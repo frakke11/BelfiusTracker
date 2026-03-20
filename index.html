@@ -288,7 +288,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
           <input id="l-pass" type="password" placeholder="••••••••" style="background:#fff;border:1px solid #dddbda;color:#032d60;border-radius:4px"/>
         </div>
         <div id="l-err" class="err hidden"></div>
-        <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick=\"goUC('+onclick+')\">Log In</button>
+        <button id="l-btn" style="width:100%;padding:13px 24px;margin-top:4px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#0070d2,#005fb2);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;transition:all .2s" onclick=\"closeModal()\">Log In</button>
       </div>
     </div>
     <!-- Footer logos -->
@@ -335,14 +335,14 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Theme</div>
         <div class="col g4">
           <div class="row g4">
-            <button class="theme-btn active" id="tb-default" onclick=\"goUC('+onclick+')\" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
-            <button class="theme-btn" id="tb-sf-dark" onclick=\"goUC('+onclick+')\" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
+            <button class="theme-btn active" id="tb-default" onclick=\"closeModal()\" style="flex:1;font-size:11px;padding:5px 8px">☀ SF Light</button>
+            <button class="theme-btn" id="tb-sf-dark" onclick=\"closeModal()\" style="flex:1;font-size:11px;padding:5px 8px">🌙 SF Dark</button>
           </div>
-          <button class="theme-btn" id="tb-belfius" onclick=\"goUC('+onclick+')\" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
+          <button class="theme-btn" id="tb-belfius" onclick=\"closeModal()\" style="width:100%;font-size:11px;padding:5px 8px">⚡ Belfius</button>
         </div>
       </div>
       <nav id="nav-items" class="col" style="gap:2px;flex:1"></nav>
-      <button class="btn-ghost" style="width:100%;margin-top:10px;color:var(--text-muted)" onclick=\"goUC('+onclick+')\">&larr; Sign Out</button>
+      <button class="btn-ghost" style="width:100%;margin-top:10px;color:var(--text-muted)" onclick=\"closeModal()\">&larr; Sign Out</button>
     </aside>
     <main class="main" id="main-content"></main>
   </div>
@@ -501,7 +501,7 @@ function av(name,company){
 function pb(pct){return '<div class="prog-bar"><div class="prog-fill" style="width:'+Math.min(100,pct)+'%"></div></div>'}
 function adminBar(txt){return isAdmin()?'<div class="admin-bar">&#9998; '+txt+'</div>':''}
 function closeModal(){document.getElementById('modal-container').innerHTML=''}
-function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick=\"goUC('+onclick+')\">'+html+'</div>'}
+function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick=\"closeModal()\">'+html+'</div>'}
 function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))closeModal()}
 
 /* ═══════════════════════════════════════════════════
@@ -615,111 +615,120 @@ var ucSubmenuOpen = true;
 
 function buildSidebar(){
   syncDATA();
-  var cus = CUS();
-  var prj = PRJ();
+  var cus=CUS(), prj=PRJ();
 
-  // ── Customer dropdown header ──
+  // Role badge
   var rb=document.getElementById('role-badge-wrap');
-  rb.innerHTML='<span class="badge" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);font-size:10px">'+currentRole.replace('_',' ')+'</span>';
+  if(rb) rb.innerHTML='<span class="badge" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);font-size:10px">'+currentRole.replace('_',' ')+'</span>';
 
-  // Rebuild sidebar header customer/project selector
-  var header = document.querySelector('.sidebar > div:first-child');
-  if(header){
-    header.innerHTML =
-      // Customer dropdown
-      '<div style="position:relative;margin-bottom:10px">'
-      +'<div id="cus-dropdown-btn" onclick=\"goUC('+onclick+')\" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);transition:all .2s" onmouseover="this.style.background=\'rgba(255,255,255,.18)\'" onmouseout="this.style.background=\'rgba(255,255,255,.1)\'">'
-      +'<span style="font-size:18px;flex-shrink:0">'+e(cus.logo||'🏢')+'</span>'
+  // Header: customer + project switchers
+  var hdr=document.getElementById('sidebar-header');
+  if(hdr){
+    var cusDDHtml='<div style="position:relative;margin-bottom:8px">'
+      +'<div onclick="toggleCusDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)">'
+      +'<span style="font-size:16px;flex-shrink:0">'+e(cus.logo||'🏢')+'</span>'
       +'<div style="flex:1;min-width:0"><div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(cus.name)+'</div>'
-      +'<div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase;margin-top:1px">Customer</div></div>'
-      +'<span style="color:rgba(255,255,255,.6);font-size:11px">&#9660;</span>'
-      +'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase">Customer</div></div>'
+      +'<span style="color:rgba(255,255,255,.6);font-size:11px">&#9660;</span></div>'
       +'<div id="cus-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
-      +CUSTOMERS.map(function(c,ci){
-        return '<div onclick=\"goUC('+onclick+')\" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;background:'+(ci===currentCustomerIdx?'var(--bg-light)':'transparent')+';" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\''+(ci===currentCustomerIdx?'var(--bg-light)':'transparent')+'\'">'
-          +'<span>'+e(c.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(c.name)+'</span>'
-          +(ci===currentCustomerIdx?'<span style="color:var(--accent);font-size:11px">&#10003;</span>':'')
-          +'</div>';
+      +CUSTOMERS.map(function(cu,ci){
+        var sel=ci===currentCustomerIdx;
+        return '<div onclick="switchCustomer('+ci+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
+          +'<span>'+e(cu.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(cu.name)+'</span>'
+          +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
       }).join('')
-      +(isSuperAdmin()?'<div onclick=\"goUC('+onclick+')\" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\'\'">+ New Customer</div>':'')
-      +'</div></div>'
-      // Project selector
-      +'<div style="position:relative">'
-      +'<div id="prj-dropdown-btn" onclick=\"goUC('+onclick+')\" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);transition:all .2s" onmouseover="this.style.background=\'rgba(255,255,255,.14)\'" onmouseout="this.style.background=\'rgba(255,255,255,.08)\'">'
+      +(isSuperAdmin()?'<div onclick="addCustomer()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Customer</div>':'')
+      +'</div></div>';
+
+    var prjDDHtml='<div style="position:relative">'
+      +'<div onclick="togglePrjDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)">'
       +'<div style="width:20px;height:20px;border-radius:4px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
       +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.3)" stroke="#fff" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>'
       +'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-size:12px;color:rgba(255,255,255,.9);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(prj.name||'No project')+'</div>'
       +'<div style="font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em">Project</div></div>'
-      +'<span style="color:rgba(255,255,255,.5);font-size:11px">&#9660;</span>'
-      +'</div>'
+      +'<span style="color:rgba(255,255,255,.5);font-size:11px">&#9660;</span></div>'
       +'<div id="prj-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
       +(cus.projects||[]).map(function(p,pi){
-        return '<div onclick=\"goUC('+onclick+')\" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;background:'+(pi===currentProjectIdx?'var(--bg-light)':'transparent')+';" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\''+(pi===currentProjectIdx?'var(--bg-light)':'transparent')+'\'">'
+        var sel=pi===currentProjectIdx;
+        return '<div onclick="switchProject('+pi+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
           +'<span style="flex:1;color:var(--text)">'+e(p.name)+'</span>'
-          +(pi===currentProjectIdx?'<span style="color:var(--accent);font-size:11px">&#10003;</span>':'')
-          +'</div>';
+          +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
       }).join('')
-      +(canEdit()?'<div onclick=\"goUC('+onclick+')\" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'var(--bg-light)\'" onmouseout="this.style.background=\'\'">+ New Project</div>':'')
+      +(canEdit()?'<div onclick="addProject()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Project</div>':'')
       +'</div></div>';
+
+    hdr.innerHTML = cusDDHtml + prjDDHtml;
   }
 
-  // ── Nav items ──
-  var items = NAV_ITEMS.filter(function(it){
-    if(it.adminOnly && !isSuperAdmin()) return false;
-    if(it.sfOnly && currentRole==='viewer' && currentUser&&currentUser.assignedCustomers && currentUser.assignedCustomers.length) return false;
+  // Nav items — only update active states and UC submenu, avoid full rebuild when possible
+  var items=NAV_ITEMS.filter(function(it){
+    if(it.adminOnly&&!isSuperAdmin()) return false;
     return true;
   });
   var nav=document.getElementById('nav-items');
+  if(!nav) return;
   var navHtml='';
   items.forEach(function(it){
     var isUC=it.hasSubmenu;
     var ucActive=currentPage==='usecases'||currentPage.startsWith('uc-');
     var active=(isUC&&ucActive)||(currentPage===it.id);
-    navHtml+='<div class="nav-item'+(active?' active':'')+'" id="nav-'+it.id+'" onclick=\"goUC('+onclick+')\">'
+    var hasRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length>0;
+    navHtml+='<div class="nav-item'+(active?' active':'')+'" onclick="'+(isUC?'toggleUCSubmenu()':'navigate(\''+it.id+'\')')+'">'
       +'<span class="nav-icon">'+it.icon+'</span>'
       +'<span style="flex:1">'+it.label+'</span>'
-      +(it.id==='blockers'&&(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length?'<span class="dot-red"></span>':'')
-      +(isUC?'<span style="font-size:10px;transition:transform .2s;display:inline-block;transform:'+(ucSubmenuOpen?'rotate(90deg)':'rotate(0deg)')+'">&#9654;</span>':'')
+      +(it.id==='blockers'&&hasRisk?'<span class="dot-red"></span>':'')
+      +(isUC?'<span style="font-size:10px;display:inline-block;transform:'+(ucSubmenuOpen?'rotate(90deg)':'rotate(0deg)')+'">&#9654;</span>':'')
       +'</div>';
     if(isUC&&ucSubmenuOpen){
       navHtml+='<div>';
       (DATA.useCases||[]).forEach(function(uc,idx){
         var a=currentPage==='uc-'+idx;
-        navHtml+='<div class="nav-item'+(a?' active':'')+'" style="padding-left:28px;font-size:12px" onclick=\"goUC('+idx+')\">'
+        navHtml+='<div class="nav-item'+(a?' active':'')+'" style="padding-left:28px;font-size:12px" onclick="goUC('+idx+')">'
           +'<span style="font-size:10px;font-weight:700;min-width:28px;color:'+(a?'inherit':'var(--accent)')+'">'+e(uc.id)+'</span>'
           +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(uc.title)+'</span>'
           +'</div>';
       });
-      navHtml+='<div class="nav-item'+(currentPage==='usecases'?' active':'')+'" style="padding-left:28px;font-size:11px;opacity:.7" onclick=\"goUC('+onclick+')\">&#8230; All</div>';
+      navHtml+='<div class="nav-item'+(currentPage==='usecases'?' active':'')+'" style="padding-left:28px;font-size:11px;opacity:.7" onclick="navigate(\'usecases\')">&#8230; All</div>';
       navHtml+='</div>';
     }
   });
   nav.innerHTML=navHtml;
 
-  // Inject GH bar for superadmin
-  if(isSuperAdmin()){
-    injectGhBar();
-    ghLoadData();
-  }
+  // GH bar for superadmin (inject once, skip if already present)
+  if(isSuperAdmin()) injectGhBar();
 }
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(ev){
-  if(!ev.target.closest('#cus-dropdown-btn')&&!ev.target.closest('#cus-dropdown')){
+// Only update the active state in nav — no full rebuild
+function updateNavActive(){
+  document.querySelectorAll('.nav-item').forEach(function(el){ el.classList.remove('active'); });
+  var page=currentPage;
+  var ucActive=page==='usecases'||page.startsWith('uc-');
+  document.querySelectorAll('.nav-item').forEach(function(el){
+    var oc=el.getAttribute('onclick')||'';
+    if(ucActive&&oc.indexOf('toggleUCSubmenu')!==-1) el.classList.add('active');
+    else if(oc.indexOf("navigate('"+page+"')")!==-1) el.classList.add('active');
+    else if(page.startsWith('uc-')&&oc.indexOf('goUC('+page.replace('uc-','')+')')!==-1) el.classList.add('active');
+  });
+}
+
+function toggleCusDropdown(){
+  var d=document.getElementById('cus-dropdown');
+  if(d){ d.classList.toggle('hidden'); var pd=document.getElementById('prj-dropdown'); if(pd) pd.classList.add('hidden'); }
+}
+function togglePrjDropdown(){
+  var d=document.getElementById('prj-dropdown');
+  if(d){ d.classList.toggle('hidden'); var cd=document.getElementById('cus-dropdown'); if(cd) cd.classList.add('hidden'); }
+}
+document.addEventListener('click',function(ev){
+  if(!ev.target.closest('[onclick="toggleCusDropdown()"]')&&!ev.target.closest('#cus-dropdown')){
     var d=document.getElementById('cus-dropdown'); if(d) d.classList.add('hidden');
   }
-  if(!ev.target.closest('#prj-dropdown-btn')&&!ev.target.closest('#prj-dropdown')){
+  if(!ev.target.closest('[onclick="togglePrjDropdown()"]')&&!ev.target.closest('#prj-dropdown')){
     var d=document.getElementById('prj-dropdown'); if(d) d.classList.add('hidden');
   }
 });
 
-function toggleCusDropdown(){
-  var d=document.getElementById('cus-dropdown'); if(d){d.classList.toggle('hidden'); document.getElementById('prj-dropdown')&&document.getElementById('prj-dropdown').classList.add('hidden');}
-}
-function togglePrjDropdown(){
-  var d=document.getElementById('prj-dropdown'); if(d){d.classList.toggle('hidden'); document.getElementById('cus-dropdown')&&document.getElementById('cus-dropdown').classList.add('hidden');}
-}
 function switchCustomer(idx){
   currentCustomerIdx=idx; currentProjectIdx=0; syncDATA(); ucTab={};
   buildSidebar(); navigate('overview');
@@ -729,43 +738,37 @@ function switchProject(idx){
   buildSidebar(); navigate('overview');
 }
 function addCustomer(){
-  closeModal();
   showModal('<div class="modal"><h3>New Customer</h3>'
     +'<div class="form-row"><div class="form-group"><label>Customer Name</label><input id="nc-name" placeholder="e.g. ING Bank"></div>'
     +'<div class="form-group"><label>Logo (emoji)</label><input id="nc-logo" value="🏢" style="font-size:20px;text-align:center"></div></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Create</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewCustomer()">Create</button></div></div>');
 }
 function saveNewCustomer(){
-  var name=document.getElementById('nc-name').value.trim();
-  if(!name) return;
+  var name=document.getElementById('nc-name').value.trim(); if(!name) return;
   var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-');
   CUSTOMERS.push({id:id,name:name,logo:document.getElementById('nc-logo').value||'🏢',projects:[]});
   currentCustomerIdx=CUSTOMERS.length-1; currentProjectIdx=0; syncDATA();
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
 function addProject(){
-  closeModal();
   var techs=['Agentforce','Einstein AI','Data Cloud','MuleSoft','Slack','Sales Cloud','Service Cloud','Marketing Cloud','Field Service','Commerce Cloud'];
   showModal('<div class="modal"><h3>New Project</h3>'
     +'<div class="form-group"><label>Project Name</label><input id="np-name" placeholder="e.g. Agentic Transformation"></div>'
     +'<div class="form-group"><label>Description</label><textarea id="np-desc" rows="2"></textarea></div>'
-    +'<div class="form-group"><label>Technologies</label>'
-    +'<div class="row wrap g8" style="margin-top:6px">'
+    +'<div class="form-group"><label>Technologies</label><div class="row wrap g8" style="margin-top:6px">'
     +techs.map(function(t){return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="np-tech" style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
     +'</div></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Create</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewProject()">Create</button></div></div>');
 }
 function saveNewProject(){
-  var name=document.getElementById('np-name').value.trim();
-  if(!name) return;
+  var name=document.getElementById('np-name').value.trim(); if(!name) return;
   var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
   var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
   var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
     useCases:[],blockers:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],execSponsors:[]};
-  CUS().projects.push(prj);
-  currentProjectIdx=CUS().projects.length-1; syncDATA();
+  CUS().projects.push(prj); currentProjectIdx=CUS().projects.length-1; syncDATA();
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
 function editProject(){
@@ -774,12 +777,12 @@ function editProject(){
   showModal('<div class="modal"><h3>Edit Project</h3>'
     +'<div class="form-group"><label>Project Name</label><input id="ep-name" value="'+e(prj.name||'')+'"></div>'
     +'<div class="form-group"><label>Description</label><textarea id="ep-desc" rows="2">'+e(prj.description||'')+'</textarea></div>'
-    +'<div class="form-group"><label>Technologies</label>'
-    +'<div class="row wrap g8" style="margin-top:6px">'
-    +techs.map(function(t){var sel=(prj.technologies||[]).indexOf(t)!==-1;return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="ep-tech"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
+    +'<div class="form-group"><label>Technologies</label><div class="row wrap g8" style="margin-top:6px">'
+    +techs.map(function(t){var sel=(prj.technologies||[]).indexOf(t)!==-1;
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="ep-tech"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
     +'</div></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditProject()">Save</button></div></div>');
 }
 function saveEditProject(){
   var prj=PRJ();
@@ -789,19 +792,19 @@ function saveEditProject(){
   prj.technologies=techs;
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
-
-function toggleUCSubmenu(){
-  ucSubmenuOpen=!ucSubmenuOpen; buildSidebar();
-}
-
+function toggleUCSubmenu(){ ucSubmenuOpen=!ucSubmenuOpen; buildSidebar(); }
 function goUC(i){ navigate('uc-'+i); }
+
 function navigate(page){
-  currentPage=page; buildSidebar();
+  currentPage=page;
+  // Only update nav active states — no full sidebar rebuild on every navigation
+  updateNavActive();
   var mc=document.getElementById('main-content');
   mc.innerHTML=renderPage(page);
   mc.classList.remove('fade-up'); void mc.offsetWidth; mc.classList.add('fade-up');
   if(page==='flowchart') initFC();
 }
+
 
 function renderPage(page){
   if(page.startsWith('uc-')){ return rUseCasePage(parseInt(page.replace('uc-',''))); }
@@ -854,13 +857,13 @@ function rOverview(){
       return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+t+'</span>';
     }).join('')
     +'</div>'
-    +(canEdit()?'<button onclick=\"goUC('+onclick+')\" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-family:var(--font-head);font-weight:600">&#9998; Edit Project</button>':'')
+    +(canEdit()?'<button onclick=\"closeModal()\" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-family:var(--font-head);font-weight:600">&#9998; Edit Project</button>':'')
     +'</div></div></div>';
 
   // Dynamic stat cards
   var statCards='<div class="row wrap g12">'
     // Total UCs — clickable to usecases
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick=\"goUC('+onclick+')\" title="View all use cases">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick=\"closeModal()\" title="View all use cases">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+totalUCs+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div>'
     +'<div style="font-size:10px;color:var(--green);margin-top:3px">'+doneUCs+' done</div></div>'
@@ -870,12 +873,12 @@ function rOverview(){
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
     +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
     // At risk — clickable to blockers
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick=\"goUC('+onclick+')\" title="View blockers">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick=\"closeModal()\" title="View blockers">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
     +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
     // Open items — clickable to blockers
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick=\"goUC('+onclick+')\" title="View open decisions">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick=\"closeModal()\" title="View open decisions">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div>'
     +'<div style="font-size:10px;color:var(--amber);margin-top:3px">click to view</div></div>'
@@ -918,11 +921,11 @@ function rOverview(){
   if(currentRole!=='belfius'){
     var risks=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started'});
     if(risks.length){
-      riskHtml='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick=\"goUC('+onclick+')\">View all &rarr;</span></div>'
+      riskHtml='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick=\"closeModal()\">View all &rarr;</span></div>'
         +'<div class="col g8">'
         +risks.map(function(b){
           return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" '
-            +'onclick=\"goUC('+onclick+')\" '
+            +'onclick=\"closeModal()\" '
             +'onmouseover="this.style.borderColor=\'rgba(232,93,93,.5)\'" onmouseout="this.style.borderColor=\'rgba(232,93,93,.2)\'">'
             +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
             +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
@@ -962,7 +965,7 @@ function rUseCasesList(){
   return '<div class="col g16">'
     +'<div class="row between center" style="margin-bottom:4px">'
     +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
-    +(isAdmin()?'<button class="btn-primary" onclick=\"goUC('+onclick+')\">+ Add Use Case</button>':'')
+    +(isAdmin()?'<button class="btn-primary" onclick=\"closeModal()\">+ Add Use Case</button>':'')
     +'</div>'
     +'<div class="gridA">'
     +DATA.useCases.map(function(uc,idx){
@@ -1018,7 +1021,7 @@ function rUseCasePage(idx){
   return '<div class="col g0">'
     // Breadcrumb
     +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
-    +'<span style="cursor:pointer;color:var(--accent)" onclick=\"goUC('+onclick+')\">Use Cases</span>'
+    +'<span style="cursor:pointer;color:var(--accent)" onclick=\"closeModal()\">Use Cases</span>'
     +'<span>&#8250;</span>'
     +'<span style="color:var(--text)">'+e(uc.id)+' — '+e(uc.title)+'</span>'
     +'</div>'
@@ -1088,16 +1091,16 @@ function renderUCOverviewTab(uc,idx){
         +'<div class="row center g8 wrap">'
         +'<span style="font-size:13px;color:'+(m.done?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(m.done?'line-through':'none')+'">'+e(m.label)+'</span>'
         +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
-        +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-          +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"goUC('+onclick+')\">&#10005;</button>'
+        +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
+          +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button>'
           +(m.done?'':'<input type="checkbox" onchange="toggleMil('+idx2+','+mi+',this.checked)" style="width:auto;cursor:pointer;accent-color:var(--accent)">'):'')
         +'</div>'
         +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+e(m.date)+'</div>'
         +'</div></div>';
     }).join(''):'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
-    +(isAdmin()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick=\"goUC('+onclick+')\">+ Add Milestone</button>':'')
+    +(isAdmin()?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick=\"closeModal()\">+ Add Milestone</button>':'')
     +'</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"goUC('+onclick+')\">&#9998; Edit Overview</button>':'');
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#9998; Edit Overview</button>':'');
 }
 
 function renderUCJobStoriesTab(uc,idx){
@@ -1117,12 +1120,12 @@ function renderUCJobStoriesTab(uc,idx){
             +'<td style="min-width:150px"><div style="white-space:pre-line;font-size:12px;line-height:1.5">'+e(js.painPoints||'')+'</div></td>'
             +'<td style="min-width:140px;font-size:12px">'+e(js.desiredOutcomes||'')+'</td>'
             +'<td style="min-width:120px;font-size:12px"><div style="white-space:pre-line">'+e(js.kpis||'')+'</div></td>'
-            +(isAdmin()?'<td><div class="row g4"><button class="btn-icon" style="font-size:11px" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"goUC('+onclick+')\">&#10005;</button></div></td>':'')
+            +(isAdmin()?'<td><div class="row g4"><button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
+              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button></div></td>':'')
             +'</tr>';
         }).join('')+'</tbody></table></div>'
       :'<div style="padding:24px;text-align:center;color:var(--text-muted);background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm)">No job stories yet.</div>')
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick=\"goUC('+onclick+')\">+ Add Job Story</button>':'')
+    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick=\"closeModal()\">+ Add Job Story</button>':'')
     +'</div>';
 }
 
@@ -1165,14 +1168,14 @@ function renderUCScopeTab(uc,idx){
       ?flows.map(function(f,fi){
           return '<div class="row center g10" style="padding:8px 0;border-bottom:1px solid var(--border)">'
             +'<span style="font-size:16px">&#9875;</span><span style="font-size:13px;flex:1;color:var(--text-dim)">'+e(f.name)+'</span>'
-            +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"goUC('+onclick+')\">&#10005;</button>':'')
+            +(isAdmin()?'<button class="btn-icon" style="font-size:11px" onclick=\"closeModal()\">&#9998;</button>'
+              +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick=\"closeModal()\">&#10005;</button>':'')
             +'</div>';}).join('')
       :'<div style="font-size:13px;color:var(--text-muted)">No flows linked yet.</div>')
-    +(isAdmin()?'<div class="row g8" style="margin-top:12px"><button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">+ Link Flow</button>'
-      +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">Open Flowchart Builder</button></div>':'')
+    +(isAdmin()?'<div class="row g8" style="margin-top:12px"><button class="btn-ghost btn-sm" onclick=\"closeModal()\">+ Link Flow</button>'
+      +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">Open Flowchart Builder</button></div>':'')
     +'</div></div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"goUC('+onclick+')\">&#9998; Edit Scope</button>':'')
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#9998; Edit Scope</button>':'')
     +'</div>';
 }
 
@@ -1189,8 +1192,8 @@ function addUC(){
     +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="2"></textarea></div>'
     +'<div class="form-group"><label>Business Priority</label><input id="m-bprio"></div>'
     +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2"></textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function saveAddUC(){
   DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,
@@ -1211,7 +1214,7 @@ function editUC(idx){
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(uc.title)+'"></div>'
     +'<div class="form-group"><label>Subtitle</label><input id="m-sub" value="'+e(uc.subtitle)+'"></div>'
     +'<div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="'+uc.progress+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveEditUC(idx){
@@ -1228,7 +1231,7 @@ function editUCOverview(idx){
     +'<div class="form-group"><label>Business Priority</label><input id="m-bprio" value="'+e(uc.businessPriority||'')+'"></div>'
     +'<div class="form-group"><label>Target Users</label><input id="m-tusers" value="'+e(uc.targetUsers||'')+'"></div>'
     +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2">'+e(uc.expectedOutcomes||'')+'</textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveUCOverview(idx){
@@ -1248,7 +1251,7 @@ function editUCScope(idx){
     +'<div class="form-row"><div class="form-group"><label>Data (one per line)</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
     +'<div class="form-group"><label>Actions (one per line)</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
     +'<div class="form-group"><label>Guardrails Summary</label><textarea id="sc-guard" rows="5">'+e(sc.guardrails||'')+'</textarea></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveUCScope(idx){
@@ -1269,7 +1272,7 @@ function addJobStory(idx){
     +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3"></textarea></div>'
     +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3"></textarea></div></div>'
     +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Add</button></div></div>');
 }
 function editJobStory(idx,ji){
@@ -1279,7 +1282,7 @@ function editJobStory(idx,ji){
     +'<div class="form-row"><div class="form-group"><label>Pain Points</label><textarea id="js-pain" rows="3">'+e(js.painPoints||'')+'</textarea></div>'
     +'<div class="form-group"><label>Desired Outcomes</label><textarea id="js-out" rows="3">'+e(js.desiredOutcomes||'')+'</textarea></div></div>'
     +'<div class="form-group"><label>Initial KPIs</label><input id="js-kpi" value="'+e(js.kpis||'')+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveJobStory(idx,ji){
@@ -1297,7 +1300,7 @@ function addLinkedFlow(idx){
   showModal('<div class="modal"><h3>Link Flowchart</h3>'
     +(DATA.flowcharts.length?'<div class="form-group"><label>Select flowchart</label><select id="lf-sel">'+fcNames+'</select></div>':'')
     +'<div class="form-group"><label>Or enter custom name</label><input id="lf-name"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +(DATA.flowcharts.length?'<button class="btn-primary" onclick=\"goUC('+idx+')\">Link Selected</button>':'')
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Link Custom</button></div></div>');
 }
@@ -1313,7 +1316,7 @@ function editLinkedFlow(idx,fi){
   var f=DATA.useCases[idx].scope.relatedFlows[fi];
   showModal('<div class="modal"><h3>Edit Flow Link</h3>'
     +'<div class="form-group"><label>Name</label><input id="lf-name" value="'+e(f.name)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveEditLinkedFlow(idx,fi){DATA.useCases[idx].scope.relatedFlows[fi].name=document.getElementById('lf-name').value;closeModal();navigate('usecases');autoSave();}
@@ -1325,8 +1328,8 @@ function addMilestone(ucIdx){
     +'<div class="form-group"><label>Label</label><input id="m-lbl" placeholder="Milestone description"></div>'
     +'<div class="form-group"><label>Date</label><input id="m-date" placeholder="e.g. Mid-April"></div>'
     +'<div class="form-group row center g8"><input type="checkbox" id="m-risk" style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">Mark as At Risk</label></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function saveMilestone(ucIdx){
   DATA.useCases[ucIdx].milestones.push({label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,done:false,atRisk:document.getElementById('m-risk').checked});
@@ -1338,8 +1341,8 @@ function editMilestone(ucIdx,mIdx){
     +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(m.label)+'"></div>'
     +'<div class="form-group"><label>Date</label><input id="m-date" value="'+e(m.date)+'"></div>'
     +'<div class="form-group row center g8"><input type="checkbox" id="m-risk"'+(m.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline">At Risk</label></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"saveEditProject()\">Save</button></div></div>');
 }
 function saveEditMilestone(ucIdx,mIdx){
   var m=DATA.useCases[ucIdx].milestones[mIdx];
@@ -1398,17 +1401,17 @@ function rTeam(){
       +'<div style="font-family:var(--font-head);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.name)+'</div>'
       +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.role)+'</div>'
       +'</div>'
-      +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button></div>':'')
+      +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button></div>':'')
       +'</div>';
   }
   return '<div class="col g24">'
     +'<div><div class="label">People</div><h1 style="font-size:26px;font-weight:800">Team</h1>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"goUC('+onclick+')\">+ Add Member</button>':'')+'</div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"closeModal()\">+ Add Member</button>':'')+'</div>'
     +'<div class="card-accent" style="padding:24px">'
     +'<div class="row between center" style="margin-bottom:14px">'
     +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors &mdash; Belfius</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"goUC('+onclick+')\">+ Add Sponsor</button>':'')
+    +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">+ Add Sponsor</button>':'')
     +'</div>'
     +'<div class="row wrap g12">'
     +DATA.execSponsors.map(function(s,si){
@@ -1417,8 +1420,8 @@ function rTeam(){
         +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div>'
         +'<div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div></div>'
         +(isAdmin()?'<div class="row g4" style="margin-left:8px">'
-          +'<button class="btn-icon" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-          +'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button>'
+          +'<button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
+          +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>'
           +'</div>':'')
         +'</div>';
     }).join('')
@@ -1433,8 +1436,8 @@ function addTeamMember(){
     +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
     +'<div class="form-group"><label>Role</label><input id="m-role" placeholder="Job title / role"></div>'
     +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>Belfius</option></select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function editTeamMember(idx){
   var m=DATA.team[idx];
@@ -1442,7 +1445,7 @@ function editTeamMember(idx){
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(m.name)+'"></div>'
     +'<div class="form-group"><label>Role</label><input id="m-role" value="'+e(m.role)+'"></div>'
     +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(m.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(m.company==='Belfius'?' selected':'')+'>Belfius</option></select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveTeamMember(idx){
@@ -1458,8 +1461,8 @@ function addExecSponsor(){
     +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" placeholder="e.g. CIO Belfius Insurance"></div>'
     +'<div class="form-group"><label>Company</label><input id="m-co" value="Belfius"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function editExecSponsor(idx){
   var s=DATA.execSponsors[idx];
@@ -1467,7 +1470,7 @@ function editExecSponsor(idx){
     +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(s.name)+'"></div>'
     +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(s.title)+'"></div>'
     +'<div class="form-group"><label>Company</label><input id="m-co" value="'+e(s.company)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveExecSponsor(idx){
@@ -1492,7 +1495,7 @@ function rRaci(){
       }
       return '<td style="text-align:center"><span class="r-'+row[c.k]+'" style="font-family:var(--font-head);font-size:13px">'+row[c.k]+'</span></td>';
     }).join('');
-    return '<tr><td style="min-width:220px">'+e(row.a)+(isAdmin()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick=\"goUC('+onclick+')\">&#10005;</button>':'')+'</td>'+cells+'</tr>';
+    return '<tr><td style="min-width:220px">'+e(row.a)+(isAdmin()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick=\"closeModal()\">&#10005;</button>':'')+'</td>'+cells+'</tr>';
   }).join('');
   var legend=[['R','r-R','Responsible'],['A','r-A','Accountable'],['C','r-C','Consulted'],['I','r-I','Informed']].map(function(x){
     return '<div class="row center g6" style="font-size:13px;color:var(--text-muted)"><span class="'+x[1]+'" style="font-family:var(--font-head);font-weight:700">'+x[0]+'</span><span>'+x[2]+'</span></div>';
@@ -1500,7 +1503,7 @@ function rRaci(){
   return '<div class="col g24">'
     +'<div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1>'
     +'<div class="row wrap g16" style="margin-top:12px">'+legend+'</div>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick=\"goUC('+onclick+')\">+ Add Activity</button>':'')+'</div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick=\"closeModal()\">+ Add Activity</button>':'')+'</div>'
     +'<div class="overflow-x"><table><thead><tr><th style="min-width:220px">Activity</th>'
     +cols.map(function(c){return '<th style="text-align:center;color:'+(c.g?'var(--accent)':'#4a9eff')+'">'+c.l+'</th>'}).join('')
     +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
@@ -1515,8 +1518,8 @@ function addRaciRow(){
         +['R','A','C','I'].map(function(v){return '<option'+(v==='I'?' selected':'')+'>'+v+'</option>'}).join('')
         +'</select></div>';
     }).join('')+'</div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function saveRaciRow(){
   DATA.raci.push({a:document.getElementById('m-act').value,M:document.getElementById('m-M').value,F:document.getElementById('m-F').value,J:document.getElementById('m-J').value,R:document.getElementById('m-R').value,K:document.getElementById('m-K').value,B:document.getElementById('m-B').value});
@@ -1533,7 +1536,7 @@ function rBlockers(){
   function sec(title,items,color,type){
     return '<div><div class="row center g12" style="margin-bottom:12px">'
       +'<h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:'+color+'">'+title+'</h2>'
-      +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"goUC('+onclick+')\">+ Add</button>':'')
+      +(isAdmin()?'<button class="btn-primary btn-sm" onclick=\"closeModal()\">+ Add</button>':'')
       +'</div>'
       +'<div class="col g10">'+items.map(function(item,i){
         var realIdx=DATA.blockers.indexOf(item);
@@ -1549,8 +1552,8 @@ function rBlockers(){
           +'<div class="col g8" style="align-items:flex-end">'
           +(canEdit?'<select onchange="DATA.blockers['+realIdx+'].status=this.value;navigate(\'blockers\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
             +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>'}).join('')+'</select>':'')
-          +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-            +'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button></div>':'')
+          +(isAdmin()?'<div class="row g4"><button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button></div>':'')
           +'</div></div></div>';
       }).join('')+'</div></div>';
   }
@@ -1569,8 +1572,8 @@ function addBlocker(type){
     +'<div class="form-group"><label>Status</label><select id="m-status">'
     +['Open','In Progress','At Risk','Blocked','Not Started','Pending'].map(function(s){return '<option>'+s+'</option>'}).join('')
     +'</select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function saveBlocker(type){
   DATA.blockers.push({id:document.getElementById('m-id').value,type:type,item:document.getElementById('m-item').value,owner:document.getElementById('m-owner').value,status:document.getElementById('m-status').value});
@@ -1586,7 +1589,7 @@ function editBlocker(idx){
     +'<div class="form-group"><label>Status</label><select id="m-status">'
     +['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'].map(function(s){return '<option'+(s===b.status?' selected':'')+'>'+s+'</option>'}).join('')
     +'</select></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveEditBlocker(idx){
@@ -1610,14 +1613,14 @@ function rMeetings(){
       +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px"><span style="color:var(--text-soft)">Participants: </span>'+e(m.participants)+'</div>'
       +'<div style="font-size:13px;color:var(--text-muted)"><span style="color:var(--text-soft)">Purpose: </span>'+e(m.purpose)+'</div>'
       +(isAdmin()?'<div class="row g8" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
-        +'<button class="btn-icon" onclick=\"goUC('+onclick+')\">&#9998; Edit</button>'
-        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005; Delete</button>'
+        +'<button class="btn-icon" onclick=\"closeModal()\">&#9998; Edit</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005; Delete</button>'
         +'</div>':'')
       +'</div>';
   }).join('');
   return '<div class="col g24">'
     +'<div><div class="label">Governance</div><h1 style="font-size:26px;font-weight:800">Meeting Cadences</h1>'
-    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"goUC('+onclick+')\">+ Add Meeting</button>':'')+'</div>'
+    +(isAdmin()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick=\"closeModal()\">+ Add Meeting</button>':'')+'</div>'
     +'<div class="gridA">'+cards+'</div></div>';
 }
 function addMeeting(){
@@ -1626,8 +1629,8 @@ function addMeeting(){
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Ad hoc</option></select></div>'
     +'<div class="form-group"><label>Participants</label><input id="m-part" placeholder="Names / teams"></div>'
     +'<div class="form-group"><label>Purpose</label><input id="m-pur" placeholder="Goal of meeting"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Add</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Add</button></div></div>');
 }
 function editMeeting(idx){
   var m=DATA.meetings[idx];
@@ -1636,7 +1639,7 @@ function editMeeting(idx){
     +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option'+(m.freq==='Weekly'?' selected':'')+'>Weekly</option><option'+(m.freq==='Bi-weekly'?' selected':'')+'>Bi-weekly</option><option'+(m.freq==='Monthly'?' selected':'')+'>Monthly</option><option'+(m.freq==='Ad hoc'?' selected':'')+'>Ad hoc</option></select></div>'
     +'<div class="form-group"><label>Participants</label><input id="m-part" value="'+e(m.participants)+'"></div>'
     +'<div class="form-group"><label>Purpose</label><input id="m-pur" value="'+e(m.purpose)+'"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
     +'<button class="btn-primary" onclick=\"goUC('+idx+')\">Save</button></div></div>');
 }
 function saveMeeting(idx){
@@ -1662,7 +1665,7 @@ function rKpis(){
       +'<div class="row between center" style="margin-bottom:14px">'
       +'<div style="font-size:12px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase">'
       +(isAdmin()?'<input value="'+e(kpi.label)+'" onchange="DATA.kpis['+i+'].label=this.value" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">':e(kpi.label))+'</div>'
-      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button>':'')
+      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
       +vc('baseline','var(--text-soft)')+vc('current','var(--accent)')+vc('target','#4caf82')+'</div>'
@@ -1673,7 +1676,7 @@ function rKpis(){
     +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1>'
     +(isAdmin()?'<p style="font-size:13px;color:var(--accent);margin-top:6px">&#9998; Admin: edit all values inline</p>':'')+'</div>'
     +'<div class="gridA">'+cards+'</div>'
-    +(isAdmin()?'<div><button class="btn-ghost" onclick=\"goUC('+onclick+')\">+ Add KPI</button></div>':'')
+    +(isAdmin()?'<div><button class="btn-ghost" onclick=\"closeModal()\">+ Add KPI</button></div>':'')
     +'</div>';
 }
 function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis');autoSave()}
@@ -1701,17 +1704,17 @@ var FC_LANE_COLORS=[
 
 function rFlowchart(){
   var chartList=DATA.flowcharts.map(function(fc,i){
-    return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick=\"goUC('+onclick+')\">'
+    return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick=\"closeModal()\">'
       +'<span style="font-size:24px">&#9875;</span>'
       +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+e(fc.name)+'</div>'
       +'<div style="font-size:12px;color:var(--text-muted)">'+fc.nodes.length+' nodes &middot; '+fc.edges.length+' connections</div></div>'
-      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button>':'')+'</div>';
+      +(isAdmin()?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')+'</div>';
   }).join('');
   return '<div class="col g24">'
     +'<div class="row between center wrap" style="gap:12px">'
     +'<div><div class="label">Visual Tools</div><h1 style="font-size:26px;font-weight:800">Flowchart Builder</h1>'
     +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Build process flow diagrams with swim lanes</p></div>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">+ New Flowchart</button></div>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">+ New Flowchart</button></div>'
     +(DATA.flowcharts.length?'<div><div class="sec-title">Saved Flowcharts</div><div class="col g10">'+chartList+'</div></div>'
       :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
       +'<div style="font-size:40px;margin-bottom:12px">&#9875;</div>'
@@ -1726,8 +1729,8 @@ function newFC(){
     +'<div class="form-group"><label>Number of swim lanes</label><select id="fc-lanes">'
     +[1,2,3,4].map(function(n){return '<option'+(n===3?' selected':'')+'>'+n+'</option>'}).join('')+'</select></div>'
     +'<div class="form-group"><label>Lane names (comma-separated)</label><input id="fc-lnames" value="Channel,Agentforce,Data 360,Data"></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Create</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"saveNewCustomer()\">Create</button></div></div>');
 }
 
 function createFC(){
@@ -1761,22 +1764,22 @@ function openFC(idx){
 function renderFCEditor(name){
   return '<div class="col" style="height:calc(100vh - 72px)">'
     +'<div class="row center g12" style="padding:0 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px">'
-    +'<button class="btn-ghost" onclick=\"goUC('+onclick+')\">&#8592; Back</button>'
+    +'<button class="btn-ghost" onclick=\"closeModal()\">&#8592; Back</button>'
     +'<h2 style="font-size:18px;font-weight:700;flex:1">'+e(name)+'</h2>'
-    +'<button class="btn-primary btn-sm" onclick=\"goUC('+onclick+')\">&#10004; Save</button>'
+    +'<button class="btn-primary btn-sm" onclick=\"closeModal()\">&#10004; Save</button>'
     +'</div>'
     +'<div class="fc-toolbar">'
     // Shape buttons
     +'<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Add Shape:</span>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#9645; Process</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#9671; Decision</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#9711; Start/End</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#9641; Database</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9645; Process</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9671; Decision</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9711; Start/End</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9641; Database</button>'
     +'<span style="width:1px;height:24px;background:var(--border);margin:0 4px"></span>'
-    +'<button class="btn-ghost btn-sm" id="fc-connect-btn" onclick=\"goUC('+onclick+')\">&#8594; Connect</button>'
+    +'<button class="btn-ghost btn-sm" id="fc-connect-btn" onclick=\"closeModal()\">&#8594; Connect</button>'
     +'<span style="width:1px;height:24px;background:var(--border);margin:0 4px"></span>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#10005; Delete</button>'
-    +'<button class="btn-ghost btn-sm" onclick=\"goUC('+onclick+')\">&#9746; Clear All</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#10005; Delete</button>'
+    +'<button class="btn-ghost btn-sm" onclick=\"closeModal()\">&#9746; Clear All</button>'
     +'<span style="font-size:11px;color:var(--text-muted);margin-left:8px" id="fc-hint">Click canvas to place shape &middot; Drag nodes to reposition &middot; Double-click to edit label</span>'
     +'</div>'
     +'<div class="row" style="flex:1;overflow:hidden">'
@@ -2068,10 +2071,10 @@ function showNodeProps(nid){
     +'<div><label>Width</label><input type="number" value="'+node.w+'" onchange="updateNodeProp(\''+nid+'\',\'w\',+this.value)"></div>'
     +'<div><label>Height</label><input type="number" value="'+node.h+'" onchange="updateNodeProp(\''+nid+'\',\'h\',+this.value)"></div>'
     +'<div><label>Fill Color</label><div class="row wrap g6">'
-    +fillColors.map(function(c){return '<div onclick=\"goUC('+onclick+')\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.fill===c?'var(--accent)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
+    +fillColors.map(function(c){return '<div onclick=\"closeModal()\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.fill===c?'var(--accent)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
     +'<div><label>Text Color</label><div class="row g6">'
-    +['var(--text)','var(--accent)','#4a9eff','#4caf82','#e85d5d'].map(function(c){return '<div onclick=\"goUC('+onclick+')\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.textColor===c?'var(--text)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
-    +'<button class="btn-danger" onclick=\"goUC('+onclick+')\">&#10005; Delete Node</button>'
+    +['var(--text)','var(--accent)','#4a9eff','#4caf82','#e85d5d'].map(function(c){return '<div onclick=\"closeModal()\" style="width:28px;height:28px;border-radius:6px;background:'+c+';border:2px solid '+(node.textColor===c?'var(--text)':'var(--border)')+';cursor:pointer"></div>';}).join('')+'</div></div>'
+    +'<button class="btn-danger" onclick=\"closeModal()\">&#10005; Delete Node</button>'
     +'</div>';
 }
 function showEdgeProps(eid){
@@ -2081,7 +2084,7 @@ function showEdgeProps(eid){
   if(!panel)return;
   panel.innerHTML='<div class="col g10">'
     +'<div><label>Label</label><input value="'+e(edge.label||'')+'" onchange="updateEdgeProp(\''+eid+'\',\'label\',this.value)"></div>'
-    +'<button class="btn-danger" onclick=\"goUC('+onclick+')\">&#10005; Delete Edge</button>'
+    +'<button class="btn-danger" onclick=\"closeModal()\">&#10005; Delete Edge</button>'
     +'</div>';
 }
 function updateNodeProp(nid,prop,val){
@@ -2106,14 +2109,14 @@ function rUsers(){
       +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedCustomers&&usr.assignedCustomers.length?usr.assignedCustomers.join(', '):'All')+'</td>'
       +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedProjects&&usr.assignedProjects.length?usr.assignedProjects.join(', '):'All')+'</td>'
       +'<td><div class="row g4">'
-      +'<button class="btn-icon" onclick=\"goUC('+onclick+')\">&#9998;</button>'
-      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick=\"goUC('+onclick+')\">&#10005;</button>':'')
+      +'<button class="btn-icon" onclick=\"closeModal()\">&#9998;</button>'
+      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick=\"closeModal()\">&#10005;</button>':'')
       +'</div></td>'
       +'</tr>';
   }).join('');
   return '<div class="col g24">'
     +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">+ Add User</button></div>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">+ Add User</button></div>'
     +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
     +'<thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Customer Scope</th><th>Project Scope</th><th></th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table></div></div>'
@@ -2143,8 +2146,8 @@ function userModal(title, username, usr, onSave){
     +'<div class="row wrap g6" style="margin-top:6px">'
     +allProjects.map(function(p){var sel=(usr.assignedProjects||[]).indexOf(p.pid)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-prj" value="'+e(p.pid)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(p.cname)+' / '+e(p.pname)+'</label>';}).join('')
     +'</div></div>'
-    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Save</button></div></div>');
+    +'<div class="modal-actions"><button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"saveEditProject()\">Save</button></div></div>');
 }
 function addUser(){ userModal('Add User','',{role:'viewer'},'saveAddUser()'); }
 function editUser(u){ userModal('Edit User — '+u, u, USERS[u]||{}, 'saveEditUser(\''+u+'\')'); }
@@ -2313,8 +2316,8 @@ function showGhTokenModal(){
     +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">'
     +'&#128274; Saved only to <em>your</em> browser localStorage. Never written into the HTML file.</p>'
     +'<div class="modal-actions">'
-    +'<button class="btn-ghost" onclick=\"goUC('+onclick+')\">Cancel</button>'
-    +'<button class="btn-primary" onclick=\"goUC('+onclick+')\">Save Token &amp; Continue</button>'
+    +'<button class="btn-ghost" onclick=\"closeModal()\">Cancel</button>'
+    +'<button class="btn-primary" onclick=\"closeModal()\">Save Token &amp; Continue</button>'
     +'</div></div>');
 }
 function saveGhToken(){
@@ -2344,13 +2347,13 @@ function injectGhBar(force){
   bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
   bar.innerHTML =
     '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">GitHub Sync</div>'
-    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick=\"goUC('+onclick+')\">&#9729; Save to GitHub</button>'
-    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick=\"goUC('+onclick+')\">&#8635; Pull latest</button>'
-    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick=\"goUC('+onclick+')\">&#128100; Manage Users</button>'
+    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick=\"closeModal()\">&#9729; Save to GitHub</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick=\"closeModal()\">&#8635; Pull latest</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick=\"closeModal()\">&#128100; Manage Users</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
-    +(GH.token ? '<button onclick=\"goUC('+onclick+')\" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
+    +(GH.token ? '<button onclick=\"closeModal()\" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
   // Insert before the sign-out button
-  var signOut = sidebar.querySelector('.btn-ghost[onclick=\"goUC('+onclick+')\"]');
+  var signOut = sidebar.querySelector('.btn-ghost[onclick=\"closeModal()\"]');
   if(signOut) sidebar.insertBefore(bar, signOut);
   else sidebar.appendChild(bar);
 }
