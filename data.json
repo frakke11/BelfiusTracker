@@ -406,5 +406,17 @@
       "svgW": 1200,
       "svgH": 700
     }
-  ]
+  ],
+  "execSponsors": [
+    {
+      "name": "Pieter Bamps",
+      "title": "Head of IT BDI",
+      "company": "Belfius"
+    }
+  ],
+  "creds": {
+    "salesforce": "1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148",
+    "belfius": "e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3",
+    "admin": "6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6"
+  }
 }
