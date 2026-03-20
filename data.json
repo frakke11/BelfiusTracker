@@ -49,7 +49,7 @@
               "status": "In Progress",
               "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
               "businessPriority": "High – value driver = productivity / target KPIs = minutes saved",
-              "targetUsers": "Customersaf ",
+              "targetUsers": "Customers",
               "expectedOutcomes": "100% of new car policy required documents and data gathered by an AI agent",
               "jobStories": [
                 {
