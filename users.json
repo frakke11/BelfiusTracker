@@ -1,0 +1,27 @@
+{
+  "users": {
+    "superadmin": {
+      "hash": "6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6",
+      "role": "superadmin",
+      "name": "Super Admin",
+      "assignedCustomers": [],
+      "assignedProjects": []
+    },
+    "viewer": {
+      "hash": "1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148",
+      "role": "viewer",
+      "name": "Salesforce Viewer",
+      "assignedCustomers": [],
+      "assignedProjects": []
+    },
+    "belfius": {
+      "hash": "e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3",
+      "role": "viewer",
+      "name": "Belfius Viewer",
+      "assignedCustomers": [
+        "belfius"
+      ],
+      "assignedProjects": []
+    }
+  }
+}
