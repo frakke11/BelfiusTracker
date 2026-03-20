@@ -9,7 +9,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-/* ── THEMES ── */
+/* ââ THEMES ââ */
 body.theme-default{
   --bg:#0a1628;--bg-mid:#112240;--bg-light:#1a3460;
   --accent:#c9a84c;--accent-light:#e8c96a;--accent-dim:#8a6f30;
@@ -153,7 +153,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 .theme-btn{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);transition:all .2s;font-family:var(--font-body)}
 .theme-btn.active{background:var(--btn-primary);color:var(--btn-primary-text);border-color:transparent}
 
-/* ── FLOWCHART ── */
+/* ââ FLOWCHART ââ */
 #fc-canvas-wrap{position:relative;overflow:auto;flex:1;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius);cursor:default}
 #fc-svg{display:block}
 .fc-node{cursor:move;user-select:none}
@@ -241,89 +241,395 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
 <div id="modal-container"></div>
 
 <script>
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    DATA
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 var CREDS={salesforce:{password:'sf2026',role:'salesforce'},belfius:{password:'bel2026',role:'belfius'},admin:{password:'admin2026',role:'admin'}};
 var currentRole=null, currentPage='overview', currentTheme='default';
 
 /*DATA_START*/
-var DATA={
-  useCases:[
-    {id:'UC1',title:'New Car Policy Onboarding',subtitle:'Virtual Broker + IDP',progress:25,status:'In Progress',
-      description:'Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.',
-      milestones:[
-        {label:'Architecture design (Robin + Jeroen)',date:'Before mid-April',done:false,atRisk:false},
-        {label:'Integration design (Koen + Belfius)',date:'Mid-April',done:false,atRisk:true},
-        {label:'Test execution',date:'Mid-June',done:false,atRisk:false},
-        {label:'UAT & sign-off',date:'Mid-June',done:false,atRisk:false}
-      ]},
-    {id:'UC2',title:'FAQ Agent',subtitle:'Multi-Channel Scale-Up',progress:10,status:'Planning',
-      description:'Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.',
-      milestones:[
-        {label:'Authentication approach decision (D1)',date:'Open',done:false,atRisk:true},
-        {label:'Channel integration design',date:'April-May',done:false,atRisk:false},
-        {label:'Agent build & testing',date:'May',done:false,atRisk:false}
-      ]},
-    {id:'UC3',title:'Service Rep Assistant',subtitle:'Employee Agent',progress:5,status:'Planning',
-      description:'Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.',
-      milestones:[
-        {label:'Process mapping & documentation',date:'April-May',done:false,atRisk:false},
-        {label:'Agent configuration',date:'May',done:false,atRisk:false},
-        {label:'Pilot with service reps',date:'June',done:false,atRisk:false}
-      ]}
+{
+  "useCases": [
+    {
+      "id": "UC1",
+      "title": "New Car Policy Onboarding",
+      "subtitle": "Virtual Broker + IDP",
+      "progress": 25,
+      "status": "In Progress",
+      "description": "Automated onboarding flow for new car insurance policies using a virtual broker agent with Intelligent Document Processing.",
+      "milestones": [
+        {
+          "label": "Architecture design (Robin + Jeroen)",
+          "date": "Before mid-April",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Integration design (Koen + Belfius)",
+          "date": "Mid-April",
+          "done": false,
+          "atRisk": true
+        },
+        {
+          "label": "Test execution",
+          "date": "Mid-June",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "UAT & sign-off",
+          "date": "Mid-June",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    },
+    {
+      "id": "UC2",
+      "title": "FAQ Agent",
+      "subtitle": "Multi-Channel Scale-Up",
+      "progress": 10,
+      "status": "Planning",
+      "description": "Scalable FAQ agent deployed across multiple customer-facing channels to deflect inbound queries and reduce service rep load.",
+      "milestones": [
+        {
+          "label": "Authentication approach decision (D1)",
+          "date": "Open",
+          "done": false,
+          "atRisk": true
+        },
+        {
+          "label": "Channel integration design",
+          "date": "April-May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Agent build & testing",
+          "date": "May",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    },
+    {
+      "id": "UC3",
+      "title": "Service Rep Assistant",
+      "subtitle": "Employee Agent",
+      "progress": 5,
+      "status": "Planning",
+      "description": "Internal AI assistant for service representatives - surfacing policy info, next-best-action guidance, and customer context in real time.",
+      "milestones": [
+        {
+          "label": "Process mapping & documentation",
+          "date": "April-May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Agent configuration",
+          "date": "May",
+          "done": false,
+          "atRisk": false
+        },
+        {
+          "label": "Pilot with service reps",
+          "date": "June",
+          "done": false,
+          "atRisk": false
+        }
+      ]
+    }
   ],
-  blockers:[
-    {id:'D1',type:'Decision',item:'Authentication approach for UC2 customer zone agent',owner:'Belfius (Jonas)',status:'Open'},
-    {id:'D2',type:'Decision',item:'Scope alignment with BDI on 3 use cases (formal sign-off)',owner:'Gilles + Francis',status:'In Progress'},
-    {id:'D3',type:'Decision',item:'Integration design for Keylane Axon',owner:'Koen + Belfius',status:'At Risk'},
-    {id:'D4',type:'Decision',item:'AP (legal/compliance) pre-approval process start (~10 week lead time)',owner:'Belfius (Jonas)',status:'Not Started'},
-    {id:'D5',type:'Decision',item:'Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)',owner:'Jonas to CISO',status:'Pending'},
-    {id:'B1',type:'Blocker',item:'Belfius environment / sandbox access',owner:'Belfius',status:'Due end of March'},
-    {id:'B2',type:'Blocker',item:'As-is process mapping for UC1 not started',owner:'Belfius primary',status:'Blocked'}
+  "blockers": [
+    {
+      "id": "D1",
+      "type": "Decision",
+      "item": "Authentication approach for UC2 customer zone agent",
+      "owner": "Belfius (Jonas)",
+      "status": "Open"
+    },
+    {
+      "id": "D2",
+      "type": "Decision",
+      "item": "Scope alignment with BDI on 3 use cases (formal sign-off)",
+      "owner": "Gilles + Francis",
+      "status": "In Progress"
+    },
+    {
+      "id": "D3",
+      "type": "Decision",
+      "item": "Integration design for Keylane Axon",
+      "owner": "Koen + Belfius",
+      "status": "At Risk"
+    },
+    {
+      "id": "D4",
+      "type": "Decision",
+      "item": "AP (legal/compliance) pre-approval process start (~10 week lead time)",
+      "owner": "Belfius (Jonas)",
+      "status": "Not Started"
+    },
+    {
+      "id": "D5",
+      "type": "Decision",
+      "item": "Collaboration tooling (Slack Connect / SharePoint blocked by BDI CISO)",
+      "owner": "Jonas to CISO",
+      "status": "Pending"
+    },
+    {
+      "id": "B1",
+      "type": "Blocker",
+      "item": "Belfius environment / sandbox access",
+      "owner": "Belfius",
+      "status": "Due end of March"
+    },
+    {
+      "id": "B2",
+      "type": "Blocker",
+      "item": "As-is process mapping for UC1 not started",
+      "owner": "Belfius primary",
+      "status": "Blocked"
+    }
   ],
-  kpis:[
-    {label:'Policy Onboarding Time',baseline:'--',current:'--',target:'TBD',unit:'min'},
-    {label:'FAQ Deflection Rate',baseline:'--',current:'--',target:'TBD',unit:'%'},
-    {label:'Rep Assist Resolution Speed',baseline:'--',current:'--',target:'TBD',unit:'min'},
-    {label:'CSAT Score',baseline:'--',current:'--',target:'TBD',unit:'/10'}
+  "kpis": [
+    {
+      "label": "Policy Onboarding Time",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "min"
+    },
+    {
+      "label": "FAQ Deflection Rate",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "%"
+    },
+    {
+      "label": "Rep Assist Resolution Speed",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "min"
+    },
+    {
+      "label": "CSAT Score",
+      "baseline": "--",
+      "current": "--",
+      "target": "TBD",
+      "unit": "/10"
+    }
   ],
-  team:[
-    {name:'Francis Verscheure',role:'Solution Orchestrator / Coordinator',company:'Salesforce'},
-    {name:'Robin De Bondt',role:'Implementation Lead (PS TA)',company:'Salesforce'},
-    {name:'Koen Vermachelen',role:'Integration Advisor',company:'Salesforce'},
-    {name:'Jeroen Tiekstra',role:'Industry Architect (Insurance)',company:'Salesforce'},
-    {name:'Maarten Laukens',role:'Tech Executive Sponsor',company:'Salesforce'},
-    {name:'Jonas Hubert',role:'IT Project Manager',company:'Belfius'},
-    {name:'Rudi Meys',role:'Enterprise Architect',company:'Belfius'},
-    {name:'Laure-Anne',role:'Business Lead AI',company:'Belfius'},
-    {name:'Bart',role:'IT Contact / Architect',company:'Belfius'},
-    {name:'Stijn',role:'IT Developer',company:'Belfius'}
+  "team": [
+    {
+      "name": "Francis Verscheure",
+      "role": "Solution Orchestrator / Coordinator",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Robin De Bondt",
+      "role": "Implementation Lead (PS TA)",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Koen Vermachelen",
+      "role": "Integration Advisor",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Jeroen Tiekstra",
+      "role": "Industry Architect (Insurance)",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Maarten Laukens",
+      "role": "Tech Executive Sponsor",
+      "company": "Salesforce"
+    },
+    {
+      "name": "Jonas Hubert",
+      "role": "IT Project Manager",
+      "company": "Belfius"
+    },
+    {
+      "name": "Rudi Meys",
+      "role": "Enterprise Architect",
+      "company": "Belfius"
+    },
+    {
+      "name": "Laure-Anne",
+      "role": "Business Lead AI",
+      "company": "Belfius"
+    },
+    {
+      "name": "Bart",
+      "role": "IT Contact / Architect",
+      "company": "Belfius"
+    },
+    {
+      "name": "Stijn",
+      "role": "IT Developer",
+      "company": "Belfius"
+    }
   ],
-  raci:[
-    {a:'POC coordination & planning',M:'I',F:'R',J:'C',R:'C',K:'I',B:'C'},
-    {a:'Use case & process documentation',M:'I',F:'A',J:'R',R:'C',K:'C',B:'R'},
-    {a:'As-is / to-be process mapping',M:'I',F:'A',J:'C',R:'I',K:'I',B:'R'},
-    {a:'Technical architecture & design',M:'I',F:'A',J:'C',R:'R',K:'C',B:'I'},
-    {a:'Integration design & validation',M:'I',F:'A',J:'I',R:'C',K:'R',B:'C'},
-    {a:'Agent build & configuration',M:'I',F:'A',J:'I',R:'R',K:'C',B:'I'},
-    {a:'Data provisioning & test data',M:'I',F:'A',J:'I',R:'I',K:'C',B:'R'},
-    {a:'Environment setup & access',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
-    {a:'Test execution',M:'I',F:'A',J:'I',R:'C',K:'C',B:'R'},
-    {a:'UAT & business sign-off',M:'I',F:'A',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Legal & compliance pre-approval',M:'I',F:'I',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Steering & go/no-go decisions',M:'A',F:'R',J:'I',R:'I',K:'I',B:'R'},
-    {a:'Scope change management',M:'A',F:'R',J:'I',R:'I',K:'I',B:'C'},
-    {a:'Executive alignment & escalation',M:'R',F:'I',J:'I',R:'I',K:'I',B:'R'}
+  "raci": [
+    {
+      "a": "POC coordination & planning",
+      "M": "I",
+      "F": "R",
+      "J": "C",
+      "R": "C",
+      "K": "I",
+      "B": "C"
+    },
+    {
+      "a": "Use case & process documentation",
+      "M": "I",
+      "F": "A",
+      "J": "R",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "As-is / to-be process mapping",
+      "M": "I",
+      "F": "A",
+      "J": "C",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Technical architecture & design",
+      "M": "I",
+      "F": "A",
+      "J": "C",
+      "R": "R",
+      "K": "C",
+      "B": "I"
+    },
+    {
+      "a": "Integration design & validation",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "R",
+      "B": "C"
+    },
+    {
+      "a": "Agent build & configuration",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "R",
+      "K": "C",
+      "B": "I"
+    },
+    {
+      "a": "Data provisioning & test data",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "I",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "Environment setup & access",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "Test execution",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "C",
+      "K": "C",
+      "B": "R"
+    },
+    {
+      "a": "UAT & business sign-off",
+      "M": "I",
+      "F": "A",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Legal & compliance pre-approval",
+      "M": "I",
+      "F": "I",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Steering & go/no-go decisions",
+      "M": "A",
+      "F": "R",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    },
+    {
+      "a": "Scope change management",
+      "M": "A",
+      "F": "R",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "C"
+    },
+    {
+      "a": "Executive alignment & escalation",
+      "M": "R",
+      "F": "I",
+      "J": "I",
+      "R": "I",
+      "K": "I",
+      "B": "R"
+    }
   ],
-  meetings:[
-    {name:'Internal SF Sync',freq:'Weekly',participants:'Francis, Robin, Koen, Jeroen, Maarten',purpose:'Blockers, capacity, progress'},
-    {name:'Customer Working Session',freq:'Bi-weekly',participants:'SF team + Jonas, Bart, Stijn',purpose:'Use case delivery progress'},
-    {name:'Monthly Governance',freq:'Monthly',participants:'Gilles + BDI leadership (Pieter, Hannes)',purpose:'Executive alignment, escalations'},
-    {name:'BDI Bi-Weekly (Signature)',freq:'Bi-weekly',participants:'Manuel Rodriguez (CSM) + BDI',purpose:'Operational touchpoint'}
+  "meetings": [
+    {
+      "name": "Internal SF Sync",
+      "freq": "Weekly",
+      "participants": "Francis, Robin, Koen, Jeroen, Maarten",
+      "purpose": "Blockers, capacity, progress"
+    },
+    {
+      "name": "Customer Working Session",
+      "freq": "Bi-weekly",
+      "participants": "SF team + Jonas, Bart, Stijn",
+      "purpose": "Use case delivery progress"
+    },
+    {
+      "name": "Monthly Governance",
+      "freq": "Monthly",
+      "participants": "Gilles + BDI leadership (Pieter, Hannes)",
+      "purpose": "Executive alignment, escalations"
+    },
+    {
+      "name": "BDI Bi-Weekly (Signature)",
+      "freq": "Bi-weekly",
+      "participants": "Manuel Rodriguez (CSM) + BDI",
+      "purpose": "Operational touchpoint"
+    }
   ],
-  flowcharts:[]
-};
+  "flowcharts": []
+}
 /*DATA_END*/
 
 var KEY_DATES=[
@@ -336,9 +642,9 @@ var KEY_DATES=[
   {date:'Mid-June',label:'UC1 UAT & sign-off',owner:'Belfius',urgent:false}
 ];
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    HELPERS
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function badge(status){
@@ -356,9 +662,9 @@ function closeModal(){document.getElementById('modal-container').innerHTML=''}
 function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick="closeModalCheck(event)">'+html+'</div>'}
 function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))closeModal()}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    THEME
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function setTheme(t){
   currentTheme=t;
   document.body.className='theme-'+t+(document.body.classList.contains('bg-grid')?' bg-grid':'');
@@ -369,9 +675,9 @@ function setTheme(t){
   if(currentPage)navigate(currentPage);
 }
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    AUTH
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function doLogin(){
   var u=document.getElementById('l-user').value.trim().toLowerCase();
   var p=document.getElementById('l-pass').value;
@@ -393,9 +699,9 @@ document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.
 document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 function logout(){currentRole=null;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    NAV
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 var NAV_SF=[{id:'overview',icon:'&#9638;',label:'Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'raci',icon:'&#9633;',label:'RACI Matrix'},{id:'blockers',icon:'&#9888;',label:'Blockers'},{id:'meetings',icon:'&#9702;',label:'Cadences'},{id:'kpis',icon:'&#9650;',label:'KPIs'},{id:'flowchart',icon:'&#10136;',label:'Flowcharts'}];
 var NAV_BEL=[{id:'overview',icon:'&#9638;',label:'Program Overview'},{id:'usecases',icon:'&#10830;',label:'Use Cases'},{id:'timeline',icon:'&#9711;',label:'Timeline'},{id:'team',icon:'&#9673;',label:'Team'},{id:'kpis',icon:'&#9650;',label:'KPIs'}];
 
@@ -434,9 +740,9 @@ function renderPage(page){
   return (map[page]||rOverview)();
 }
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    OVERVIEW
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rOverview(){
   var atRisk=DATA.blockers.filter(function(b){return b.status==='At Risk'||b.status==='Blocked'}).length;
   var open=DATA.blockers.filter(function(b){return b.status==='Open'}).length;
@@ -489,9 +795,9 @@ function rOverview(){
     +'</div>';
 }
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    USE CASES
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rUseCases(){
   var html=DATA.useCases.map(function(uc,idx){
     var mils=uc.milestones.map(function(m,mi){
@@ -611,9 +917,9 @@ function saveEditMilestone(ucIdx,mIdx){
 function deleteMilestone(ucIdx,mIdx){DATA.useCases[ucIdx].milestones.splice(mIdx,1);navigate('usecases')}
 function toggleMil(ucIdx,mIdx,v){DATA.useCases[ucIdx].milestones[mIdx].done=v}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    TIMELINE
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rTimeline(){
   var phases=['Foundation','Realization','Deployment'].map(function(ph,i){
     var days=['0-30 days','31-60 days','61-90 days'][i];
@@ -646,9 +952,9 @@ function rTimeline(){
     +'<div><div class="sec-title">Key Dates &amp; Milestones</div>'+dates+'</div></div>';
 }
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    TEAM
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rTeam(){
   var sfT=DATA.team.filter(function(t){return t.company==='Salesforce'});
   var bT=DATA.team.filter(function(t){return t.company==='Belfius'});
@@ -704,9 +1010,9 @@ function saveTeamMember(idx){
 }
 function deleteTeamMember(idx){if(confirm('Remove this team member?')){DATA.team.splice(idx,1);navigate('team')}}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    RACI
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rRaci(){
   var cols=[{k:'M',l:'Maarten'},{k:'F',l:'Francis'},{k:'J',l:'Jeroen'},{k:'R',l:'Robin'},{k:'K',l:'Koen'},{k:'B',l:'Belfius',g:true}];
   var vals=['R','A','C','I'];
@@ -751,9 +1057,9 @@ function saveRaciRow(){
 }
 function deleteRaciRow(idx){if(confirm('Delete this activity?')){DATA.raci.splice(idx,1);navigate('raci')}}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    BLOCKERS
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rBlockers(){
   var canEdit=currentRole==='admin'||currentRole==='salesforce';
   var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
@@ -825,9 +1131,9 @@ function saveEditBlocker(idx){
 }
 function deleteBlocker(idx){if(confirm('Delete this item?')){DATA.blockers.splice(idx,1);navigate('blockers')}}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    MEETINGS
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rMeetings(){
   var cards=DATA.meetings.map(function(m,i){
     return '<div class="card" style="padding:24px">'
@@ -873,9 +1179,9 @@ function saveMeeting(idx){
 }
 function deleteMeeting(idx){if(confirm('Delete this meeting?')){DATA.meetings.splice(idx,1);navigate('meetings')}}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    KPIs
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function rKpis(){
   var cards=DATA.kpis.map(function(kpi,i){
     function vc(field,color){
@@ -906,9 +1212,9 @@ function rKpis(){
 function addKpi(){DATA.kpis.push({label:'New KPI',baseline:'--',current:'--',target:'TBD',unit:''});navigate('kpis')}
 function deleteKpi(idx){if(confirm('Delete this KPI?')){DATA.kpis.splice(idx,1);navigate('kpis')}}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    FLOWCHART BUILDER
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 var FC = {
   nodes:[],edges:[],lanes:[],
   selectedNode:null,selectedEdge:null,
@@ -1127,7 +1433,7 @@ function renderFCSVG(){
       g.appendChild(txt);
     });
 
-    // Connection handles (small circles) — visible on select
+    // Connection handles (small circles) â visible on select
     if(FC.selectedNode===node.id){
       [[node.w/2,0,'top'],[node.w,node.h/2,'right'],[node.w/2,node.h,'bottom'],[0,node.h/2,'left']].forEach(function(pt){
         var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -1321,10 +1627,10 @@ function updateEdgeProp(eid,prop,val){
 }
 function initFC(){}
 
-/* ═══════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
    GITHUB SYNC
    Repo: frakke11/BelfiusTracker  file: index.html
-═══════════════════════════════════════════════════ */
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
 var GH = {
   owner: 'frakke11',
   repo:  'BelfiusTracker',
@@ -1335,14 +1641,14 @@ var GH = {
   sha: null   // current file SHA, needed for PUT
 };
 
-/* ── Marker that wraps the DATA blob inside the HTML ── */
+/* ââ Marker that wraps the DATA blob inside the HTML ââ */
 var DATA_START = '/*DATA_START*/';
 var DATA_END   = '/*DATA_END*/';
 
-/* ── On app load: fetch live data from GitHub ── */
+/* ââ On app load: fetch live data from GitHub ââ */
 async function ghLoadData(){
   var statusEl = document.getElementById('gh-status');
-  if(statusEl) statusEl.textContent = 'Syncing with GitHub…';
+  if(statusEl) statusEl.textContent = 'Syncing with GitHubâ¦';
   try {
     var url = 'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.file+'?ref='+GH.branch+'&t='+Date.now();
     var headers = {'Accept':'application/vnd.github.v3+json'};
@@ -1367,23 +1673,23 @@ async function ghLoadData(){
         DATA.flowcharts= loaded.flowcharts|| DATA.flowcharts;
       } catch(pe){ console.warn('DATA parse error',pe); }
     }
-    if(statusEl){ statusEl.textContent='✓ Synced from GitHub'; statusEl.style.color='var(--green)'; setTimeout(function(){if(statusEl)statusEl.textContent=''},3000); }
+    if(statusEl){ statusEl.textContent='â Synced from GitHub'; statusEl.style.color='var(--green)'; setTimeout(function(){if(statusEl)statusEl.textContent=''},3000); }
   } catch(err){
     console.warn('GitHub load failed:',err);
-    if(statusEl){ statusEl.textContent='⚠ Offline — showing local data'; statusEl.style.color='var(--amber)'; }
+    if(statusEl){ statusEl.textContent='â  Offline â showing local data'; statusEl.style.color='var(--amber)'; }
   }
   // Re-render current page with fresh data
   if(currentPage) navigate(currentPage);
 }
 
-/* ── Save: commit updated DATA back to the file ── */
+/* ââ Save: commit updated DATA back to the file ââ */
 async function ghSaveData(){
   if(!GH.token){
     showGhTokenModal();
     return;
   }
   var saveBtn = document.getElementById('gh-save-btn');
-  if(saveBtn){ saveBtn.textContent='Saving…'; saveBtn.disabled=true; }
+  if(saveBtn){ saveBtn.textContent='Savingâ¦'; saveBtn.disabled=true; }
 
   try {
     // 1. Get current file content + SHA
@@ -1412,7 +1718,7 @@ async function ghSaveData(){
     if(s!==-1 && en!==-1){
       newContent = currentContent.slice(0,s+DATA_START.length) + '\n' + dataStr + '\n' + currentContent.slice(en);
     } else {
-      // First time — inject marker right after "var DATA_END" line and wrap current DATA
+      // First time â inject marker right after "var DATA_END" line and wrap current DATA
       // Fallback: append at end of script
       newContent = currentContent.replace('function ghLoadData',
         DATA_START+'\n'+dataStr+'\n'+DATA_END+'\nfunction ghLoadData');
@@ -1435,15 +1741,15 @@ async function ghSaveData(){
       throw new Error(err.message||putRes.status);
     }
     GH.sha = (await putRes.json()).content.sha;
-    if(saveBtn){ saveBtn.textContent='✓ Saved to GitHub'; saveBtn.disabled=false; setTimeout(function(){if(saveBtn)saveBtn.textContent='&#9729; Save to GitHub';},3000); }
+    if(saveBtn){ saveBtn.textContent='â Saved to GitHub'; saveBtn.disabled=false; setTimeout(function(){if(saveBtn)saveBtn.textContent='&#9729; Save to GitHub';},3000); }
   } catch(err){
     console.error('GitHub save failed:',err);
-    if(saveBtn){ saveBtn.textContent='✗ Save failed — see console'; saveBtn.disabled=false; }
+    if(saveBtn){ saveBtn.textContent='â Save failed â see console'; saveBtn.disabled=false; }
     alert('GitHub save failed:\n'+err.message+'\n\nCheck your token has repo write access.');
   }
 }
 
-/* ── Token setup modal ── */
+/* ââ Token setup modal ââ */
 function showGhTokenModal(){
   showModal('<div class="modal"><h3>&#128273; GitHub Token Required</h3>'
     +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">'
@@ -1455,7 +1761,7 @@ function showGhTokenModal(){
     +'4. Click Generate &amp; copy the token</p>'
     +'<div class="form-group"><label>Paste your token here</label>'
     +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"></div>'
-    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">&#128274; Stored only in your browser\'s localStorage — never sent anywhere except GitHub\'s API.</p>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">&#128274; Stored only in your browser\'s localStorage â never sent anywhere except GitHub\'s API.</p>'
     +'<div class="modal-actions">'
     +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveGhToken()">Save Token &amp; Retry</button>'
@@ -1473,7 +1779,7 @@ function clearGhToken(){
   alert('Token cleared.');
 }
 
-/* ── Inject Save button + status into sidebar ── */
+/* ââ Inject Save button + status into sidebar ââ */
 function injectGhBar(){
   var nav = document.getElementById('nav-items');
   if(!nav) return;
@@ -1489,7 +1795,7 @@ function injectGhBar(){
   nav.parentElement.insertBefore(bar, nav.nextSibling);
 }
 
-/* ── Hook into buildSidebar to inject GH bar for admin ── */
+/* ââ Hook into buildSidebar to inject GH bar for admin ââ */
 var _origBuildSidebar = buildSidebar;
 buildSidebar = function(){
   _origBuildSidebar();
