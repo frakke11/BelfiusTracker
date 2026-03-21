@@ -1001,6 +1001,63 @@ function renderPage(page){
 /* ═══════════════════════════════════════════════════
    OVERVIEW
 ═══════════════════════════════════════════════════ */
+/* ── Import data from pasted JSON (migration / recovery tool) ── */
+function showImportModal(){
+  showModal('<div class="modal modal-lg"><h3>&#128229; Import / Restore Data</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px">'
+    +'Paste the contents of a <strong>data.json</strong> (old format) or <strong>data-{id}.json</strong> (decrypted) file below. '
+    +'The app will detect the format and restore customers, projects, and all data.</p>'
+    +'<div class="form-group"><label>JSON content</label>'
+    +'<textarea id="import-json" rows="10" style="font-family:monospace;font-size:11px" placeholder=\'{"users":{...},"customers":[...]}\' ></textarea></div>'
+    +'<div id="import-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="doImport()">Import</button></div></div>');
+}
+function doImport(){
+  var txt=document.getElementById('import-json').value.trim();
+  var msg=document.getElementById('import-msg');
+  if(!txt){ msg.textContent='Please paste JSON content first.'; msg.style.color='var(--red)'; return; }
+  try{
+    var data=JSON.parse(txt);
+    // Old format: { users:{...}, customers:[...] }
+    if(data.customers&&data.customers.length){
+      if(data.users) USERS=data.users;
+      CUSTOMERS=data.customers;
+      syncDATA();
+      buildSidebar();
+      navigate('overview');
+      msg.textContent='✓ Imported '+data.customers.length+' customer(s) successfully!';
+      msg.style.color='var(--green)';
+      autoSave();
+      setTimeout(function(){ closeModal(); },1500);
+      return;
+    }
+    // New per-customer format: { customerData:{...} }
+    if(data.customerData){
+      var cu=data.customerData;
+      var idx=CUSTOMERS.findIndex(function(c){return c.id===cu.id;});
+      if(idx!==-1) CUSTOMERS[idx]=cu;
+      else CUSTOMERS.push(cu);
+      // Remove demo placeholder if present
+      var demoIdx=CUSTOMERS.findIndex(function(c){return c.id==='demo';});
+      if(demoIdx!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(demoIdx,1);
+      syncDATA();
+      buildSidebar();
+      navigate('overview');
+      msg.textContent='✓ Imported customer: '+cu.name;
+      msg.style.color='var(--green)';
+      autoSave();
+      setTimeout(function(){ closeModal(); },1500);
+      return;
+    }
+    msg.textContent='Unrecognised format. Expected {customers:[...]} or {customerData:{...}}';
+    msg.style.color='var(--red)';
+  }catch(e){
+    msg.textContent='JSON parse error: '+e.message;
+    msg.style.color='var(--red)';
+  }
+}
+
 function rOverview(){
   var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length;
   var open=(DATA.blockers||[]).filter(function(b){return b.status==='Open';}).length;
@@ -3154,14 +3211,25 @@ async function ghEncrypt(key, plaintext){
   var iv = crypto.getRandomValues(new Uint8Array(12));
   var data = new TextEncoder().encode(plaintext);
   var encrypted = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, data);
-  // Prepend IV to ciphertext, encode as base64
-  var combined = new Uint8Array(iv.length + encrypted.byteLength);
+  // Prepend IV to ciphertext, encode as base64 (chunk to avoid stack overflow on large data)
+  var combined = new Uint8Array(12 + encrypted.byteLength);
   combined.set(iv, 0);
-  combined.set(new Uint8Array(encrypted), iv.length);
-  return btoa(String.fromCharCode.apply(null, combined));
+  combined.set(new Uint8Array(encrypted), 12);
+  var b64='', chunk=8192;
+  for(var i=0;i<combined.length;i+=chunk){
+    b64+=String.fromCharCode.apply(null, combined.subarray(i,i+chunk));
+  }
+  return btoa(b64);
 }
 async function ghDecrypt(key, b64){
-  var combined = Uint8Array.from(atob(b64), function(ch){return ch.charCodeAt(0);});
+  // b64 may be: a base64 string of (IV+ciphertext), or raw binary bytes passed as string
+  var combined;
+  try {
+    combined = Uint8Array.from(atob(b64), function(ch){return ch.charCodeAt(0);});
+  } catch(e){
+    // Fallback: treat as raw binary string
+    combined = Uint8Array.from(b64, function(ch){return ch.charCodeAt(0);});
+  }
   var iv = combined.slice(0, 12);
   var data = combined.slice(12);
   var decrypted = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, data);
@@ -3205,16 +3273,20 @@ async function ghLoadCustomer(cusId){
   if(!GH._cusSha) GH._cusSha={};
   GH._cusSha[cusId]=json.sha;
   var b64content=json.content.replace(/\n/g,'');
+  // b64content is GitHub's base64 encoding of the file's raw bytes
+  // The file bytes could be: (a) our base64-encoded encrypted blob, or (b) raw binary encrypted blob
+  var fileBytes;
+  try { fileBytes = atob(b64content); } catch(e){ fileBytes = b64content; }
   var raw;
   try {
-    // Try decrypting first
     if(!GH.token) throw new Error('no token');
     var key=await ghDeriveKey(cusId);
-    raw=await ghDecrypt(key, b64content);
+    // Try treating fileBytes as our base64-encoded blob
+    raw=await ghDecrypt(key, fileBytes);
   } catch(decErr){
-    // Fallback: try plain JSON (for migration from old format)
+    // Fallback: try plain JSON
     try {
-      raw=decodeURIComponent(escape(atob(b64content)));
+      raw=decodeURIComponent(escape(fileBytes));
     } catch(e2){ throw new Error('Cannot read '+fname+': '+decErr.message); }
   }
   var loaded=JSON.parse(raw);
