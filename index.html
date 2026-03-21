@@ -716,6 +716,7 @@ var NAV_ITEMS=[
   {id:'team',       icon:'&#9673;',  label:'Team'},
   {id:'raci',       icon:'&#9633;',  label:'RACI Matrix', sfOnly:true},
   {id:'decisions',  icon:'&#128203;',label:'Decisions'},
+  {id:'risks',      icon:'&#9650;',  label:'Risks'},
   {id:'blockers',   icon:'&#9888;',  label:'Blockers'},
   {id:'meetings',   icon:'&#9702;',  label:'Cadences', sfOnly:true},
   {id:'kpis',       icon:'&#9650;',  label:'KPIs'},
@@ -927,7 +928,7 @@ function saveNewProject(){
   var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
   var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
   var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
-    useCases:[],blockers:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
+    useCases:[],blockers:[],risks:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
   CUS().projects.push(prj); currentProjectIdx=CUS().projects.length-1; syncDATA();
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
 }
@@ -991,6 +992,7 @@ function goUC(i){ navigate('uc-'+i); }
 function goTimeline(){ navigate('timeline'); }
 function goUsers(){ navigate('users'); }
 function goKpis(){ navigate('kpis'); }
+function goRisks(){ navigate('risks'); }
 
 function navigate(page){
   currentPage=page;
@@ -1005,7 +1007,7 @@ function navigate(page){
 
 function renderPage(page){
   if(page.startsWith('uc-')){ return rUseCasePage(parseInt(page.replace('uc-',''))); }
-  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,decisions:rDecisions,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
+  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,decisions:rDecisions,risks:rRisks,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
   return (map[page]||rOverview)();
 }
 
@@ -1072,7 +1074,8 @@ function doImport(){
 }
 
 function rOverview(){
-  var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length;
+  var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length
+    +(DATA.risks||[]).filter(function(r){return r.status==='Open';}).length;
   var open=(DATA.blockers||[]).filter(function(b){return b.status==='Open';}).length;
   var totalUCs=(DATA.useCases||[]).length;
   var doneUCs=(DATA.useCases||[]).filter(function(u){return u.status==='Done';}).length;
@@ -1116,7 +1119,7 @@ function rOverview(){
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--blue)">'+avgProgress+'%</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
     +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'blockers\')">' 
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'risks\')">' 
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
     +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
@@ -1163,8 +1166,10 @@ function rOverview(){
   var riskSection='';
   if(currentRole!=='viewer'||(currentUser&&!currentUser.assignedCustomers.length)){
     var risks=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started';});
+    // Add open risks
+    var openRisks=(DATA.risks||[]).filter(function(r){return r.status==='Open';});
     if(risks.length){
-      riskSection='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="navigate(\'blockers\')">View all &rarr;</span></div>'
+      riskSection='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="goRisks()">View risks &rarr;</span></div>'
         +'<div class="col g8">'
         +risks.map(function(b){
           return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" onclick="navigate(\'blockers\')">' 
@@ -2182,6 +2187,172 @@ function setRaciVal(ri, key, val){
   }
   DATA.raci[ri].values[key]=val;
 }
+/* ═══════════════════════════════════════════════════
+   RISKS
+   Fields: id, title, category, probability (1-5),
+           impact (1-5), status, owner, mitigation,
+           linkedUC (optional)
+═══════════════════════════════════════════════════ */
+function riskScore(r){ return (r.probability||1)*(r.impact||1); }
+function riskLevel(score){
+  if(score>=15) return {label:'Critical',color:'#c23934',bg:'rgba(194,57,52,.12)'};
+  if(score>=9)  return {label:'High',    color:'#dd7a01',bg:'rgba(221,122,1,.12)'};
+  if(score>=4)  return {label:'Medium',  color:'#0070d2',bg:'rgba(0,112,210,.1)'};
+  return              {label:'Low',     color:'#2e844a',bg:'rgba(46,132,74,.1)'};
+}
+
+function rRisks(){
+  var risks=DATA.risks||[];
+  var canE=canEdit();
+
+  // Sort by score descending
+  var sorted=risks.slice().sort(function(a,b){return riskScore(b)-riskScore(a);});
+
+  // Summary stats
+  var counts={Critical:0,High:0,Medium:0,Low:0};
+  sorted.forEach(function(r){ counts[riskLevel(riskScore(r)).label]++; });
+
+  var statsBar='<div class="row g12" style="margin-bottom:24px;flex-wrap:wrap">'
+    +[['Critical','#c23934'],['High','#dd7a01'],['Medium','#0070d2'],['Low','#2e844a']].map(function(x){
+      return '<div class="card row center g12" style="padding:14px 18px;min-width:120px;border-left:3px solid '+x[1]+'">'
+        +'<div><div style="font-size:22px;font-weight:800;font-family:var(--font-head);color:'+x[1]+'">'+counts[x[0]]+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">'+x[0]+'</div></div>'
+        +'</div>';
+    }).join('')+'</div>';
+
+  // Risk matrix (5x5 grid)
+  var matrixCells='';
+  for(var imp=5;imp>=1;imp--){
+    matrixCells+='<div style="display:contents">';
+    matrixCells+='<div style="display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;color:var(--text-muted);font-weight:600">'+imp+'</div>';
+    for(var prob=1;prob<=5;prob++){
+      var s=prob*imp, lv=riskLevel(s);
+      var cellRisks=sorted.filter(function(r){return (r.probability||1)===prob&&(r.impact||1)===imp;});
+      matrixCells+='<div style="background:'+lv.bg+';border:1px solid '+lv.color+'30;border-radius:4px;padding:4px;min-height:44px;cursor:'+(canE?'pointer':'default')+';position:relative" '
+        +(canE?'onclick="addRiskAt('+prob+','+imp+')" title="Add risk (P'+prob+' × I'+imp+'='+s+')"':'')+' >'
+        +cellRisks.map(function(r){
+          var ri=(DATA.risks||[]).indexOf(r);
+          return '<div style="font-size:10px;background:'+lv.color+';color:#fff;border-radius:3px;padding:2px 5px;margin:1px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" '
+            +'onclick="event.stopPropagation();editRisk('+ri+')" title="'+e(r.title)+'">'+e(r.title)+'</div>';
+        }).join('')
+        +'</div>';
+    }
+    matrixCells+='</div>';
+  }
+
+  var matrix='<div style="margin-bottom:24px">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">Risk Matrix — Probability × Impact</div>'
+    +'<div style="display:grid;grid-template-columns:28px repeat(5,1fr);gap:4px">'
+    // Column headers
+    +'<div></div>'
+    +[1,2,3,4,5].map(function(p){return '<div style="text-align:center;font-size:11px;color:var(--text-muted);font-weight:600;padding-bottom:4px">P'+p+'</div>';}).join('')
+    +matrixCells
+    +'</div>'
+    +'<div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">'
+    +'<span style="font-size:11px;color:var(--text-muted)">Legend:</span>'
+    +[['Low','#2e844a','1–3'],['Medium','#0070d2','4–8'],['High','#dd7a01','9–14'],['Critical','#c23934','15–25']].map(function(x){
+      return '<span style="font-size:11px;background:'+x[1]+'20;color:'+x[1]+';border:1px solid '+x[1]+'50;border-radius:3px;padding:2px 8px">'+x[0]+' ('+x[2]+')</span>';
+    }).join('')
+    +'</div></div>';
+
+  // List view
+  var list=sorted.length?sorted.map(function(r){
+    var ri=(DATA.risks||[]).indexOf(r);
+    var sc=riskScore(r), lv=riskLevel(sc);
+    var uc=r.linkedUC!==undefined&&r.linkedUC!==''?(DATA.useCases||[])[r.linkedUC]:null;
+    return '<div class="card" style="padding:16px 20px;border-left:3px solid '+lv.color+'">'
+      +'<div class="row between wrap" style="gap:12px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+lv.bg+';color:'+lv.color+'">'+lv.label+' ('+sc+')</span>'
+      +(r.category?'<span class="badge b-slate" style="font-size:10px">'+e(r.category)+'</span>':'')
+      +(uc?'<span class="badge b-blue" style="font-size:10px;cursor:pointer" onclick="goUC('+r.linkedUC+')">'+e(uc.id)+'</span>':'')
+      +'</div>'
+      +'<div style="font-size:15px;font-weight:700;color:var(--text-dim)">'+e(r.title)+'</div>'
+      +(r.mitigation?'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">&#128737; '+e(r.mitigation)+'</div>':'')
+      +(r.owner?'<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Owner: '+e(r.owner)+'</div>':'')
+      +'</div>'
+      +'<div class="col g8" style="align-items:flex-end;flex-shrink:0">'
+      +'<div class="row g8" style="font-size:12px;color:var(--text-muted)">'
+      +'<div style="text-align:center"><div style="font-weight:700;font-size:16px;color:'+lv.color+'">'+( r.probability||1)+'</div><div>Prob.</div></div>'
+      +'<div style="font-size:16px;color:var(--text-muted)">×</div>'
+      +'<div style="text-align:center"><div style="font-weight:700;font-size:16px;color:'+lv.color+'">'+(r.impact||1)+'</div><div>Impact</div></div>'
+      +'</div>'
+      +(canE?'<div class="row g4"><button class="btn-icon" onclick="editRisk('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteRisk('+ri+')">&#10005;</button></div>':'')
+      +'</div></div></div>';
+  }).join('')
+    :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
+    +'<div style="font-size:40px;margin-bottom:12px">&#9650;</div>'
+    +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No risks logged yet</div>'
+    +'<div style="font-size:13px">Click the matrix to add risks or use + Add Risk</div>'
+    +(canE?'<div style="margin-top:16px"><button class="btn-primary" onclick="addRisk()">+ Add Risk</button></div>':'')
+    +'</div>';
+
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label" style="color:#c23934">&#9650;</div>'
+    +'<h1 style="font-size:26px;font-weight:800">Risk Register</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Click a matrix cell to add a risk at that score. Click a risk tile to edit it.</p></div>'
+    +(canE?'<button class="btn-primary" onclick="addRisk()">+ Add Risk</button>':'')
+    +'</div>'
+    +statsBar+matrix
+    +'<div><div class="sec-title">All Risks</div>'+list+'</div>'
+    +'</div>';
+}
+
+function riskModal(title, vals, saveFn){
+  var ucOpts='<option value="">— None —</option>'
+    +(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'"'+(vals.linkedUC===i?' selected':'')+'>'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
+  var pSlider=function(id,label,val){
+    return '<div class="form-group"><label>'+label+' ('+val+')</label>'
+      +'<input type="range" id="'+id+'" min="1" max="5" value="'+val+'" oninput="document.getElementById(\''+id+'-v\').textContent=this.value" style="width:100%;accent-color:var(--accent)">'
+      +'<div class="row between" style="font-size:10px;color:var(--text-muted);margin-top:2px"><span>Low (1)</span><span id="'+id+'-v" style="font-weight:700;color:var(--accent)">'+val+'</span><span>Critical (5)</span></div>'
+      +'</div>';
+  };
+  showModal('<div class="modal modal-lg"><h3>'+title+'</h3>'
+    +'<div class="form-group"><label>Risk Title</label><input id="rk-title" value="'+e(vals.title||'')+'" placeholder="e.g. Data access delayed"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Category</label><select id="rk-cat">'
+    +['Technical','Organisational','Security','Compliance','Resource','External','Other'].map(function(x){return '<option'+(x===(vals.category||'Technical')?' selected':'')+'>'+x+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Owner</label><input id="rk-owner" value="'+e(vals.owner||'')+'"></div></div>'
+    +pSlider('rk-prob','Probability',vals.probability||1)
+    +pSlider('rk-imp','Impact',vals.impact||1)
+    +'<div class="form-group"><label>Status</label><select id="rk-status">'
+    +['Open','Mitigated','Accepted','Closed'].map(function(s){return '<option'+(s===(vals.status||'Open')?' selected':'')+'>'+s+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Mitigation Plan</label><textarea id="rk-mit" rows="2">'+e(vals.mitigation||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Linked Use Case (optional)</label><select id="rk-uc">'+ucOpts+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+saveFn+'">Save</button></div></div>');
+}
+function getRiskFormVals(){
+  var ucEl=document.getElementById('rk-uc');
+  var ucVal=ucEl&&ucEl.value!==''?parseInt(ucEl.value):undefined;
+  return {
+    title:document.getElementById('rk-title').value,
+    category:document.getElementById('rk-cat').value,
+    owner:document.getElementById('rk-owner').value,
+    probability:parseInt(document.getElementById('rk-prob').value)||1,
+    impact:parseInt(document.getElementById('rk-imp').value)||1,
+    status:document.getElementById('rk-status').value,
+    mitigation:document.getElementById('rk-mit').value,
+    linkedUC:ucVal
+  };
+}
+function addRisk(){ riskModal('Add Risk',{probability:1,impact:1},'saveRisk(-1)'); }
+function addRiskAt(prob,imp){ riskModal('Add Risk at P'+prob+' × I'+imp,{probability:prob,impact:imp},'saveRisk(-1)'); }
+function editRisk(idx){ var r=(DATA.risks||[])[idx]; if(!r) return; riskModal('Edit Risk',r,'saveRisk('+idx+')'); }
+function saveRisk(idx){
+  if(!DATA.risks) DATA.risks=[];
+  var v=getRiskFormVals();
+  if(!v.title){alert('Please enter a risk title.');return;}
+  if(idx===-1){ v.id='R'+(DATA.risks.length+1); DATA.risks.push(v); }
+  else DATA.risks[idx]=Object.assign(DATA.risks[idx],v);
+  closeModal();navigate('risks');autoSave();
+}
+function deleteRisk(idx){if(confirm('Delete risk?')){DATA.risks.splice(idx,1);navigate('risks');autoSave();}}
+
 function rRaci(){
   var cols=getRaciCols();
   var vals=['R','A','C','I','—'];
