@@ -658,16 +658,37 @@ async function doLogin(){
 }
 
 async function ghFetchUsers(){
-  var url='https://api.github.com/repos/frakke11/BelfiusTracker/contents/data.json?ref=main&nocache='+Date.now();
+  // Try old combined data.json first (migration path)
+  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/data.json'
+         +'?ref='+GH.branch+'&nocache='+Date.now();
   var res=await fetch(url,{headers:{'Accept':'application/vnd.github.v3+json'}});
-  if(!res.ok) return;
-  var json=await res.json();
-  var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
-  var loaded=JSON.parse(raw);
-  // Restore users
-  if(loaded.users){ USERS = loaded.users; }
-  // Restore customers/projects
-  if(loaded.customers && loaded.customers.length){ CUSTOMERS = loaded.customers; syncDATA(); }
+  if(res.ok){
+    try{
+      var json=await res.json();
+      var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+      var loaded=JSON.parse(raw);
+      if(loaded.users) USERS=loaded.users;
+      if(loaded.customers&&loaded.customers.length){
+        // Old format — load everything, mark for migration notice
+        CUSTOMERS=loaded.customers; syncDATA();
+        window._legacyDataLoaded=true;
+        console.log('[Tracker] Loaded legacy data.json — consider saving to migrate to per-customer files');
+        return; // don't also try new format
+      }
+    }catch(e){ console.warn('data.json parse failed:',e); }
+  }
+  // New format: try users.json
+  var url2='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json'
+           +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res2=await fetch(url2,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  if(res2.ok){
+    try{
+      var json2=await res2.json();
+      var raw2=decodeURIComponent(escape(atob(json2.content.replace(/\n/g,''))));
+      var loaded2=JSON.parse(raw2);
+      if(loaded2.users) USERS=loaded2.users;
+    }catch(e){ console.warn('users.json parse failed:',e); }
+  }
 }
 document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
 document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
@@ -2038,47 +2059,126 @@ function deleteExecSponsor(idx){if(confirm('Remove?')){DATA.execSponsors.splice(
 /* ═══════════════════════════════════════════════════
    RACI
 ═══════════════════════════════════════════════════ */
+function getRaciCols(){
+  // Build columns from project team — each person is a column
+  var team=DATA.team||[];
+  if(!team.length) return [];
+  return team.map(function(m){
+    // Use initials as key for storage (first 2 chars of first name + last initial)
+    var parts=m.name.split(' ');
+    var key=parts.map(function(p){return p[0]||'';}).join('').slice(0,3).toUpperCase();
+    return {key:key, name:m.name, role:m.role, company:m.company, isCus:m.company!==(DATA.team||[]).find(function(t){return t.company==='Salesforce';})?true:false};
+  });
+}
+function raciVal(row, key){
+  // Support both new format (row.values[key]) and old format (row[key])
+  if(row.values) return row.values[key]||'';
+  return row[key]||'';
+}
+function setRaciVal(ri, key, val){
+  if(!DATA.raci[ri].values) {
+    // Migrate old format to new
+    DATA.raci[ri].values={};
+    ['M','F','J','R','K','B'].forEach(function(k){ if(DATA.raci[ri][k]) DATA.raci[ri].values[k]=DATA.raci[ri][k]; });
+  }
+  DATA.raci[ri].values[key]=val;
+}
 function rRaci(){
-  var cols=[{k:'M',l:'Maarten'},{k:'F',l:'Francis'},{k:'J',l:'Jeroen'},{k:'R',l:'Robin'},{k:'K',l:'Koen'},{k:'B',l:e(CUS().name),g:true}];
-  var vals=['R','A','C','I'];
+  var cols=getRaciCols();
+  var vals=['R','A','C','I','—'];
+  var valColors={'R':'#4caf82','A':'var(--accent)','C':'#4a9eff','I':'var(--text-muted)','—':'var(--border)'};
+
+  if(!cols.length){
+    return '<div class="col g24"><div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1></div>'
+      +'<div class="card-el" style="padding:32px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:32px;margin-bottom:8px">&#9673;</div>'
+      +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No team members yet</div>'
+      +'<div style="font-size:13px">Add team members on the Team page first — each person becomes a RACI column.</div>'
+      +(canEdit()?'<div style="margin-top:16px"><button class="btn-primary" onclick="navigate(\'team\')">Go to Team &rarr;</button></div>':'')
+      +'</div></div>';
+  }
+
   var rows=(DATA.raci||[]).map(function(row,ri){
-    var cells=cols.map(function(c){
+    var cells=cols.map(function(col){
+      var v=raciVal(row,col.key)||'—';
       if(canEdit()){
-        return '<td style="text-align:center"><select onchange="DATA.raci['+ri+'][\''+c.k+'\']=this.value;autoSave()" style="width:60px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(row[c.k]==='R'?'#4caf82':row[c.k]==='A'?'var(--accent)':row[c.k]==='C'?'#4a9eff':'var(--text-muted)')+';">'
-          +vals.map(function(v){return '<option'+(v===row[c.k]?' selected':'')+'>'+v+'</option>';}).join('')+'</select></td>';
+        var col2=valColors[v]||'var(--text-muted)';
+        return '<td style="text-align:center;padding:8px 6px"><select onchange="setRaciVal('+ri+',\''+col.key+'\',this.value);navigate(\'raci\');autoSave()" style="width:54px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+col2+';">'
+          +vals.map(function(vv){return '<option style="color:'+(valColors[vv]||'inherit')+'"'+(vv===v?' selected':'')+'>'+vv+'</option>';}).join('')+'</select></td>';
       }
-      return '<td style="text-align:center"><span class="r-'+row[c.k]+'" style="font-family:var(--font-head);font-size:13px">'+row[c.k]+'</span></td>';
+      return '<td style="text-align:center;padding:8px 6px"><span style="font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(valColors[v]||'var(--text-muted)')+'">'+v+'</span></td>';
     }).join('');
-    return '<tr><td style="min-width:220px">'+e(row.a)
+    return '<tr><td style="min-width:220px;padding:8px 12px">'+e(row.a)
       +(canEdit()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick="deleteRaciRow('+ri+')">&#10005;</button>':'')
       +'</td>'+cells+'</tr>';
   }).join('');
-  var legend=[['R','r-R','Responsible'],['A','r-A','Accountable'],['C','r-C','Consulted'],['I','r-I','Informed']].map(function(x){
-    return '<div class="row center g6" style="font-size:13px;color:var(--text-muted)"><span class="'+x[1]+'" style="font-family:var(--font-head);font-weight:700">'+x[0]+'</span><span>'+x[2]+'</span></div>';
+
+  // Column headers with company colour differentiation
+  var headers=cols.map(function(col){
+    var sfColor='#4a9eff', cusColor='var(--accent)';
+    var color=col.company==='Salesforce'?sfColor:cusColor;
+    return '<th style="text-align:center;padding:8px 6px;min-width:64px">'
+      +'<div style="font-size:10px;font-weight:700;color:'+color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px" title="'+e(col.name)+' — '+e(col.role)+'">'+e(col.name.split(' ')[0])+'</div>'
+      +'<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">'+e(col.key)+'</div>'
+      +'</th>';
   }).join('');
+
+  var legend=[['R','#4caf82','Responsible'],['A','var(--accent)','Accountable'],['C','#4a9eff','Consulted'],['I','var(--text-muted)','Informed']].map(function(x){
+    return '<div class="row center g6" style="font-size:13px;color:var(--text-muted)"><span style="font-family:var(--font-head);font-weight:700;color:'+x[1]+'">'+x[0]+'</span><span>'+x[2]+'</span></div>';
+  }).join('');
+
   return '<div class="col g24">'
     +'<div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1>'
     +'<div class="row wrap g16" style="margin-top:12px">'+legend+'</div>'
     +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick="addRaciRow()">+ Add Activity</button>':'')+'</div>'
-    +'<div class="overflow-x"><table><thead><tr><th style="min-width:220px">Activity</th>'
-    +cols.map(function(c){return '<th style="text-align:center;color:'+(c.g?'var(--accent)':'#4a9eff')+'">'+c.l+'</th>';}).join('')
+    +'<div class="overflow-x"><table><thead><tr>'
+    +'<th style="min-width:220px;padding:8px 12px">Activity</th>'
+    +headers
     +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function addRaciRow(){
-  showModal('<div class="modal"><h3>Add RACI Activity</h3>'
-    +'<div class="form-group"><label>Activity Name</label><input id="m-act"></div>'
-    +'<div class="form-row">'
-    +['M:Maarten','F:Francis','J:Jeroen','R:Robin','K:Koen','B:'+CUS().name].map(function(x){
-      var kl=x.split(':');
-      return '<div class="form-group"><label>'+kl[1]+'</label><select id="m-'+kl[0]+'">'
-        +['R','A','C','I'].map(function(v){return '<option'+(v==='I'?' selected':'')+'>'+v+'</option>';}).join('')
-        +'</select></div>';
-    }).join('')+'</div>'
+  var cols=getRaciCols();
+  var selects=cols.map(function(col){
+    return '<div class="form-group"><label style="font-size:12px">'+e(col.name.split(' ')[0])+'<span style="color:var(--text-muted);font-size:10px"> ('+e(col.key)+')</span></label>'
+      +'<select id="rc-'+col.key+'" style="font-family:var(--font-head);font-weight:700">'
+      +['—','R','A','C','I'].map(function(v){return '<option'+(v==='—'?' selected':'')+'>'+v+'</option>';}).join('')
+      +'</select></div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>Add RACI Activity</h3>'
+    +'<div class="form-group"><label>Activity Name</label><input id="m-act" placeholder="e.g. Use case documentation"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:4px">'+selects+'</div>'
     +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
     +'<button class="btn-primary" onclick="saveRaciRow()">Add</button></div></div>');
 }
 function saveRaciRow(){
-  DATA.raci.push({a:document.getElementById('m-act').value,M:document.getElementById('m-M').value,F:document.getElementById('m-F').value,J:document.getElementById('m-J').value,R:document.getElementById('m-R').value,K:document.getElementById('m-K').value,B:document.getElementById('m-B').value});
+  var cols=getRaciCols();
+  var values={};
+  cols.forEach(function(col){ var el=document.getElementById('rc-'+col.key); if(el) values[col.key]=el.value; });
+  DATA.raci.push({a:document.getElementById('m-act').value, values:values});
+  closeModal();navigate('raci');autoSave();
+}
+function editRaciRow(ri){
+  var row=DATA.raci[ri]; if(!row) return;
+  var cols=getRaciCols();
+  var selects=cols.map(function(col){
+    var cur=raciVal(row,col.key)||'—';
+    return '<div class="form-group"><label style="font-size:12px">'+e(col.name.split(' ')[0])+'<span style="color:var(--text-muted);font-size:10px"> ('+e(col.key)+')</span></label>'
+      +'<select id="rc-'+col.key+'" style="font-family:var(--font-head);font-weight:700">'
+      +['—','R','A','C','I'].map(function(v){return '<option'+(v===cur?' selected':'')+'>'+v+'</option>';}).join('')
+      +'</select></div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>Edit Activity</h3>'
+    +'<div class="form-group"><label>Activity Name</label><input id="m-act" value="'+e(row.a||'')+'"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:4px">'+selects+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditRaciRow('+ri+')">Save</button></div></div>');
+}
+function saveEditRaciRow(ri){
+  var cols=getRaciCols();
+  var values={};
+  cols.forEach(function(col){ var el=document.getElementById('rc-'+col.key); if(el) values[col.key]=el.value; });
+  DATA.raci[ri].a=document.getElementById('m-act').value;
+  DATA.raci[ri].values=values;
   closeModal();navigate('raci');autoSave();
 }
 function deleteRaciRow(idx){if(confirm('Delete?')){DATA.raci.splice(idx,1);navigate('raci');autoSave();}}
@@ -3171,6 +3271,14 @@ async function ghLoadData(){
   var statusEl=document.getElementById('gh-status');
   function setS(m,col){ if(statusEl){statusEl.textContent=m;statusEl.style.color=col||'var(--text-muted)';} }
   if(!GH.token){ setS('No token — data not synced','var(--amber)'); return; }
+  // If legacy data.json was already loaded at login, skip new format loading
+  // (user should save once to migrate to new per-customer format)
+  if(window._legacyDataLoaded){
+    setS('✓ Loaded (legacy format — save to migrate)','var(--amber)');
+    syncDATA(); buildSidebar();
+    if(currentPage){ var mc2=document.getElementById('main-content'); if(mc2) mc2.innerHTML=renderPage(currentPage); }
+    return;
+  }
   setS('Syncing…');
   try {
     // Determine which customers to load
@@ -3178,6 +3286,11 @@ async function ghLoadData(){
       if(!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length) return true;
       return currentUser.assignedCustomers.indexOf(cu.id)!==-1;
     });
+    // Remove demo placeholder if real customers exist in files
+    if(cusToLoad.length&&cusToLoad[0].id==='demo'){
+      setS('No customer data found — add a customer to get started','var(--amber)');
+      return;
+    }
     for(var i=0;i<cusToLoad.length;i++){
       try { await ghLoadCustomer(cusToLoad[i].id); }
       catch(e){ console.warn('Could not load '+cusToLoad[i].id+':',e); }
