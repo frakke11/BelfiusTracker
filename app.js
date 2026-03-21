@@ -601,6 +601,14 @@ function goKpis(){ navigate('kpis'); }
 function goRisks(){ navigate('risks'); }
 
 function navigate(page){
+  // Warn if leaving flowchart editor with unsaved changes
+  if(FC.dirty && FC.currentChart!==null && page!=='uc-'+currentPage){
+    if(!confirm('You have unsaved changes in the flowchart.\nLeave without saving?')){
+      return;
+    }
+    FC.dirty=false;
+    if(FC._keyHandler){ document.removeEventListener('keydown',FC._keyHandler); FC._keyHandler=null; }
+  }
   currentPage=page;
   // Only update nav active states — no full sidebar rebuild on every navigation
   updateNavActive();
@@ -2878,7 +2886,8 @@ function deleteUser(u){ if(confirm('Delete user '+u+'?')){ delete USERS[u]; navi
 ════════════════════════════════════════════════════ */
 var FC = { nodes:[], edges:[], lanes:[], svgW:1200, svgH:680, currentChart:null,
   sel:null, dragNode:null, dragOx:0, dragOy:0, connectMode:false, connectFrom:null,
-  hoverNode:null, hoverEdge:null };
+  hoverNode:null, hoverEdge:null,
+  dirty:false, undoStack:[], maxUndo:30 };
 
 function newFC(){
   var ucOpts='<option value="">— None —</option>'+(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'">'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
@@ -2903,10 +2912,48 @@ function createFC(){
 }
 function deleteFC(idx){ if(confirm('Delete?')){DATA.flowcharts.splice(idx,1);navigate('flowchart');autoSave();} }
 
+function fcSnapshot(){
+  // Deep-copy current nodes/edges/lanes onto undo stack
+  FC.undoStack.push(JSON.stringify({nodes:FC.nodes,edges:FC.edges,lanes:FC.lanes}));
+  if(FC.undoStack.length>FC.maxUndo) FC.undoStack.shift();
+}
+function fcUndo(){
+  if(!FC.undoStack.length){ fcSetStatus('Nothing to undo','var(--text-muted)'); return; }
+  var prev=JSON.parse(FC.undoStack.pop());
+  FC.nodes=prev.nodes; FC.edges=prev.edges; FC.lanes=prev.lanes;
+  if(FC.currentChart!==null){
+    DATA.flowcharts[FC.currentChart].nodes=FC.nodes;
+    DATA.flowcharts[FC.currentChart].edges=FC.edges;
+    DATA.flowcharts[FC.currentChart].lanes=FC.lanes;
+  }
+  fcMarkDirty(); drawFC();
+}
+function fcMarkDirty(){
+  FC.dirty=true;
+  var btn=document.getElementById('fc-save-btn');
+  if(btn){ btn.style.background='var(--red)'; btn.textContent='&#9729; Save*'; btn.title='Unsaved changes'; }
+  var lbl=document.getElementById('fc-dirty-lbl');
+  if(lbl){ lbl.textContent='Unsaved changes'; lbl.style.color='var(--red)'; }
+}
+function fcMarkClean(){
+  FC.dirty=false;
+  var btn=document.getElementById('fc-save-btn');
+  if(btn){ btn.style.background=''; btn.innerHTML='&#10004; Saved'; btn.title=''; setTimeout(function(){ if(!FC.dirty&&btn) btn.innerHTML='&#9729; Save'; },1500); }
+  var lbl=document.getElementById('fc-dirty-lbl');
+  if(lbl){ lbl.textContent=''; }
+}
+function fcSetStatus(msg,col){
+  var lbl=document.getElementById('fc-dirty-lbl');
+  if(lbl){ lbl.textContent=msg; lbl.style.color=col||'var(--text-muted)'; setTimeout(function(){if(lbl.textContent===msg)lbl.textContent='';},2000); }
+}
 function openFC(idx){
   var chart=DATA.flowcharts[idx];
-  FC.currentChart=idx; FC.nodes=chart.nodes; FC.edges=chart.edges; FC.lanes=chart.lanes||[];
+  FC.currentChart=idx;
+  FC.nodes=JSON.parse(JSON.stringify(chart.nodes||[]));
+  FC.edges=JSON.parse(JSON.stringify(chart.edges||[]));
+  FC.lanes=JSON.parse(JSON.stringify(chart.lanes||[]));
   FC.sel=null; FC.dragNode=null; FC.connectMode=false; FC.connectFrom=null;
+  FC.dirty=false; FC.undoStack=[];
   document.getElementById('main-content').innerHTML=buildFCEditor(chart.name);
   drawFC();
   bindFC();
@@ -2919,8 +2966,10 @@ function buildFCEditor(name){
     +(canEdit()?'<div style="flex:1;display:flex;align-items:center;gap:6px">'+'<span style="font-size:17px;font-weight:700">'+e(name)+'</span>'+'<button class="btn-icon" style="font-size:11px" onclick="renameFCCurrent()" title="Rename">&#9998;</button></div>':'<h2 style="font-size:17px;font-weight:700;flex:1">'+e(name)+'</h2>')
     +(canEdit()?'<button class="btn-ghost btn-sm" onclick="manageLanes()">&#9776; Lanes</button>'
       +'<button class="btn-ghost btn-sm" id="fc-conn-btn" onclick="toggleConnect()">&#8594; Connect</button>'
+      +'<button class="btn-ghost btn-sm" onclick="fcUndo()" title="Undo last action (Ctrl+Z)">&#8630; Undo</button>'
       +'<button class="btn-ghost btn-sm" onclick="fcDel()">&#10005; Delete</button>':'')
-    +'<button class="btn-primary btn-sm" onclick="saveFC()">&#10004; Save</button>'
+    +'<span id="fc-dirty-lbl" style="font-size:11px;color:var(--red);margin-right:4px"></span>'
+    +'<button id="fc-save-btn" class="btn-primary btn-sm" onclick="saveFC()">&#9729; Save</button>'
     +'</div>'
     +(canEdit()?'<div class="row center g8" style="margin-bottom:12px;flex-wrap:wrap">'
       +'<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Add:</span>'
@@ -3032,9 +3081,10 @@ function toggleConnect(){
 
 function fcDel(){
   if(!FC.sel) return;
+  fcSnapshot();
   FC.nodes=FC.nodes.filter(function(n){return n.id!==FC.sel;});
   FC.edges=FC.edges.filter(function(ed){return ed.id!==FC.sel&&ed.from!==FC.sel&&ed.to!==FC.sel;});
-  FC.sel=null; drawFC(); saveFCData();
+  FC.sel=null; drawFC(); saveFCData(); fcMarkDirty();
 }
 
 function saveFCData(){
@@ -3043,7 +3093,7 @@ function saveFCData(){
   DATA.flowcharts[FC.currentChart].edges=FC.edges;
 }
 
-function saveFC(){ saveFCData(); autoSave(); var btn=document.querySelector('#main-content .btn-primary'); if(btn){var ot=btn.textContent;btn.textContent='✓ Saved';setTimeout(function(){btn.textContent=ot;},1500);} }
+function saveFC(){ saveFCData(); autoSave(); fcMarkClean(); }
 
 function bindFC(){
   var svg=document.getElementById('fc-svg'); if(!svg) return;
@@ -3065,7 +3115,9 @@ function bindFC(){
       } else if(FC.connectFrom&&handle!==FC.connectFrom){
         // Complete connection
         var lbl=prompt('Edge label (optional — press Enter for none):','');
+        fcSnapshot();
         FC.edges.push({id:uid(),from:FC.connectFrom,to:handle,label:lbl||''});
+        fcMarkDirty();
         FC.connectMode=false; FC.connectFrom=null;
         var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.fontWeight='';
         var h=document.getElementById('fc-hint'); if(h) h.textContent='Click canvas to place · Drag to move · Double-click to rename';
@@ -3092,7 +3144,9 @@ function bindFC(){
       // Already have source — clicking destination node body also works
       if(FC.connectMode&&FC.connectFrom&&clickedNid!==FC.connectFrom){
         var lbl=prompt('Edge label (press Enter for none):','');
+        fcSnapshot();
         FC.edges.push({id:uid(),from:FC.connectFrom,to:clickedNid,label:lbl||''});
+        fcMarkDirty();
         FC.connectMode=false; FC.connectFrom=null;
         var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.fontWeight='';
         var h=document.getElementById('fc-hint'); if(h) h.textContent='Click canvas to place · Drag to move · Double-click to rename';
@@ -3108,7 +3162,9 @@ function bindFC(){
       if(_fcPendingShape){
         var w=_fcPendingShape==='diamond'?140:_fcPendingShape==='rounded'?130:_fcPendingShape==='cylinder'?110:140;
         var h2=_fcPendingShape==='diamond'?80:_fcPendingShape==='cylinder'?80:60;
+        fcSnapshot();
         FC.nodes.push({id:uid(),shape:_fcPendingShape,x:Math.max(62,mx-w/2),y:Math.max(0,my-h2/2),w:w,h:h2,label:'New Step'});
+        fcMarkDirty();
         _fcPendingShape=null; var hint=document.getElementById('fc-hint'); if(hint) hint.textContent='Click canvas to place · Drag to move · Double-click to rename';
         FC.sel=FC.nodes[FC.nodes.length-1].id; drawFC(); saveFCData(); return;
       }
@@ -3215,8 +3271,17 @@ function bindFC(){
   });
 
   svg.addEventListener('mouseup',function(){
-    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
+    if(FC.dragNode){ saveFCData(); fcMarkDirty(); FC.dragNode=null; }
   });
+  // Keyboard: Ctrl+Z = undo, Ctrl+S = save
+  var _fcKeyHandler=function(ev){
+    if((ev.ctrlKey||ev.metaKey)&&ev.key==='z'){ ev.preventDefault(); fcUndo(); }
+    if((ev.ctrlKey||ev.metaKey)&&ev.key==='s'){ ev.preventDefault(); saveFC(); }
+  };
+  document.addEventListener('keydown',_fcKeyHandler);
+  // Remove keyboard listener when navigating away
+  FC._keyHandler=_fcKeyHandler;
+
   svg.addEventListener('mouseleave',function(){
     if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
     // Only hide tip if mouse didn't go to the tip itself
@@ -3268,9 +3333,9 @@ function fcHoverEdit(idx, isEdge){
   }
 }
 function fcNodeColor(ndIdx, color){
-  if(FC.nodes[ndIdx]) FC.nodes[ndIdx].fill=color;
+  if(FC.nodes[ndIdx]){ fcSnapshot(); FC.nodes[ndIdx].fill=color; }
   var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
-  drawFC(); saveFCData();
+  drawFC(); saveFCData(); fcMarkDirty();
 }
 function showFCRename(type, idx, current, cx, cy){
   var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
@@ -3288,10 +3353,11 @@ function showFCRename(type, idx, current, cx, cy){
   inp.focus(); inp.select();
   function commit(){
     var val=inp.value;
+    fcSnapshot();
     if(type==='node'||type==='nodeX') FC.nodes[idx].label=val;
     else FC.edges[idx].label=val;
     overlay.remove();
-    drawFC(); saveFCData();
+    drawFC(); saveFCData(); fcMarkDirty();
   }
   inp.addEventListener('keydown',function(ev){
     if(ev.key==='Enter'){commit();}
@@ -3349,7 +3415,7 @@ function saveLanes(){
   if(FC.currentChart!==null){
     DATA.flowcharts[FC.currentChart].lanes=FC.lanes;
   }
-  closeModal(); drawFC(); saveFCData(); autoSave();
+  fcMarkDirty(); closeModal(); drawFC(); saveFCData(); autoSave();
 }
 
 function initFC(){ /* called by navigate — no-op, openFC handles init */ }
