@@ -7,37 +7,23 @@
       "assignedCustomers": [],
       "assignedProjects": []
     },
-    "viewer": {
-      "hash": "1d548e1bb9b4eb1ed1575f7882b7b51239268c0960aeb1a1845489d8be3c3148",
-      "role": "viewer",
-      "name": "Salesforce Viewer",
-      "assignedCustomers": [],
-      "assignedProjects": []
-    },
-    "belfius": {
-      "hash": "e4e6ed92032321d613917d0ee67564b7d97ad0f7bb3620e8fa64e6a9d2e39cd3",
-      "role": "viewer",
-      "name": "Belfius Viewer",
-      "assignedCustomers": [
-        "belfius"
-      ],
-      "assignedProjects": []
-    }
+    "_requests": [
+      {
+        "name": "tet",
+        "username": "test",
+        "email": "test@test.com",
+        "reason": "test",
+        "ts": "2026-03-21T15:09:28.606Z",
+        "status": "pending"
+      }
+    ]
   },
   "customerShells": [
     {
-      "id": "belfius",
-      "name": "Belfius",
-      "logo": "⚡",
-      "brandColor": "#e80953",
-      "fileId": "d5csfnbrnp5ny5tw"
-    },
-    {
-      "id": "argenta",
-      "name": "Argenta",
+      "id": "demo",
+      "name": "Demo Customer",
       "logo": "🏢",
-      "brandColor": "#00a160",
-      "fileId": "70tqy188gdklfgcn"
+      "brandColor": "#0070d2"
     }
   ]
 }
