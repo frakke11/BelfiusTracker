@@ -3390,37 +3390,39 @@ async function ghPutFile(fname, plainPayload, sha, msg){
 
 /* ── Token modal ── */
 function showGhTokenModal(){
-  showModal('<div class="modal"><h3>&#128273; GitHub Token Required</h3>'
-    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.7">'
-    +'To save changes, you need a GitHub Personal Access Token with <strong>repo</strong> write access.<br><br>'
-    +'<strong>How to create one:</strong><br>'
-    +'1. Open <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
-    +'2. Give it a name, set an expiry<br>'
-    +'3. Tick the <strong>repo</strong> checkbox<br>'
-    +'4. Click <strong>Generate token</strong> and copy it here</p>'
+  var existing=GH.token;
+  showModal('<div class="modal"><h3>&#128273; GitHub Token '+(existing?'(Change)':'Required')+'</h3>'
+    +(existing?'<div style="font-size:12px;color:var(--green);margin-bottom:12px;padding:6px 10px;background:rgba(46,132,74,.1);border-radius:4px;border:1px solid rgba(46,132,74,.2)">&#9679; Token currently set — enter a new one to replace it</div>':'')
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.7">'
+    +'A GitHub Personal Access Token with <strong>repo</strong> scope is required to load and save data.<br><br>'
+    +'<strong>Create one at:</strong> <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
+    +'Select expiry → tick <strong>repo</strong> → Generate → copy here.</p>'
     +'<div class="form-group">'
     +'<label>Personal Access Token</label>'
-    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off">'
+    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off" style="font-family:monospace">'
     +'</div>'
     +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">'
-    +'&#128274; Saved only to <em>your</em> browser localStorage. Never written into the HTML file.</p>'
+    +'&#128274; Stored only in your browser localStorage — never in the HTML or on any server.</p>'
     +'<div class="modal-actions">'
     +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="btn-primary" onclick="saveGhToken()">Save Token &amp; Continue</button>'
+    +'<button class="btn-primary" onclick="saveGhToken()">Save &amp; Load Data</button>'
     +'</div></div>');
+  setTimeout(function(){ var i=document.getElementById('gh-tok-input'); if(i) i.focus(); },50);
 }
 function saveGhToken(){
   var t = (document.getElementById('gh-tok-input').value||'').trim();
   if(!t){ alert('Please paste your token first.'); return; }
   GH.token = t;
   closeModal();
-  ghSaveData();
+  injectGhBar(true); // rebuild bar to show "clear token" + remove "set token"
+  // Auto-load data now that we have a token
+  ghLoadData();
 }
 function clearGhToken(){
   if(confirm('Remove saved GitHub token from this browser?')){
     localStorage.removeItem('belfius_gh_token');
-    var bar = document.getElementById('gh-bar');
-    if(bar) injectGhBar(true); // rebuild without "clear" button
+    GH.token = '';
+    injectGhBar(true); // rebuild — shows "Set Token" button
   }
 }
 
@@ -3434,17 +3436,32 @@ function injectGhBar(force){
   var bar = document.createElement('div');
   bar.id = 'gh-bar';
   bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
+  var hasToken = !!GH.token;
   bar.innerHTML =
-    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">GitHub Sync</div>'
-    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveData()">&#9729; Save to GitHub</button>'
-    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghLoadData()">&#8635; Pull latest</button>'
+    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">&#128274; GitHub Sync</div>'
+    // Token status row
+    +(hasToken
+      ? '<div style="font-size:10px;color:rgba(255,255,255,.5);margin-bottom:8px;padding:4px 6px;background:rgba(255,255,255,.07);border-radius:4px;display:flex;align-items:center;gap:6px"><span style="color:var(--green)">&#9679;</span> Token set <button onclick="showGhTokenModal()" style="margin-left:auto;background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:10px;padding:0">&#9998; Change</button></div>'
+      : '<div style="margin-bottom:8px"><button class="btn-primary" style="width:100%;font-size:12px;padding:8px;background:rgba(255,165,0,.25);border:1px solid rgba(255,165,0,.5)" onclick="showGhTokenModal()">&#128273; Set GitHub Token</button><div style="font-size:10px;color:rgba(255,165,0,.8);margin-top:4px;text-align:center">Required to save &amp; load data</div></div>')
+    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveCustomer()"'+(hasToken?'':' disabled title="Set token first"')+'>&#9729; Save to GitHub</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghPullLatest()">&#8635; Pull latest</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showImportModal()">&#128229; Import / Restore</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="goUsers()">&#128100; Manage Users</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
-    +(GH.token ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:11px;padding:4px;margin-top:4px;opacity:.6">Clear token</button>' : '');
+    +(hasToken ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:10px;padding:3px;margin-top:4px;opacity:.45">&#10005; Clear token</button>' : '');
   // Insert before the sign-out button
   var signOut = sidebar.querySelector('.btn-ghost[onclick="logout()"]');
   if(signOut) sidebar.insertBefore(bar, signOut);
   else sidebar.appendChild(bar);
+}
+
+/* ── Pull latest — show token modal first if needed ── */
+function ghPullLatest(){
+  if(!GH.token){
+    showGhTokenModal();
+    return;
+  }
+  ghLoadData();
 }
 
 </script>
