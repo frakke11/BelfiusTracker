@@ -1184,7 +1184,6 @@ function rUseCasePage(idx){
       return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:10px 22px;font-size:13px;font-weight:'+(a?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(a?'2px solid var(--accent)':'2px solid transparent')+';color:'+(a?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px">'+t.label+'</button>';
     }).join('')+'</div>';
   var prev=idx>0?idx-1:null, next=idx<(DATA.useCases||[]).length-1?idx+1:null;
-  var ucHealth=calcRAG(uc,idx);
   var content=tab==='overview'?renderUCOverviewTab(uc,idx,ucHealth):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):tab==='acceptance'?renderUCAcceptanceTab(uc,idx):tab==='flowcharts'?renderUCFlowchartsTab(uc,idx):renderUCScopeTab(uc,idx);
   return '<div class="col g0">'
     +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
@@ -1273,6 +1272,7 @@ function renderUCOverviewTab(uc,idx,health){
         +'</div>':'')
       +'</div></div>';
   }).join('');
+  var depsSection=renderDepsSection(uc,idx);
   return healthBar+'<div>'
     +depsSection
     +'<div class="grid2" style="gap:14px;margin-bottom:16px">'
