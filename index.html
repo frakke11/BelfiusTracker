@@ -669,8 +669,8 @@ async function ghFetchUsers(){
       var loaded=JSON.parse(raw);
       if(loaded.users) USERS=loaded.users;
       if(loaded.customers&&loaded.customers.length){
-        // Old format — load everything, mark for migration notice
-        CUSTOMERS=loaded.customers; syncDATA();
+        // Old format — load everything, assign fileIds, mark for migration notice
+        CUSTOMERS=loaded.customers; ensureFileIds(); syncDATA();
         window._legacyDataLoaded=true;
         console.log('[Tracker] Loaded legacy data.json — consider saving to migrate to per-customer files');
         return; // don't also try new format
@@ -687,6 +687,18 @@ async function ghFetchUsers(){
       var raw2=decodeURIComponent(escape(atob(json2.content.replace(/\n/g,''))));
       var loaded2=JSON.parse(raw2);
       if(loaded2.users) USERS=loaded2.users;
+      // Restore customer shells so we know which encrypted files to load
+      if(loaded2.customerShells&&loaded2.customerShells.length){
+        loaded2.customerShells.forEach(function(shell){
+          var idx=CUSTOMERS.findIndex(function(cu){return cu.id===shell.id;});
+          if(idx!==-1){ Object.assign(CUSTOMERS[idx],shell); }
+          else { CUSTOMERS.push(Object.assign({projects:[]},shell)); }
+        });
+        // Remove demo placeholder if we have real customers
+        var di=CUSTOMERS.findIndex(function(cu){return cu.id==='demo';});
+        if(di!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+        ensureFileIds();
+      }
     }catch(e){ console.warn('users.json parse failed:',e); }
   }
 }
@@ -3219,6 +3231,43 @@ function showFCRename(type, idx, current, cx, cy){
 
 function initFC(){ /* called by navigate — no-op, openFC handles init */ }
 
+async function migrateToNewFormat(){
+  if(!GH.token){ showGhTokenModal(); return; }
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
+  setS('Migrating to encrypted files…','var(--amber)');
+  try {
+    ensureFileIds();
+    // Save each customer to its own encrypted file
+    var origIdx=currentCustomerIdx;
+    for(var i=0;i<CUSTOMERS.length;i++){
+      currentCustomerIdx=i; syncDATA();
+      var cus=CUS();
+      setS('Encrypting '+cus.name+'…','var(--amber)');
+      var key=await ghDeriveKey(cus.id);
+      var payload=JSON.stringify({customerData:cus},null,2);
+      var encrypted=await ghEncrypt(key,payload);
+      var fname=ghCusFile(cus.id);
+      var getR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname+'?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
+      var curSha=(getR.ok)?(await getR.json()).sha:null;
+      var body={message:'Migrate '+cus.name+' to encrypted file',content:encrypted,branch:GH.branch};
+      if(curSha) body.sha=curSha;
+      var putR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,{method:'PUT',headers:ghApiHeaders(),body:JSON.stringify(body)});
+      if(!putR.ok) throw new Error('Failed to save '+cus.name);
+    }
+    currentCustomerIdx=origIdx; syncDATA();
+    // Save users.json with customer shells
+    await ghSaveUsers();
+    window._legacyDataLoaded=false;
+    window._migrationPrompted=true;
+    setS('✓ Migration complete! You can now delete data.json from GitHub.','var(--green)');
+    setTimeout(function(){setS('');},8000);
+  } catch(err){
+    console.error('Migration failed:',err);
+    setS('✗ Migration failed: '+err.message,'var(--red)');
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    AUTO-SAVE — debounced commit after every mutation
 ═══════════════════════════════════════════════════ */
@@ -3326,22 +3375,17 @@ function ensureFileIds(){
 }
 
 /* ── Load users.json (plain, just hashes) ── */
-async function ghFetchUsers(){
-  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json'
-         +'?ref='+GH.branch+'&nocache='+Date.now();
-  var res=await fetch(url,{headers:ghApiHeaders()});
-  if(!res.ok) return; // 404 = no saved users yet, use defaults
-  var json=await res.json();
-  var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
-  var loaded=JSON.parse(raw);
-  if(loaded.users) USERS=loaded.users;
-}
 
 /* ── Save users.json (plain) ── */
 async function ghSaveUsers(){
   if(!GH.token) return;
-  var payload=JSON.stringify({users:USERS}, null, 2);
-  await ghPutFile('users.json', payload, GH._usersSha||null, 'Update users');
+  // Save users + customer shells (id, name, logo, fileId) so app knows which files to load
+  var cusShells=CUSTOMERS.map(function(cu){return {id:cu.id,name:cu.name,logo:cu.logo,brandColor:cu.brandColor,fileId:cu.fileId};});
+  var payload=JSON.stringify({users:USERS,customerShells:cusShells}, null, 2);
+  // Get current SHA for users.json
+  var getRes=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
+  var sha=(getRes.ok)?(await getRes.json()).sha:null;
+  await ghPutFile('users.json', payload, sha, 'Update users and customer index');
 }
 
 /* ── Load a single customer's encrypted file ── */
@@ -3432,9 +3476,17 @@ async function ghLoadData(){
   // If legacy data.json was already loaded at login, skip new format loading
   // (user should save once to migrate to new per-customer format)
   if(window._legacyDataLoaded){
-    setS('✓ Loaded (legacy format — save to migrate)','var(--amber)');
-    syncDATA(); buildSidebar();
+    setS('✓ Loaded (legacy format)','var(--amber)');
+    ensureFileIds(); syncDATA(); buildSidebar();
     if(currentPage){ var mc2=document.getElementById('main-content'); if(mc2) mc2.innerHTML=renderPage(currentPage); }
+    // Prompt migration only once per session
+    if(!window._migrationPrompted){
+      window._migrationPrompted=true;
+      setTimeout(function(){
+        var s2=document.getElementById('gh-status');
+        if(s2) s2.innerHTML='&#9888; <a href="#" onclick="migrateToNewFormat()" style="color:var(--amber)">Click to migrate to encrypted files</a>';
+      },2000);
+    }
     return;
   }
   setS('Syncing…');
@@ -3444,11 +3496,13 @@ async function ghLoadData(){
       if(!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length) return true;
       return currentUser.assignedCustomers.indexOf(cu.id)!==-1;
     });
-    // Remove demo placeholder if real customers exist in files
-    if(cusToLoad.length&&cusToLoad[0].id==='demo'){
-      setS('No customer data found — add a customer to get started','var(--amber)');
+    // If only demo placeholder, nothing to load
+    var realCus=cusToLoad.filter(function(cu){return cu.id!=='demo';});
+    if(!realCus.length){
+      setS('No customer data yet — add a customer to get started','var(--amber)');
       return;
     }
+    cusToLoad=realCus;
     for(var i=0;i<cusToLoad.length;i++){
       try { await ghLoadCustomer(cusToLoad[i].id); }
       catch(e){ console.warn('Could not load '+cusToLoad[i].id+':',e); }
