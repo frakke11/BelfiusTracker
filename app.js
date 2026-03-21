@@ -302,8 +302,89 @@ async function ghFetchUsers(){
         var di=CUSTOMERS.findIndex(function(cu){return cu.id==='demo';});
         if(di!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
         ensureFileIds();
+      } else {
+        // No customerShells in users.json — scan repo for data-*.json files
+        // This recovers from a state where users.json was saved without shells
+        console.log('[Tracker] No customerShells in users.json — scanning repo for data files');
+        window._needsRepoScan=true;
       }
     }catch(e){ console.warn('users.json parse failed:',e); }
+  }
+}
+
+/* ── Scan repo for data-*.json files and register them as customer shells ── */
+async function ghScanAndRecoverCustomers(){
+  if(!GH.token) return;
+  try{
+    var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/?ref='+GH.branch+'&nocache='+Date.now();
+    var res=await fetch(url,{headers:ghApiHeaders()});
+    if(!res.ok) return;
+    var files=await res.json();
+    // Find data-*.json files that aren't data-demo.json
+    var dataFiles=files.filter(function(f){
+      return f.name.startsWith('data-')&&f.name.endsWith('.json')&&f.name!=='data-demo.json'&&f.name!=='data.json';
+    });
+    if(!dataFiles.length){ console.warn('[Tracker] No data files found in repo'); return; }
+    console.log('[Tracker] Found data files:', dataFiles.map(function(f){return f.name;}));
+    // For each file, extract the fileId and try to decrypt it
+    // We try customer IDs that might match — check existing CUSTOMERS first,
+    // then try common IDs like 'belfius', 'demo', and finally brute-force by fileId
+    var found=false;
+    for(var fi=0;fi<dataFiles.length;fi++){
+      var fname=dataFiles[fi].name;
+      var fileId=fname.replace('data-','').replace('.json','');
+      // Find a customer whose fileId matches, or create a placeholder
+      var existingCu=CUSTOMERS.find(function(cu){return cu.fileId===fileId;});
+      if(existingCu){
+        await ghLoadCustomer(existingCu.id);
+        found=true;
+        continue;
+      }
+      // Try to load by trying known/common customer IDs
+      var tryIds=['belfius','customer','client','demo2'];
+      var loaded=false;
+      for(var ti=0;ti<tryIds.length;ti++){
+        try{
+          // Temporarily set this fileId on a test customer
+          var testId=tryIds[ti];
+          var testCu=CUSTOMERS.find(function(cu){return cu.id===testId;});
+          if(!testCu){
+            CUSTOMERS.push({id:testId,name:testId,logo:'🏢',fileId:fileId,projects:[]});
+            testCu=CUSTOMERS[CUSTOMERS.length-1];
+          } else {
+            testCu.fileId=fileId;
+          }
+          await ghLoadCustomer(testId);
+          // If we get here without error and have projects, it worked
+          var prjs=(testCu.projects||[]);
+          if(prjs.length>0){
+            console.log('[Tracker] Recovered customer "'+testId+'" from '+fname);
+            // Remove demo placeholder
+            var di=CUSTOMERS.findIndex(function(cu){return cu.id==='demo';});
+            if(di!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+            found=true; loaded=true; break;
+          }
+        }catch(e){ /* try next */ }
+      }
+      if(!loaded){
+        // Last resort: use the fileId itself as the customer ID
+        // This works if the file was originally saved with cusId=fileId
+        try{
+          var cu2={id:fileId,name:'Recovered Customer',logo:'🏢',fileId:fileId,projects:[]};
+          CUSTOMERS.push(cu2);
+          await ghLoadCustomer(fileId);
+          var di2=CUSTOMERS.findIndex(function(cu){return cu.id==='demo';});
+          if(di2!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(di2,1);
+          console.log('[Tracker] Recovered via fileId as cusId: '+fileId);
+          found=true;
+        }catch(e){
+          console.warn('[Tracker] Could not decrypt '+fname+' with any known key combination');
+        }
+      }
+    }
+    if(found){ ensureFileIds(); syncDATA(); buildSidebar(); navigate('overview'); }
+  }catch(err){
+    console.warn('[Tracker] Repo scan failed:',err);
   }
 }
 document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
@@ -720,6 +801,161 @@ function declineRequest(idx){
 }
 function deleteRequest(idx){
   if(confirm('Remove this request?')){ USERS._requests.splice(idx,1); ghSaveUsers(); navigate('users'); }
+}
+
+/* ═══════════════════════════════════════════════════
+   BACKUP & RESTORE
+   Export current data as plain unencrypted JSON.
+   Import restores from a previously exported backup.
+═══════════════════════════════════════════════════ */
+function downloadJSON(filename, obj){
+  var str = JSON.stringify(obj, null, 2);
+  var blob = new Blob([str], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+function showBackupModal(){
+  var customers = CUSTOMERS.filter(function(c){ return c.id!=='demo'; });
+  var ts = new Date().toISOString().slice(0,10);
+
+  var cusRows = customers.map(function(cu, i){
+    var prjCount = (cu.projects||[]).length;
+    var ucCount  = (cu.projects||[]).reduce(function(s,p){return s+(p.useCases||[]).length;},0);
+    return '<div class="card row center g12" style="padding:12px 16px;margin-bottom:8px">'
+      +'<div style="font-size:22px">'+(cu.logo||'🏢')+'</div>'
+      +'<div style="flex:1">'
+      +'<div style="font-weight:600;font-size:14px">'+e(cu.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--text-muted)">'+prjCount+' project'+(prjCount!==1?'s':'')+' &middot; '+ucCount+' use case'+(ucCount!==1?'s':'')+'</div>'
+      +'</div>'
+      +'<button class="btn-ghost btn-sm" onclick="backupSingleCustomer('+i+')">&#11123; Download</button>'
+      +'</div>';
+  }).join('');
+
+  showModal('<div class="modal modal-lg"><h3>&#128230; Backup & Restore</h3>'
+
+    // EXPORT section
+    +'<div style="margin-bottom:20px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">&#11123; Export (Download)</div>'
+    +(customers.length
+      ? cusRows
+        +'<button class="btn-primary" style="width:100%;margin-top:4px" onclick="backupAllCustomers()">&#11123; Download All Customers (one file)</button>'
+      : '<div style="font-size:13px;color:var(--text-muted);padding:12px;text-align:center">No customer data loaded. Pull latest first.</div>'
+    )
+    +'<div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:8px 10px;background:var(--bg-light);border-radius:4px">'
+    +'&#128274; Downloaded files are <strong>plain JSON — not encrypted</strong>. Store them securely on your local machine.'
+    +'</div></div>'
+
+    // IMPORT section
+    +'<div style="border-top:1px solid var(--border);padding-top:16px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">&#11121; Restore from Backup</div>'
+    +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6">'
+    +'Select a previously downloaded backup file. The app will restore the customer data into memory. '
+    +'<strong>Click Save to GitHub afterwards</strong> to persist the restore.</div>'
+    +'<input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="restoreFromFile(this)">'
+    +'<button class="btn-ghost" style="width:100%" onclick="document.getElementById(\'backup-file-input\').click()">&#128194; Choose backup file…</button>'
+    +'<div id="backup-restore-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>'
+    +'</div>'
+
+    +'<div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>');
+}
+
+function backupSingleCustomer(customerArrayIdx){
+  var cu = CUSTOMERS.filter(function(c){return c.id!=='demo';})[customerArrayIdx];
+  if(!cu){ alert('Customer not found.'); return; }
+  var ts = new Date().toISOString().slice(0,10);
+  var filename = 'backup-'+cu.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+ts+'.json';
+  downloadJSON(filename, {
+    backupVersion: 1,
+    exportedAt: new Date().toISOString(),
+    exportedBy: currentUsername||'superadmin',
+    customerData: cu
+  });
+}
+
+function backupAllCustomers(){
+  var customers = CUSTOMERS.filter(function(c){return c.id!=='demo';});
+  if(!customers.length){ alert('No customer data to backup.'); return; }
+  var ts = new Date().toISOString().slice(0,10);
+  downloadJSON('backup-all-'+ts+'.json', {
+    backupVersion: 1,
+    exportedAt: new Date().toISOString(),
+    exportedBy: currentUsername||'superadmin',
+    customers: customers
+  });
+}
+
+function restoreFromFile(input){
+  var file = input.files[0];
+  if(!file) return;
+  var msg = document.getElementById('backup-restore-msg');
+  msg.textContent = 'Reading file…';
+  msg.style.color = 'var(--text-muted)';
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      var data = JSON.parse(e.target.result);
+
+      // Single customer backup: {backupVersion, customerData:{...}}
+      if(data.customerData){
+        var cu = data.customerData;
+        var idx = CUSTOMERS.findIndex(function(c){return c.id===cu.id;});
+        if(idx!==-1) CUSTOMERS[idx] = cu;
+        else CUSTOMERS.push(cu);
+        // Remove demo if we now have real data
+        var di = CUSTOMERS.findIndex(function(c){return c.id==='demo';});
+        if(di!==-1 && CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+        ensureFileIds(); syncDATA(); buildSidebar();
+        msg.textContent = '✓ Restored: '+e(cu.name)+' ('+(cu.projects||[]).length+' project(s)). Click Save to GitHub to persist.';
+        msg.style.color = 'var(--green)';
+        return;
+      }
+
+      // All-customers backup: {backupVersion, customers:[...]}
+      if(data.customers && data.customers.length){
+        data.customers.forEach(function(cu){
+          var idx = CUSTOMERS.findIndex(function(c){return c.id===cu.id;});
+          if(idx!==-1) CUSTOMERS[idx] = cu;
+          else CUSTOMERS.push(cu);
+        });
+        var di = CUSTOMERS.findIndex(function(c){return c.id==='demo';});
+        if(di!==-1 && CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+        ensureFileIds(); syncDATA(); buildSidebar();
+        msg.textContent = '✓ Restored '+data.customers.length+' customer(s). Click Save to GitHub to persist.';
+        msg.style.color = 'var(--green)';
+        return;
+      }
+
+      // Old-format data.json: {users:{...}, customers:[...]}
+      if(data.customers){
+        data.customers.forEach(function(cu){
+          var idx = CUSTOMERS.findIndex(function(c){return c.id===cu.id;});
+          if(idx!==-1) CUSTOMERS[idx] = cu;
+          else CUSTOMERS.push(cu);
+        });
+        var di = CUSTOMERS.findIndex(function(c){return c.id==='demo';});
+        if(di!==-1 && CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+        ensureFileIds(); syncDATA(); buildSidebar();
+        msg.textContent = '✓ Restored (legacy format) '+data.customers.length+' customer(s). Click Save to GitHub to persist.';
+        msg.style.color = 'var(--green)';
+        return;
+      }
+
+      msg.textContent = 'Unrecognised backup format.';
+      msg.style.color = 'var(--red)';
+    } catch(err){
+      msg.textContent = 'Error reading file: '+err.message;
+      msg.style.color = 'var(--red)';
+    }
+  };
+  reader.readAsText(file);
+  // Reset input so same file can be re-selected
+  input.value = '';
 }
 function showImportModal(){
   showModal('<div class="modal modal-lg"><h3>&#128229; Import / Restore Data</h3>'
@@ -3798,6 +4034,19 @@ async function ghLoadData(){
   var statusEl=document.getElementById('gh-status');
   function setS(m,col){ if(statusEl){statusEl.textContent=m;statusEl.style.color=col||'var(--text-muted)';} }
   if(!GH.token){ setS('No token — data not synced','var(--amber)'); return; }
+  // If repo scan needed (users.json had no customerShells), scan now
+  if(window._needsRepoScan){
+    window._needsRepoScan=false;
+    setS('Scanning for data files…','var(--amber)');
+    await ghScanAndRecoverCustomers();
+    // After scan, rebuild sidebar and re-save users with shells
+    if(CUSTOMERS.filter(function(cu){return cu.id!=='demo';}).length){
+      await ghSaveUsers(); // persist the recovered shells
+      setS('✓ Recovered and saved','var(--green)');
+      setTimeout(function(){setS('');},4000);
+      return;
+    }
+  }
   // If legacy data.json was already loaded at login, skip new format loading
   // (user should save once to migrate to new per-customer format)
   if(window._legacyDataLoaded){
@@ -3955,6 +4204,7 @@ function injectGhBar(force){
     +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveCustomer()"'+(hasToken?'':' disabled title="Set token first"')+'>&#9729; Save to GitHub</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghPullLatest()">&#8635; Pull latest</button>'
     +(hasToken?'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showRepoFiles()">&#128193; View Repo Files</button>':'')
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showBackupModal()">&#128230; Backup &amp; Restore</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showImportModal()">&#128229; Import / Restore</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="goUsers()">&#128100; Manage Users</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
