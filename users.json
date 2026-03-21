@@ -14,7 +14,7 @@
         "email": "test@test.com",
         "reason": "test",
         "ts": "2026-03-21T15:09:28.606Z",
-        "status": "pending"
+        "status": "declined"
       }
     ]
   },
@@ -23,7 +23,8 @@
       "id": "demo",
       "name": "Demo Customer",
       "logo": "🏢",
-      "brandColor": "#0070d2"
+      "brandColor": "#0070d2",
+      "fileId": "iyawmqn3bhllc09g"
     }
   ]
 }
