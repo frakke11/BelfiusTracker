@@ -675,6 +675,77 @@ function doImport(){
   }
 }
 
+
+/* ═══════════════════════════════════════════════════
+   RAG HEALTH SCORE
+   Red/Amber/Green per UC, rolled up to project level
+═══════════════════════════════════════════════════ */
+function calcRAG(uc, ucIdx){
+  // Returns {rag:'red'|'amber'|'green', reasons:[]}
+  var red=[], amber=[];
+
+  // Status
+  if(uc.status==='Blocked') red.push('Status: Blocked');
+
+  // Progress
+  var prog=uc.progress||0;
+  if(prog<25&&uc.status!=='Planning') amber.push('Low progress ('+prog+'%)');
+
+  // Overdue milestones
+  var now=new Date();
+  (uc.milestones||[]).forEach(function(m){
+    if(m.date&&new Date(m.date)<now&&(m.progress||0)<100) amber.push('Overdue: '+m.label);
+    if(m.atRisk&&(m.progress||0)<100) amber.push('At risk: '+m.label);
+  });
+
+  // Linked risks
+  (DATA.risks||[]).filter(function(r){return r.linkedUC===ucIdx&&r.status==='Open';})
+    .forEach(function(r){
+      var s=riskScore(r);
+      if(s>=15) red.push('Critical risk: '+r.title);
+      else if(s>=9) amber.push('High risk: '+r.title);
+    });
+
+  // Active blockers
+  (DATA.blockers||[]).filter(function(b){
+    return b.type==='Blocker'&&(b.status==='Blocked'||b.status==='At Risk');
+  }).forEach(function(b){ red.push('Blocker: '+b.item); });
+
+  // Dependencies — blocked by incomplete UC
+  (uc.blockedBy||[]).forEach(function(dep){
+    var up=(DATA.useCases||[])[dep.ucIdx];
+    if(up&&(up.progress||0)<100) amber.push('Waiting on: '+e(up.id));
+  });
+
+  // Acceptance criteria failing
+  (uc.acceptanceCriteria||[]).forEach(function(ac){
+    if(ac.status==='Failing') red.push('AC failing: '+ac.text);
+    else if(ac.status==='Pending') amber.push('AC pending: '+ac.text);
+  });
+
+  var rag=red.length?'red':amber.length?'amber':'green';
+  if(uc.status==='Done') rag='green';
+  return {rag:rag, reasons:red.concat(amber)};
+}
+
+function calcProjectRAG(){
+  var ucs=DATA.useCases||[];
+  if(!ucs.length) return {rag:'green',reasons:[]};
+  var reds=0,ambers=0;
+  ucs.forEach(function(uc,i){var h=calcRAG(uc,i);if(h.rag==='red')reds++;else if(h.rag==='amber')ambers++;});
+  return {rag:reds>0?'red':ambers>0?'amber':'green', reds:reds, ambers:ambers};
+}
+
+function ragBadge(rag, reasons, small){
+  var cfg={
+    red:  {bg:'#c23934',label:'RED',  icon:'&#9679;'},
+    amber:{bg:'#dd7a01',label:'AMBER',icon:'&#9679;'},
+    green:{bg:'#2e844a',label:'GREEN',icon:'&#9679;'}
+  }[rag]||{bg:'#888',label:'?',icon:'&#9679;'};
+  var tip=reasons&&reasons.length?reasons.slice(0,3).join(' · ')+(reasons.length>3?' +more':''):'';
+  var sz=small?'10px':'11px';
+  return '<span title="'+e(tip)+'" style="display:inline-flex;align-items:center;gap:4px;background:'+cfg.bg+';color:#fff;border-radius:4px;padding:'+(small?'2px 6px':'3px 9px')+';font-size:'+sz+';font-weight:700;cursor:'+(tip?'help':'default')+'">'+cfg.icon+' '+cfg.label+'</span>';
+}
 function rOverview(){
   var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length
     +(DATA.risks||[]).filter(function(r){return r.status==='Open';}).length;
@@ -712,7 +783,13 @@ function rOverview(){
     +(canEdit()?'<button onclick="editProject()" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600">&#9998; Edit Project</button>':'')
     +'</div></div>';
 
+  var projRAG=calcProjectRAG();
   var stats='<div class="row wrap g12">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:'+(projRAG.rag==='red'?'rgba(194,57,52,.4)':projRAG.rag==='amber'?'rgba(221,122,1,.4)':'rgba(46,132,74,.3)')+'">'
+    +'<div style="margin-bottom:6px">'+ragBadge(projRAG.rag,[],false)+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Project Health</div>'
+    +(projRAG.reds||projRAG.ambers?'<div style="font-size:10px;color:var(--text-muted);margin-top:3px">'+(projRAG.reds?projRAG.reds+' red ':'')+(projRAG.ambers?projRAG.ambers+' amber':'')+'</div>':'')
+    +'</div>'
     +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick="navigate(\'usecases\')">'
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+totalUCs+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div>'
@@ -749,12 +826,14 @@ function rOverview(){
   var ucCards='<div><div class="sec-title">Use Cases</div><div class="gridA">'
     +(DATA.useCases||[]).map(function(uc,idx){
       var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      var hasDeps=(uc.blockedBy||[]).length>0;
+      var ucH=calcRAG(uc,idx);
       return '<div class="card" style="padding:20px;cursor:pointer" onclick="goUC('+idx+')" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
         +'<div class="row between center" style="gap:10px;margin-bottom:10px">'
         +'<div class="row center g8">'
         +'<div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:11px;color:var(--btn-primary-text);flex-shrink:0">'+e(uc.id)+'</div>'
         +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(uc.title)+'</div>'
-        +'</div>'+badge(uc.status)+'</div>'
+        +'</div>'+badge(uc.status)+' '+ragBadge(calcRAG(uc,idx).rag,[],true)+'</div>'
         +(uc.targetUsers?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">&#128100; '+e(uc.targetUsers)+'</div>':'')
         +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
         +pb(uc.progress)
@@ -876,6 +955,188 @@ function unlinkFCfromUC(fi,ucIdx){
     navigate('uc-'+ucIdx); autoSave();
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════
+   DEPENDENCY TRACKING
+   uc.blockedBy = [{ucIdx, reason}]
+   Shown in UC overview tab and use cases list
+═══════════════════════════════════════════════════ */
+function renderDepsSection(uc, idx){
+  var canE=canEdit();
+  var ucs=DATA.useCases||[];
+  var deps=uc.blockedBy||[];
+
+  // Who does this UC block?
+  var blocks=ucs.map(function(u,i){return {uc:u,i:i};}).filter(function(x){
+    return x.i!==idx&&(x.uc.blockedBy||[]).some(function(d){return d.ucIdx===idx;});
+  });
+
+  if(!deps.length&&!blocks.length&&!canE) return '';
+
+  var depsHtml=deps.map(function(dep,di){
+    var up=ucs[dep.ucIdx];
+    if(!up) return '';
+    var done=(up.progress||0)>=100;
+    return '<div class="card row center g10" style="padding:10px 14px;border-left:3px solid '+(done?'var(--green)':'var(--amber)')+'">'
+      +'<span style="font-size:18px">'+(done?'&#10003;':'&#9650;')+'</span>'
+      +'<div style="flex:1">'
+      +'<div style="font-size:13px;font-weight:600"><span class="badge b-blue" style="font-size:10px;margin-right:6px">'+e(up.id)+'</span>'+e(up.title)+'</div>'
+      +(dep.reason?'<div style="font-size:11px;color:var(--text-muted);margin-top:2px">'+e(dep.reason)+'</div>':'')
+      +'</div>'
+      +'<span style="font-size:11px;color:'+(done?'var(--green)':'var(--amber)')+';font-weight:700">'+(up.progress||0)+'%</span>'
+      +(canE?'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="removeDep('+idx+','+di+')">&#10005;</button>':'')
+      +'</div>';
+  }).join('');
+
+  var blocksHtml=blocks.map(function(x){
+    return '<div class="card row center g10" style="padding:8px 14px;opacity:.8">'
+      +'<span style="font-size:14px">&#9654;</span>'
+      +'<span class="badge b-blue" style="font-size:10px">'+e(x.uc.id)+'</span>'
+      +'<span style="font-size:13px;color:var(--text-dim)">'+e(x.uc.title)+'</span>'
+      +'</div>';
+  }).join('');
+
+  return '<div style="margin-top:16px">'
+    +(deps.length||canE?'<div class="row between center" style="margin-bottom:8px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">&#9650; Blocked by</div>'
+      +(canE?'<button class="btn-icon" style="font-size:11px" onclick="addDep('+idx+')">+ Add</button>':'')
+      +'</div>':'')
+    +(depsHtml||(!deps.length&&canE?'<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">No upstream dependencies</div>':''))
+    +(blocks.length?'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-top:12px;margin-bottom:8px">&#9654; Blocks</div>'+blocksHtml:'')
+    +'</div>';
+}
+function addDep(ucIdx){
+  var ucs=DATA.useCases||[];
+  var options=ucs.map(function(u,i){return {u:u,i:i};})
+    .filter(function(x){return x.i!==ucIdx;})
+    .map(function(x){return '<option value="'+x.i+'">'+e(x.u.id)+' — '+e(x.u.title)+'</option>';}).join('');
+  if(!options){alert('No other use cases to depend on.');return;}
+  showModal('<div class="modal"><h3>Add Dependency</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">This use case is <strong>blocked by</strong> the selected use case.</p>'
+    +'<div class="form-group"><label>Blocked by</label><select id="dep-uc">'+options+'</select></div>'
+    +'<div class="form-group"><label>Reason (optional)</label><input id="dep-reason" placeholder="e.g. Needs auth design first"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveDep('+ucIdx+')">Add Dependency</button></div></div>');
+}
+function saveDep(ucIdx){
+  if(!DATA.useCases[ucIdx].blockedBy) DATA.useCases[ucIdx].blockedBy=[];
+  var depUcIdx=parseInt(document.getElementById('dep-uc').value);
+  var reason=document.getElementById('dep-reason').value;
+  // Prevent circular dependency
+  var target=DATA.useCases[depUcIdx];
+  if((target.blockedBy||[]).some(function(d){return d.ucIdx===ucIdx;})){
+    alert('Circular dependency — '+target.id+' already depends on this UC.');return;
+  }
+  DATA.useCases[ucIdx].blockedBy.push({ucIdx:depUcIdx,reason:reason});
+  closeModal();navigate('uc-'+ucIdx);autoSave();
+}
+function removeDep(ucIdx,di){
+  DATA.useCases[ucIdx].blockedBy.splice(di,1);
+  navigate('uc-'+ucIdx);autoSave();
+}
+function renderUCAcceptanceTab(uc,idx){
+  var canE=canEdit();
+  var ac=uc.acceptanceCriteria||[];
+  var statusColors={Passing:'var(--green)',Failing:'var(--red)',Pending:'var(--text-muted)'};
+  var statusIcons={Passing:'&#10003;',Failing:'&#10007;',Pending:'&#9711;'};
+
+  var summary=ac.length?'<div class="row g10" style="margin-bottom:16px">'
+    +['Passing','Failing','Pending'].map(function(s){
+      var cnt=ac.filter(function(a){return a.status===s;}).length;
+      var col=statusColors[s];
+      return '<div class="card row center g8" style="padding:10px 16px;border-color:'+col+'40">'
+        +'<span style="color:'+col+';font-size:18px">'+statusIcons[s]+'</span>'
+        +'<div><div style="font-weight:700;color:'+col+'">'+cnt+'</div>'
+        +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">'+s+'</div></div>'
+        +'</div>';
+    }).join('')+'</div>':'';
+
+  var rows=ac.map(function(a,ai){
+    var col=statusColors[a.status]||'var(--text-muted)';
+    return '<div class="card" style="padding:14px 18px;border-left:3px solid '+col+';margin-bottom:8px">'
+      +'<div class="row between center wrap" style="gap:12px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--text-dim)">'+e(a.text||'')+'</div>'
+      +(a.notes?'<div style="font-size:12px;color:var(--text-muted);margin-top:4px">'+e(a.notes)+'</div>':'')
+      +(a.linkedStory!==undefined?'<div style="font-size:11px;color:var(--accent);margin-top:4px">&#128279; Story '+(a.linkedStory+1)+'</div>':'')
+      +'</div>'
+      +'<div class="row center g8">'
+      +(canE?'<select onchange="setACStatus('+idx+','+ai+',this.value)" style="font-size:12px;font-weight:700;color:'+col+';padding:4px 8px;border-radius:4px">'
+        +['Pending','Passing','Failing'].map(function(s){return '<option'+(s===a.status?' selected':'')+'>'+s+'</option>';}).join('')
+        +'</select>':'<span class="badge" style="background:'+col+'20;color:'+col+';border:1px solid '+col+'40">'+e(a.status||'Pending')+'</span>')
+      +(canE?'<button class="btn-icon" onclick="editAC('+idx+','+ai+')">&#9998;</button>':'')
+      +(canE?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteAC('+idx+','+ai+')">&#10005;</button>':'')
+      +'</div></div></div>';
+  }).join('');
+
+  return '<div class="col g0">'
+    +'<div class="row between center" style="margin-bottom:16px">'
+    +'<div>'
+    +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Define what must be true for this use case to be accepted as done.</div>'
+    +'</div>'
+    +(canE?'<button class="btn-primary btn-sm" onclick="addAC('+idx+')">+ Add Criterion</button>':'')
+    +'</div>'
+    +summary
+    +(ac.length?rows
+      :'<div class="card-el" style="padding:32px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:32px;margin-bottom:8px">&#10003;</div>'
+      +'<div style="font-size:14px;font-weight:600;margin-bottom:4px">No acceptance criteria yet</div>'
+      +'<div style="font-size:12px">Define what done looks like for this use case.</div>'
+      +(canE?'<div style="margin-top:16px"><button class="btn-primary" onclick="addAC('+idx+')">+ Add Criterion</button></div>':'')
+      +'</div>')
+    +'</div>';
+}
+function addAC(ucIdx){
+  var stories=(DATA.useCases[ucIdx].jobStories||[]);
+  showModal('<div class="modal"><h3>Add Acceptance Criterion</h3>'
+    +'<div class="form-group"><label>Criterion</label><input id="ac-text" placeholder="e.g. Agent responds within 3 seconds"></div>'
+    +'<div class="form-group"><label>Notes / verification method (optional)</label><textarea id="ac-notes" rows="2"></textarea></div>'
+    +(stories.length?'<div class="form-group"><label>Linked Job Story (optional)</label><select id="ac-story"><option value="">— None —</option>'
+      +stories.map(function(js,ji){return '<option value="'+ji+'">Story '+(ji+1)+': '+e((js.story||'').slice(0,60))+'</option>';}).join('')
+      +'</select></div>':'')
+    +'<div class="form-group"><label>Status</label><select id="ac-status">'
+    +['Pending','Passing','Failing'].map(function(s){return '<option>'+s+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAC('+ucIdx+',-1)">Add</button></div></div>');
+}
+function editAC(ucIdx,ai){
+  var a=(DATA.useCases[ucIdx].acceptanceCriteria||[])[ai];
+  var stories=(DATA.useCases[ucIdx].jobStories||[]);
+  showModal('<div class="modal"><h3>Edit Acceptance Criterion</h3>'
+    +'<div class="form-group"><label>Criterion</label><input id="ac-text" value="'+e(a.text||'')+'"></div>'
+    +'<div class="form-group"><label>Notes</label><textarea id="ac-notes" rows="2">'+e(a.notes||'')+'</textarea></div>'
+    +(stories.length?'<div class="form-group"><label>Linked Job Story</label><select id="ac-story"><option value="">— None —</option>'
+      +stories.map(function(js,ji){return '<option value="'+ji+'"'+(a.linkedStory===ji?' selected':'')+'>Story '+(ji+1)+': '+e((js.story||'').slice(0,60))+'</option>';}).join('')
+      +'</select></div>':'')
+    +'<div class="form-group"><label>Status</label><select id="ac-status">'
+    +['Pending','Passing','Failing'].map(function(s){return '<option'+(s===a.status?' selected':'')+'>'+s+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAC('+ucIdx+','+ai+')">Save</button></div></div>');
+}
+function saveAC(ucIdx,ai){
+  if(!DATA.useCases[ucIdx].acceptanceCriteria) DATA.useCases[ucIdx].acceptanceCriteria=[];
+  var stEl=document.getElementById('ac-story');
+  var obj={text:document.getElementById('ac-text').value,notes:document.getElementById('ac-notes').value,
+    status:document.getElementById('ac-status').value,
+    linkedStory:stEl&&stEl.value!==''?parseInt(stEl.value):undefined};
+  if(ai===-1) DATA.useCases[ucIdx].acceptanceCriteria.push(obj);
+  else DATA.useCases[ucIdx].acceptanceCriteria[ai]=obj;
+  closeModal();ucTab[ucIdx]='acceptance';navigate('uc-'+ucIdx);autoSave();
+}
+function setACStatus(ucIdx,ai,val){
+  if(DATA.useCases[ucIdx]&&DATA.useCases[ucIdx].acceptanceCriteria[ai])
+    DATA.useCases[ucIdx].acceptanceCriteria[ai].status=val;
+  recalcUCProgress(ucIdx);autoSave();navigate('uc-'+ucIdx);
+}
+function deleteAC(ucIdx,ai){
+  if(confirm('Delete criterion?')){DATA.useCases[ucIdx].acceptanceCriteria.splice(ai,1);navigate('uc-'+ucIdx);autoSave();}
+}
 function rUseCasesList(){
   return '<div class="col g16">'
     +'<div class="row between center" style="margin-bottom:4px">'
@@ -884,6 +1145,8 @@ function rUseCasesList(){
     +'</div><div class="gridA">'
     +(DATA.useCases||[]).map(function(uc,idx){
       var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      var hasDeps=(uc.blockedBy||[]).length>0;
+      var ucH=calcRAG(uc,idx);
       return '<div class="card-el" style="padding:0;overflow:hidden;cursor:pointer" onclick="goUC('+idx+')">'
         +'<div style="background:var(--btn-primary);padding:16px 18px">'
         +'<div class="row between center" style="gap:8px">'
@@ -909,13 +1172,16 @@ function rUseCasePage(idx){
   if(!uc) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Use case not found.</div>';
   var tab=ucTab[idx]||'overview';
   var ucFlowcharts=(DATA.flowcharts||[]).filter(function(fc){return fc.ucIdx===idx;});
-  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'},{id:'flowcharts',label:'Flowcharts'+(ucFlowcharts.length?' ('+ucFlowcharts.length+')':'')}];
+  var ucHealth=calcRAG(uc,idx);
+  var acCount=(uc.acceptanceCriteria||[]).length;
+  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'},{id:'acceptance',label:'Acceptance'+(acCount?' ('+acCount+')':'')},{id:'flowcharts',label:'Flowcharts'+(ucFlowcharts.length?' ('+ucFlowcharts.length+')':'')}];
   var tabBar='<div class="row" style="gap:0;border-bottom:2px solid var(--border);margin-bottom:22px">'
     +tabs.map(function(t){var a=tab===t.id;
       return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:10px 22px;font-size:13px;font-weight:'+(a?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(a?'2px solid var(--accent)':'2px solid transparent')+';color:'+(a?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px">'+t.label+'</button>';
     }).join('')+'</div>';
   var prev=idx>0?idx-1:null, next=idx<(DATA.useCases||[]).length-1?idx+1:null;
-  var content=tab==='overview'?renderUCOverviewTab(uc,idx):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):tab==='flowcharts'?renderUCFlowchartsTab(uc,idx):renderUCScopeTab(uc,idx);
+  var ucHealth=calcRAG(uc,idx);
+  var content=tab==='overview'?renderUCOverviewTab(uc,idx,ucHealth):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):tab==='acceptance'?renderUCAcceptanceTab(uc,idx):tab==='flowcharts'?renderUCFlowchartsTab(uc,idx):renderUCScopeTab(uc,idx);
   return '<div class="col g0">'
     +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
     +'<span style="cursor:pointer;color:var(--accent)" onclick="navigate(\'usecases\')">Use Cases</span>'
@@ -926,7 +1192,7 @@ function rUseCasePage(idx){
     +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:20px;color:#fff">'+e(uc.title)+'</div>'
     +'<div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
     +'</div>'
-    +'<div class="row center g10">'+badge(uc.status)
+    +'<div class="row center g10">'+badge(uc.status)+' '+ragBadge(ucHealth.rag,ucHealth.reasons,false)
     +(canEdit()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
       +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
     +'</div></div>'
@@ -951,7 +1217,18 @@ function rUseCases(){ return rUseCasesList(); }
 function setUCTab(idx,tab){ ucTab[idx]=tab; navigate('uc-'+idx); }
 
 /* ── UC Overview Tab ── */
-function renderUCOverviewTab(uc,idx){
+function renderUCOverviewTab(uc,idx,health){
+  // Health summary bar at top of overview
+  var healthBar='';
+  if(health&&health.reasons.length){
+    var col=health.rag==='red'?'var(--red)':health.rag==='amber'?'var(--amber)':'var(--green)';
+    healthBar='<div style="padding:10px 14px;background:'+col+'18;border:1px solid '+col+'40;border-radius:var(--radius-sm);margin-bottom:16px;display:flex;align-items:flex-start;gap:10px">'
+      +ragBadge(health.rag,[],false)
+      +'<div style="font-size:12px;color:var(--text-dim);line-height:1.6">'
+      +health.reasons.map(function(r){return e(r);}).join(' &nbsp;·&nbsp; ')
+      +'</div></div>';
+  }
+
   var canE=canEdit();
   function infoCard(title,value){
     return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
@@ -992,7 +1269,8 @@ function renderUCOverviewTab(uc,idx){
         +'</div>':'')
       +'</div></div>';
   }).join('');
-  return '<div>'
+  return healthBar+'<div>'
+    +depsSection
     +'<div class="grid2" style="gap:14px;margin-bottom:16px">'
     +infoCard('Use Case', '<strong>'+e(uc.title)+'</strong>'+(uc.description?'<div class="rich-view" style="margin-top:6px;font-weight:400">'+richDisplay(uc.description)+'</div>':''))
     +infoCard('Business Priority', richDisplay(uc.businessPriority||'—'))
@@ -3031,14 +3309,14 @@ async function migrateToNewFormat(){
     for(var i=0;i<CUSTOMERS.length;i++){
       currentCustomerIdx=i; syncDATA();
       var cus=CUS();
-      setS('Encrypting '+cus.name+'…','var(--amber)');
+      setS('Encrypting data…','var(--amber)');
       var key=await ghDeriveKey(cus.id);
       var payload=JSON.stringify({customerData:cus},null,2);
       var encrypted=await ghEncrypt(key,payload);
       var fname=ghCusFile(cus.id);
       var getR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname+'?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
       var curSha=(getR.ok)?(await getR.json()).sha:null;
-      var body={message:'Migrate '+cus.name+' to encrypted file',content:encrypted,branch:GH.branch};
+      var body={message:'Update data file — '+new Date().toISOString().slice(0,10),content:encrypted,branch:GH.branch};
       if(curSha) body.sha=curSha;
       var putR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,{method:'PUT',headers:ghApiHeaders(),body:JSON.stringify(body)});
       if(!putR.ok) throw new Error('Failed to save '+cus.name);
@@ -3173,7 +3451,7 @@ async function ghSaveUsers(){
   // Get current SHA for users.json
   var getRes=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
   var sha=(getRes.ok)?(await getRes.json()).sha:null;
-  await ghPutFile('users.json', payload, sha, 'Update users and customer index');
+  await ghPutFile('users.json', payload, sha, 'Update index — '+new Date().toISOString().slice(0,10));
 }
 
 /* ── Load a single customer's encrypted file ── */
@@ -3235,7 +3513,7 @@ async function ghSaveCustomer(silent){
                +'?ref='+GH.branch+'&nocache='+Date.now();
     var getRes=await fetch(getUrl,{headers:ghApiHeaders()});
     var curSha=(getRes.ok)?(await getRes.json()).sha:null;
-    var body={message:'Update '+cus.name+' data — '+new Date().toISOString().slice(0,16).replace('T',' '),
+    var body={message:'Update encrypted data — '+new Date().toISOString().slice(0,16).replace('T',' '),
               content:encrypted, branch:GH.branch};
     if(curSha) body.sha=curSha;
     var putRes=await fetch(
