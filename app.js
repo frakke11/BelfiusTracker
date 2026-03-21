@@ -1,0 +1,3438 @@
+/* ═══════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   RICH TEXT EDITOR — lightweight contenteditable with toolbar
+   Usage: richField(id, initialHtml, rows) → returns HTML string
+   To get value: richGetVal(id) → returns innerHTML
+   Applied to all long textarea fields in modals
+═══════════════════════════════════════════════════════════════ */
+function richField(id, html, rows){
+  var minH=Math.max(60,(rows||3)*22);
+  return '<div class="rich-wrap">'
+    +'<div class="rich-toolbar" data-for="'+id+'">'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'bold\')" title="Bold"><b>B</b></button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'italic\')" title="Italic"><i>I</i></button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'underline\')" title="Underline"><u>U</u></button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'insertUnorderedList\')" title="Bullet list">&#8226; List</button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'insertOrderedList\')" title="Numbered list">1. List</button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'formatBlock\',\'h4\')" title="Heading">H</button>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'formatBlock\',\'p\')" title="Paragraph">P</button>'
+    +'<span style="width:1px;background:var(--border);margin:2px 3px;align-self:stretch"></span>'
+    +'<button type="button" class="rich-btn" onclick="richCmd(\''+id+'\',\'removeFormat\')" title="Clear formatting">&#10005; Clear</button>'
+    +'</div>'
+    +'<div class="rich-editor" id="'+id+'" contenteditable="true" spellcheck="true" style="min-height:'+minH+'px" oninput="richUpdate(\''+id+'\')">'
+    +(html||'')
+    +'</div></div>';
+}
+function richCmd(id, cmd, val){
+  var el=document.getElementById(id); if(!el) return;
+  el.focus();
+  document.execCommand(cmd, false, val||null);
+  el.focus();
+}
+function richGetVal(id){
+  var el=document.getElementById(id); if(!el) return '';
+  return el.innerHTML;
+}
+function richUpdate(id){
+  // Trigger autosave if in-place editor (not modal)
+}
+// Strip HTML tags for plain-text previews
+function stripTags(html){ return (html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+// Helper: render stored rich text safely in display
+function richDisplay(html){
+  if(!html) return '';
+  // Already HTML — just return; e() would escape it
+  return html;
+}
+/* ═══════════════════════════════════════════════════
+   MULTI-TENANT AUTH & USER MANAGEMENT
+   Users stored in data.json, hashed with SHA-256.
+   Roles: superadmin | project_admin | viewer
+   superadmin  — full access + GitHub/user management
+   project_admin — edit assigned customers/projects
+   viewer      — read-only (all or scoped)
+═══════════════════════════════════════════════════ */
+
+// Default users baked in — overridden from data.json on load
+// superadmin/admin2026 · viewer/sf2026 · belfius/bel2026
+// Bootstrap user only — full user list loaded from users.json on login
+// superadmin/admin2026 (change immediately after first login)
+var USERS = {
+  superadmin: { hash:'6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6', role:'superadmin', name:'Super Admin', assignedCustomers:[], assignedProjects:[] }
+};
+
+async function sha256(str){
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+var currentUser = null;   // logged-in user object
+var currentRole = null;   // 'superadmin' | 'project_admin' | 'viewer'
+var currentUsername = null;
+var currentPage = 'overview';
+var currentTheme = 'default';
+var currentCustomerIdx = 0;  // which customer is active
+var currentProjectIdx  = 0;  // which project is active within customer
+
+/* ═══════════════════════════════════════════════════
+   MULTI-TENANT DATA MODEL
+   CUSTOMERS → PROJECTS → (useCases, blockers, kpis, team, raci, meetings, flowcharts)
+═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   CUSTOMERS — loaded from encrypted data-{id}.json files
+   Only the shell is defined here; project data is populated
+   by ghLoadCustomer() after login.
+   To bootstrap a new customer: add an entry with id+name+logo,
+   then use the app to add projects/data and save to GitHub.
+═══════════════════════════════════════════════════ */
+var CUSTOMERS = [
+  // Placeholder — real data loaded from data-{cusId}.json
+  // This ensures the app has a valid structure before GitHub loads
+  {
+    id: 'demo',
+    name: 'Demo Customer',
+    logo: '🏢',
+    brandColor: '#0070d2',
+    projects: [
+      {
+        id: 'demo-project',
+        name: 'New Project',
+        description: '',
+        technologies: ['Agentforce'],
+        useCases: [],
+        blockers: [],
+        kpis: [],
+        team: [],
+        raci: [],
+        meetings: [],
+        flowcharts: [],
+        keyEvents: [],
+        phases: [
+          {name:'Foundation', days:'0–30 days', startDate:'', endDate:'', milestone:'', status:'active'},
+          {name:'Realization', days:'31–60 days', startDate:'', endDate:'', milestone:'', status:'upcoming'},
+          {name:'Deployment', days:'61–90 days', startDate:'', endDate:'', milestone:'', status:'upcoming'}
+        ],
+        execSponsors: []
+      }
+    ]
+  }
+];
+
+// Helpers to get current customer/project data
+function CUS(){ return CUSTOMERS[currentCustomerIdx]||CUSTOMERS[0]; }
+function PRJ(){ return (CUS().projects||[])[currentProjectIdx]||(CUS().projects||[])[0]||{}; }
+// Alias DATA to current project for backward compatibility
+function syncDATA(){ DATA = PRJ(); }
+var DATA = {};
+syncDATA();
+
+
+/* ═══════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════ */
+function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function badge(status){
+  var map={'Open':'b-amber','At Risk':'b-red','In Progress':'b-blue','Done':'b-green','Blocked':'b-red','Not Started':'b-slate','Pending':'b-slate','Due end of March':'b-red','Planning':'b-slate'};
+  return '<span class="badge '+(map[status]||'b-slate')+'">'+e(status)+'</span>';
+}
+function av(name,company){
+  var i=name.split(' ').map(function(w){return w[0]||''}).join('').slice(0,2).toUpperCase();
+  return '<div class="avatar avatar-'+(company==='Salesforce'?'sf':'bel')+'">'+i+'</div>';
+}
+function pb(pct){return '<div class="prog-bar"><div class="prog-fill" style="width:'+Math.min(100,pct)+'%"></div></div>'}
+function adminBar(txt){return isAdmin()?'<div class="admin-bar">&#9998; '+txt+'</div>':''}
+function closeModal(){document.getElementById('modal-container').innerHTML=''}
+function showModal(html){document.getElementById('modal-container').innerHTML='<div class="modal-overlay" onclick="closeModalCheck(event)">'+html+'</div>'}
+function closeModalCheck(ev){if(ev.target.classList.contains('modal-overlay'))closeModal()}
+
+/* ═══════════════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════════════ */
+function hexToHsl(hex){
+  var r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  var max=Math.max(r,g,b), min=Math.min(r,g,b), h,s,l=(max+min)/2;
+  if(max===min){h=s=0;}else{var d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);
+    switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}
+  return [Math.round(h*360),Math.round(s*100),Math.round(l*100)];
+}
+function hslToHex(h,s,l){
+  h/=360;s/=100;l/=100;var r,g,b;
+  if(s===0){r=g=b=l;}else{var hue2rgb=function(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+    var q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);}
+  return '#'+[r,g,b].map(function(x){return Math.round(x*255).toString(16).padStart(2,'0');}).join('');
+}
+function applyCustomerTheme(){
+  var cus=CUS();
+  var base=cus.brandColor||'#005fa3';
+  var hsl=hexToHsl(base);
+  var h=hsl[0],s=hsl[1],l=hsl[2];
+  var isLight=l>50;
+  // Derive palette from single brand color
+  var accent=base;
+  var accentLight=hslToHex(h,Math.min(s+10,100),Math.min(l+15,90));
+  var accentDim=hslToHex(h,s,Math.max(l-15,10));
+  var sidebarBg=hslToHex(h,Math.min(s+5,100),Math.max(l-20,10));
+  var bgLight=hslToHex(h,Math.max(s-30,5),Math.min(l+42,97));
+  var borderAlpha='rgba('+parseInt(base.slice(1,3),16)+','+parseInt(base.slice(3,5),16)+','+parseInt(base.slice(5,7),16)+',.15)';
+  // Inject CSS variables
+  var style=document.getElementById('customer-theme-vars');
+  if(!style){style=document.createElement('style');style.id='customer-theme-vars';document.head.appendChild(style);}
+  style.textContent='body.theme-customer{'
+    +'--accent:'+accent+';--accent-light:'+accentLight+';--accent-dim:'+accentDim+';'
+    +'--bg-light:'+bgLight+';'
+    +'--border:'+borderAlpha+';--border-hover:rgba('+parseInt(base.slice(1,3),16)+','+parseInt(base.slice(3,5),16)+','+parseInt(base.slice(5,7),16)+',.35);'
+    +'--sidebar-bg:'+sidebarBg+';'
+    +'--btn-primary:linear-gradient(135deg,'+accent+','+accentDim+');'
+    +'}';
+  // Update label on both buttons
+  var lbl=document.getElementById('tb-customer-label');
+  if(lbl) lbl.textContent=cus.name||'Customer';
+  // Apply same accent to dark variant
+  var style2=document.getElementById('customer-dark-theme-vars');
+  if(!style2){style2=document.createElement('style');style2.id='customer-dark-theme-vars';document.head.appendChild(style2);}
+  style2.textContent='body.theme-customer-dark{'
+    +'--accent:'+accent+';--accent-light:'+accentLight+';--accent-dim:'+accentDim+';'
+    +'--sidebar-bg:'+sidebarBg+';'
+    +'--btn-primary:linear-gradient(135deg,'+accent+','+accentDim+');'
+    +'--border:rgba('+parseInt(base.slice(1,3),16)+','+parseInt(base.slice(3,5),16)+','+parseInt(base.slice(5,7),16)+',.2);'
+    +'}';
+}
+function setCustDark(){ setTheme('customer-dark'); }
+function setTheme(t){
+  currentTheme=t;
+  document.body.className='theme-'+t+' bg-grid';
+  document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.remove('active');});
+  var el=document.getElementById('tb-'+t);
+  if(el) el.classList.add('active');
+  if(t==='customer'||t==='customer-dark') applyCustomerTheme();
+  if(currentPage) navigate(currentPage);
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════ */
+async function doLogin(){
+  var u = document.getElementById('l-user').value.trim().toLowerCase();
+  var p = document.getElementById('l-pass').value;
+  var er = document.getElementById('l-err');
+  var btn = document.getElementById('l-btn');
+  if(!u||!p){ er.classList.remove('hidden'); er.textContent='Please enter username and password.'; return; }
+  if(btn){ btn.textContent='Checking…'; btn.disabled=true; }
+  // Try fetching latest user list from GitHub first
+  try { await ghFetchUsers(); } catch(e){}
+  var entry = USERS[u];
+  if(!entry){ 
+    if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
+    er.classList.remove('hidden'); er.textContent='Unknown username.'; return; 
+  }
+  var h = await sha256(p);
+  if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
+  if(h !== entry.hash){ 
+    er.classList.remove('hidden'); er.textContent='Incorrect password.'; return; 
+  }
+  er.classList.add('hidden');
+  currentUsername = u;
+  currentUser     = entry;
+  currentRole     = entry.role;
+  // Set default customer/project for scoped users
+  if(entry.assignedCustomers && entry.assignedCustomers.length){
+    var ci = CUSTOMERS.findIndex(function(c){ return entry.assignedCustomers.indexOf(c.id)!==-1; });
+    if(ci!==-1) currentCustomerIdx = ci;
+  }
+  if(entry.assignedProjects && entry.assignedProjects.length){
+    var pi = (CUS().projects||[]).findIndex(function(p){ return entry.assignedProjects.indexOf(p.id)!==-1; });
+    if(pi!==-1) currentProjectIdx = pi;
+  }
+  syncDATA();
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  buildSidebar();
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
+  var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
+  navigate('overview');
+  // Load data for accessible customers after login
+  ghLoadData();
+}
+
+async function ghFetchUsers(){
+  // Try old combined data.json first (migration path)
+  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/data.json'
+         +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res=await fetch(url,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  if(res.ok){
+    try{
+      var json=await res.json();
+      var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+      var loaded=JSON.parse(raw);
+      if(loaded.users) USERS=loaded.users;
+      if(loaded.customers&&loaded.customers.length){
+        // Old format — load everything, assign fileIds, mark for migration notice
+        CUSTOMERS=loaded.customers; ensureFileIds(); syncDATA();
+        window._legacyDataLoaded=true;
+        console.log('[Tracker] Loaded legacy data.json — consider saving to migrate to per-customer files');
+        return; // don't also try new format
+      }
+    }catch(e){ console.warn('data.json parse failed:',e); }
+  }
+  // New format: try users.json
+  var url2='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json'
+           +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res2=await fetch(url2,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  if(res2.ok){
+    try{
+      var json2=await res2.json();
+      var raw2=decodeURIComponent(escape(atob(json2.content.replace(/\n/g,''))));
+      var loaded2=JSON.parse(raw2);
+      if(loaded2.users) USERS=loaded2.users;
+      // Restore customer shells so we know which encrypted files to load
+      if(loaded2.customerShells&&loaded2.customerShells.length){
+        loaded2.customerShells.forEach(function(shell){
+          var idx=CUSTOMERS.findIndex(function(cu){return cu.id===shell.id;});
+          if(idx!==-1){ Object.assign(CUSTOMERS[idx],shell); }
+          else { CUSTOMERS.push(Object.assign({projects:[]},shell)); }
+        });
+        // Remove demo placeholder if we have real customers
+        var di=CUSTOMERS.findIndex(function(cu){return cu.id==='demo';});
+        if(di!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(di,1);
+        ensureFileIds();
+      }
+    }catch(e){ console.warn('users.json parse failed:',e); }
+  }
+}
+document.getElementById('l-pass').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
+document.getElementById('l-user').addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()});
+function logout(){currentRole=null;currentUser=null;currentUsername=null;currentCustomerIdx=0;currentProjectIdx=0;document.getElementById('app-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('l-user').value='';document.getElementById('l-pass').value=''}
+
+/* ═══════════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════════ */
+var NAV_ITEMS=[
+  {id:'overview',   icon:'&#9638;',  label:'Overview'},
+  {id:'usecases',   icon:'&#10830;', label:'Use Cases', hasSubmenu:true},
+  {id:'timeline',   icon:'&#9711;',  label:'Timeline'},
+  {id:'team',       icon:'&#9673;',  label:'Team'},
+  {id:'raci',       icon:'&#9633;',  label:'RACI Matrix', sfOnly:true},
+  {id:'decisions',  icon:'&#128203;',label:'Decisions'},
+  {id:'risks',      icon:'&#9650;',  label:'Risks'},
+  {id:'blockers',   icon:'&#9888;',  label:'Blockers'},
+  {id:'meetings',   icon:'&#9702;',  label:'Cadences', sfOnly:true},
+  {id:'kpis',       icon:'&#9650;',  label:'KPIs'},
+  {id:'flowchart',  icon:'&#10136;', label:'Flowcharts'},
+  {id:'users', icon:'&#128100;', label:'Users', adminOnly:true}
+];
+
+function canEdit(){
+  // superadmin can edit anything
+  if(currentRole==='superadmin') return true;
+  // project_admin can edit if assigned to current project
+  if(currentRole==='project_admin'){
+    var prj=PRJ();
+    if(!currentUser.assignedProjects||!currentUser.assignedProjects.length) return true; // all projects
+    return currentUser.assignedProjects.indexOf(prj.id)!==-1;
+  }
+  return false;
+}
+function isAdmin(){ return canEdit(); } // keep backward compat alias
+function isSuperAdmin(){ return currentRole==='superadmin'; }
+
+var ucSubmenuOpen = true;
+
+function buildSidebar(){
+  syncDATA();
+  var cus=CUS(), prj=PRJ();
+
+  // Role badge
+  var rb=document.getElementById('role-badge-wrap');
+  if(rb) rb.innerHTML='<span class="badge" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);font-size:10px">'+currentRole.replace('_',' ')+'</span>';
+
+  // Header: customer + project switchers
+  var hdr=document.getElementById('sidebar-header');
+  if(hdr){
+    var cusDDHtml='<div style="position:relative;margin-bottom:8px">'
+      +'<div id="cus-dropdown-btn" onclick="toggleCusDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)">'
+      +'<span style="font-size:16px;flex-shrink:0">'+e(cus.logo||'🏢')+'</span>'
+      +'<div style="flex:1;min-width:0"><div style="font-family:var(--font-head);font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(cus.name)+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase">Customer</div></div>'
+      +'<span style="color:rgba(255,255,255,.6);font-size:11px">&#9660;</span></div>'
+      +'<div id="cus-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
+      +CUSTOMERS.map(function(cu,ci){
+        // Security: only show customers the user is assigned to (empty = all)
+        var allowed=!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length||currentUser.assignedCustomers.indexOf(cu.id)!==-1;
+        if(!allowed) return '';
+        var sel=ci===currentCustomerIdx;
+        return '<div onclick="switchCustomer('+ci+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
+          +'<span>'+e(cu.logo||'🏢')+'</span><span style="flex:1;color:var(--text)">'+e(cu.name)+'</span>'
+          +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
+      }).join('')
+      +(isSuperAdmin()?'<div onclick="editCusEntry('+currentCustomerIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">&#9998; Edit Customer</div>':'')
+      +(isSuperAdmin()&&CUSTOMERS.length>1?'<div onclick="deleteCustomer('+currentCustomerIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--red);border-top:1px solid var(--border)">&#10005; Delete Customer</div>':'')
+      +(isSuperAdmin()?'<div onclick="addCustomer()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Customer</div>':'')
+      +'</div></div>';
+
+    var prjDDHtml='<div style="position:relative">'
+      +'<div id="prj-dropdown-btn" onclick="togglePrjDropdown()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)">'
+      +'<div style="width:20px;height:20px;border-radius:4px;background:var(--btn-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.3)" stroke="#fff" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="#fff"/><circle cx="15" cy="10" r="1.5" fill="#fff"/></svg>'
+      +'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:12px;color:rgba(255,255,255,.9);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(prj.name||'No project')+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em">Project</div></div>'
+      +'<span style="color:rgba(255,255,255,.5);font-size:11px">&#9660;</span></div>'
+      +'<div id="prj-dropdown" class="hidden" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">'
+      +(cus.projects||[]).map(function(p,pi){
+        // Security: only show projects the user is assigned to (empty = all)
+        var allowed=!currentUser||!currentUser.assignedProjects||!currentUser.assignedProjects.length||currentUser.assignedProjects.indexOf(p.id)!==-1;
+        if(!allowed) return '';
+        var sel=pi===currentProjectIdx;
+        return '<div onclick="switchProject('+pi+')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;'+(sel?'background:var(--bg-light)':'')+'">'
+          +'<span style="flex:1;color:var(--text)">'+e(p.name)+'</span>'
+          +(sel?'<span style="color:var(--accent)">&#10003;</span>':'')+'</div>';
+      }).join('')
+      +(canEdit()&&(CUS().projects||[]).length>1?'<div onclick="deleteProject('+currentProjectIdx+')" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--red);border-top:1px solid var(--border)">&#10005; Delete Project</div>':'')
+      +(canEdit()?'<div onclick="addProject()" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--accent);border-top:1px solid var(--border)">+ New Project</div>':'')
+      +'</div></div>';
+
+    hdr.innerHTML = cusDDHtml + prjDDHtml;
+  }
+
+  // Nav items — only update active states and UC submenu, avoid full rebuild when possible
+  var items=NAV_ITEMS.filter(function(it){
+    if(it.adminOnly&&!isSuperAdmin()) return false;
+    return true;
+  });
+  var nav=document.getElementById('nav-items');
+  if(!nav) return;
+  var navHtml='';
+  items.forEach(function(it){
+    var isUC=it.hasSubmenu;
+    var ucActive=currentPage==='usecases'||currentPage.startsWith('uc-');
+    var active=(isUC&&ucActive)||(currentPage===it.id);
+    var hasRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length>0;
+    navHtml+='<div class="nav-item'+(active?' active':'')+'" onclick="'+(isUC?'toggleUCSubmenu()':'navigate(\''+it.id+'\')')+'">'
+      +'<span class="nav-icon">'+it.icon+'</span>'
+      +'<span style="flex:1">'+it.label+'</span>'
+      +(it.id==='blockers'&&hasRisk?'<span class="dot-red"></span>':'')
+      +(isUC?'<span style="font-size:10px;display:inline-block;transform:'+(ucSubmenuOpen?'rotate(90deg)':'rotate(0deg)')+'">&#9654;</span>':'')
+      +'</div>';
+    if(isUC&&ucSubmenuOpen){
+      navHtml+='<div>';
+      (DATA.useCases||[]).forEach(function(uc,idx){
+        var a=currentPage==='uc-'+idx;
+        navHtml+='<div class="nav-item'+(a?' active':'')+'" style="padding-left:28px;font-size:12px" onclick="goUC('+idx+')">'
+          +'<span style="font-size:10px;font-weight:700;min-width:28px;color:'+(a?'inherit':'var(--accent)')+'">'+e(uc.id)+'</span>'
+          +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(uc.title)+'</span>'
+          +'</div>';
+      });
+      navHtml+='<div class="nav-item'+(currentPage==='usecases'?' active':'')+'" style="padding-left:28px;font-size:11px;opacity:.7" onclick="navigate(\'usecases\')">&#8230; All</div>';
+      navHtml+='</div>';
+    }
+  });
+  nav.innerHTML=navHtml;
+
+  // GH bar for superadmin (inject once only)
+  if(isSuperAdmin()&&!document.getElementById('gh-bar')) injectGhBar();
+}
+
+// Only update the active state in nav — no full rebuild
+function updateNavActive(){
+  document.querySelectorAll('.nav-item').forEach(function(el){ el.classList.remove('active'); });
+  var page=currentPage;
+  var ucActive=page==='usecases'||page.startsWith('uc-');
+  document.querySelectorAll('.nav-item').forEach(function(el){
+    var oc=el.getAttribute('onclick')||'';
+    if(ucActive&&oc.indexOf('toggleUCSubmenu')!==-1) el.classList.add('active');
+    else if(oc.indexOf("navigate('"+page+"')")!==-1) el.classList.add('active');
+    else if(page.startsWith('uc-')&&oc.indexOf('goUC('+page.replace('uc-','')+')')!==-1) el.classList.add('active');
+  });
+}
+
+function toggleCusDropdown(){
+  var d=document.getElementById('cus-dropdown');
+  if(d){ d.classList.toggle('hidden'); var pd=document.getElementById('prj-dropdown'); if(pd) pd.classList.add('hidden'); }
+}
+function togglePrjDropdown(){
+  var d=document.getElementById('prj-dropdown');
+  if(d){ d.classList.toggle('hidden'); var cd=document.getElementById('cus-dropdown'); if(cd) cd.classList.add('hidden'); }
+}
+document.addEventListener('click',function(ev){
+  var t=ev.target;
+  // Close customer dropdown if click outside both button and dropdown
+  var cb=document.getElementById('cus-dropdown-btn'), cd=document.getElementById('cus-dropdown');
+  if(cd&&!cd.classList.contains('hidden')&&!(cb&&cb.contains(t))&&!(cd&&cd.contains(t))) cd.classList.add('hidden');
+  // Close project dropdown if click outside
+  var pb=document.getElementById('prj-dropdown-btn'), pd=document.getElementById('prj-dropdown');
+  if(pd&&!pd.classList.contains('hidden')&&!(pb&&pb.contains(t))&&!(pd&&pd.contains(t))) pd.classList.add('hidden');
+});
+
+function switchCustomer(idx){
+  // Security check: user must have access to this customer
+  var cu=CUSTOMERS[idx];
+  if(cu&&currentUser&&currentUser.assignedCustomers&&currentUser.assignedCustomers.length){
+    if(currentUser.assignedCustomers.indexOf(cu.id)===-1) return; // no access
+  }
+  currentCustomerIdx=idx; currentProjectIdx=0; syncDATA(); ucTab={};
+  // Auto-select first accessible project
+  var projs=CUS().projects||[];
+  if(currentUser&&currentUser.assignedProjects&&currentUser.assignedProjects.length){
+    var pi=projs.findIndex(function(p){return currentUser.assignedProjects.indexOf(p.id)!==-1;});
+    if(pi!==-1) currentProjectIdx=pi;
+  }
+  syncDATA();
+  buildSidebar();
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
+  var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
+  navigate('overview');
+}
+function switchProject(idx){
+  // Security check
+  var prj=(CUS().projects||[])[idx];
+  if(prj&&currentUser&&currentUser.assignedProjects&&currentUser.assignedProjects.length){
+    if(currentUser.assignedProjects.indexOf(prj.id)===-1) return;
+  }
+  currentProjectIdx=idx; syncDATA(); ucTab={};
+  buildSidebar();
+  if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
+  var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
+  navigate('overview');
+}
+function addCustomer(){
+  showModal('<div class="modal"><h3>New Customer</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Customer Name</label><input id="nc-name" placeholder="e.g. ING Bank"></div>'
+    +'<div class="form-group"><label>Logo (emoji)</label><input id="nc-logo" value="🏢" style="font-size:20px;text-align:center"></div></div>'
+    +'<div class="form-group"><label>Brand Color (single color — we calculate the rest)</label><input type="color" id="nc-color" value="#0070d2" style="width:60px;height:36px;padding:2px;border-radius:4px;cursor:pointer"><span id="nc-color-preview" style="margin-left:12px;font-size:12px;color:var(--text-muted)">Other colors auto-derived</span></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewCustomer()">Create</button></div></div>');
+}
+function saveNewCustomer(){
+  var name=document.getElementById('nc-name').value.trim(); if(!name) return;
+  var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-');
+  CUSTOMERS.push({id:id,name:name,logo:document.getElementById('nc-logo').value||'🏢',brandColor:document.getElementById('nc-color').value||'#0070d2',projects:[]});
+  currentCustomerIdx=CUSTOMERS.length-1; currentProjectIdx=0; syncDATA();
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+function addProject(){
+  var techs=['Agentforce','Einstein AI','Data Cloud','MuleSoft','Slack','Sales Cloud','Service Cloud','Marketing Cloud','Field Service','Commerce Cloud'];
+  showModal('<div class="modal"><h3>New Project</h3>'
+    +'<div class="form-group"><label>Project Name</label><input id="np-name" placeholder="e.g. Agentic Transformation"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="np-desc" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Technologies</label><div class="row wrap g8" style="margin-top:6px">'
+    +techs.map(function(t){return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="np-tech" style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewProject()">Create</button></div></div>');
+}
+function saveNewProject(){
+  var name=document.getElementById('np-name').value.trim(); if(!name) return;
+  var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
+  var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
+  var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
+    useCases:[],blockers:[],risks:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
+  CUS().projects.push(prj); currentProjectIdx=CUS().projects.length-1; syncDATA();
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+function editProject(){
+  var prj=PRJ();
+  var techs=['Agentforce','Einstein AI','Data Cloud','MuleSoft','Slack','Sales Cloud','Service Cloud','Marketing Cloud','Field Service','Commerce Cloud'];
+  showModal('<div class="modal"><h3>Edit Project</h3>'
+    +'<div class="form-group"><label>Project Name</label><input id="ep-name" value="'+e(prj.name||'')+'"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ep-desc" rows="2">'+e(prj.description||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Technologies</label><div class="row wrap g8" style="margin-top:6px">'
+    +techs.map(function(t){var sel=(prj.technologies||[]).indexOf(t)!==-1;
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="ep-tech"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditProject()">Save</button></div></div>');
+}
+function saveEditProject(){
+  var prj=PRJ();
+  prj.name=document.getElementById('ep-name').value;
+  prj.description=document.getElementById('ep-desc').value;
+  var techs=[]; document.querySelectorAll('.ep-tech:checked').forEach(function(cb){techs.push(cb.value);});
+  prj.technologies=techs;
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+
+function deleteCustomer(idx){
+  if(CUSTOMERS.length<=1){alert('Cannot delete the last customer.');return;}
+  if(!confirm('Delete customer "'+CUSTOMERS[idx].name+'" and ALL its projects?')) return;
+  CUSTOMERS.splice(idx,1);
+  currentCustomerIdx=Math.min(currentCustomerIdx,CUSTOMERS.length-1);
+  currentProjectIdx=0; syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview'); autoSave();
+}
+function deleteProject(idx){
+  var projs=CUS().projects||[];
+  if(projs.length<=1){alert('Cannot delete the last project. Delete the customer instead.');return;}
+  if(!confirm('Delete project "'+projs[idx].name+'" and all its data?')) return;
+  projs.splice(idx,1);
+  currentProjectIdx=Math.min(currentProjectIdx,projs.length-1);
+  syncDATA(); ucTab={};
+  buildSidebar(); navigate('overview'); autoSave();
+}
+function editCusEntry(idx){
+  var cus=CUSTOMERS[idx];
+  showModal('<div class="modal"><h3>Edit Customer</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Name</label><input id="ec-name" value="'+e(cus.name||'')+'"></div>'
+    +'<div class="form-group"><label>Logo (emoji)</label><input id="ec-logo" value="'+e(cus.logo||'🏢')+'" style="font-size:20px;text-align:center"></div></div>'
+    +'<div class="form-group"><label>Brand Color</label><input type="color" id="ec-color" value="'+e(cus.brandColor||'#0070d2')+'" style="width:60px;height:36px;padding:2px;border-radius:4px;cursor:pointer"><span style="margin-left:12px;font-size:12px;color:var(--text-muted)">All other colors auto-derived</span></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditCustomer('+idx+')">Save</button></div></div>');
+}
+function saveEditCustomer(idx){
+  CUSTOMERS[idx].name=document.getElementById('ec-name').value;
+  CUSTOMERS[idx].logo=document.getElementById('ec-logo').value;
+  CUSTOMERS[idx].brandColor=document.getElementById('ec-color').value;
+  if(currentTheme==='customer') applyCustomerTheme();
+  closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+function toggleUCSubmenu(){ ucSubmenuOpen=!ucSubmenuOpen; buildSidebar(); }
+function goUC(i){ navigate('uc-'+i); }
+function goTimeline(){ navigate('timeline'); }
+function goUsers(){ navigate('users'); }
+function goKpis(){ navigate('kpis'); }
+function goRisks(){ navigate('risks'); }
+
+function navigate(page){
+  currentPage=page;
+  // Only update nav active states — no full sidebar rebuild on every navigation
+  updateNavActive();
+  var mc=document.getElementById('main-content');
+  mc.innerHTML=renderPage(page);
+  mc.classList.remove('fade-up'); void mc.offsetWidth; mc.classList.add('fade-up');
+  if(page==='flowchart') initFC();
+}
+
+
+function renderPage(page){
+  if(page.startsWith('uc-')){ return rUseCasePage(parseInt(page.replace('uc-',''))); }
+  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,decisions:rDecisions,risks:rRisks,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
+  return (map[page]||rOverview)();
+}
+
+
+
+/* ═══════════════════════════════════════════════════
+   OVERVIEW
+═══════════════════════════════════════════════════ */
+/* ── Import data from pasted JSON (migration / recovery tool) ── */
+function showImportModal(){
+  showModal('<div class="modal modal-lg"><h3>&#128229; Import / Restore Data</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px">'
+    +'Paste the contents of a <strong>data.json</strong> (old format) or <strong>data-{id}.json</strong> (decrypted) file below. '
+    +'The app will detect the format and restore customers, projects, and all data.</p>'
+    +'<div class="form-group"><label>JSON content</label>'
+    +'<textarea id="import-json" rows="10" style="font-family:monospace;font-size:11px" placeholder=\'{"users":{...},"customers":[...]}\' ></textarea></div>'
+    +'<div id="import-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="doImport()">Import</button></div></div>');
+}
+function doImport(){
+  var txt=document.getElementById('import-json').value.trim();
+  var msg=document.getElementById('import-msg');
+  if(!txt){ msg.textContent='Please paste JSON content first.'; msg.style.color='var(--red)'; return; }
+  try{
+    var data=JSON.parse(txt);
+    // Old format: { users:{...}, customers:[...] }
+    if(data.customers&&data.customers.length){
+      if(data.users) USERS=data.users;
+      CUSTOMERS=data.customers;
+      syncDATA();
+      buildSidebar();
+      navigate('overview');
+      msg.textContent='✓ Imported '+data.customers.length+' customer(s) successfully!';
+      msg.style.color='var(--green)';
+      autoSave();
+      setTimeout(function(){ closeModal(); },1500);
+      return;
+    }
+    // New per-customer format: { customerData:{...} }
+    if(data.customerData){
+      var cu=data.customerData;
+      var idx=CUSTOMERS.findIndex(function(c){return c.id===cu.id;});
+      if(idx!==-1) CUSTOMERS[idx]=cu;
+      else CUSTOMERS.push(cu);
+      // Remove demo placeholder if present
+      var demoIdx=CUSTOMERS.findIndex(function(c){return c.id==='demo';});
+      if(demoIdx!==-1&&CUSTOMERS.length>1) CUSTOMERS.splice(demoIdx,1);
+      syncDATA();
+      buildSidebar();
+      navigate('overview');
+      msg.textContent='✓ Imported customer: '+cu.name;
+      msg.style.color='var(--green)';
+      autoSave();
+      setTimeout(function(){ closeModal(); },1500);
+      return;
+    }
+    msg.textContent='Unrecognised format. Expected {customers:[...]} or {customerData:{...}}';
+    msg.style.color='var(--red)';
+  }catch(e){
+    msg.textContent='JSON parse error: '+e.message;
+    msg.style.color='var(--red)';
+  }
+}
+
+function rOverview(){
+  var atRisk=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked';}).length
+    +(DATA.risks||[]).filter(function(r){return r.status==='Open';}).length;
+  var open=(DATA.blockers||[]).filter(function(b){return b.status==='Open';}).length;
+  var totalUCs=(DATA.useCases||[]).length;
+  var doneUCs=(DATA.useCases||[]).filter(function(u){return u.status==='Done';}).length;
+  var avgProgress=totalUCs?Math.round((DATA.useCases||[]).reduce(function(s,u){return s+Number(u.progress||0);},0)/totalUCs):0;
+  var prj=PRJ();
+
+  var heroBanner='<div style="background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border-radius:var(--radius);padding:28px 32px;position:relative;overflow:hidden">'
+    +'<div style="position:absolute;right:-20px;top:-30px;opacity:.12;pointer-events:none">'
+    +'<svg width="240" height="160" viewBox="0 0 240 160" fill="none"><path d="M78 64C83 44 101 29 122 29c25 0 46 15 57 37 9-4 19-5 30-5 37 0 66 30 66 66s-29 66-66 66H48C21 193 0 173 0 147c0-26 20-47 46-51 3-10 12-18 22-22 9-3 18-3 27 1z" fill="white"/></svg></div>'
+    +'<div style="position:absolute;right:80px;bottom:0;pointer-events:none;opacity:.95">'
+    +'<svg width="68" height="85" viewBox="0 0 68 85" fill="none">'
+    +'<ellipse cx="34" cy="72" rx="16" ry="5" fill="rgba(0,0,0,.2)"/>'
+    +'<rect x="20" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
+    +'<rect x="40" y="52" width="8" height="20" rx="4" fill="rgba(255,255,255,.85)"/>'
+    +'<rect x="16" y="27" width="36" height="28" rx="6" fill="white"/>'
+    +'<circle cx="34" cy="19" r="17" fill="white"/>'
+    +'<circle cx="27" cy="17" r="3.5" fill="#0070d2"/><circle cx="41" cy="17" r="3.5" fill="#0070d2"/>'
+    +'<circle cx="28" cy="18" r="1.2" fill="#032d60"/><circle cx="42" cy="18" r="1.2" fill="#032d60"/>'
+    +'<path d="M28 25 Q34 29 40 25" stroke="#0070d2" stroke-width="1.8" stroke-linecap="round" fill="none"/>'
+    +'<rect x="8" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
+    +'<rect x="50" y="32" width="10" height="15" rx="5" fill="rgba(255,255,255,.7)"/>'
+    +'</svg></div>'
+    +'<div style="position:relative;z-index:1;max-width:62%">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
+    +'<h1 style="font-size:26px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:8px">'+e(prj.name||'Agentic Transformation')+'</h1>'
+    +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(prj.description||'Salesforce Agentforce Team')+'</p>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+    +(prj.technologies&&prj.technologies.length?prj.technologies:['Agentforce']).map(function(t){
+      return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+e(t)+'</span>';
+    }).join('')
+    +'</div>'
+    +(canEdit()?'<button onclick="editProject()" style="margin-top:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:var(--radius-sm);padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600">&#9998; Edit Project</button>':'')
+    +'</div></div>';
+
+  var stats='<div class="row wrap g12">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;cursor:pointer" onclick="navigate(\'usecases\')">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--accent)">'+totalUCs+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Use Cases</div>'
+    +'<div style="font-size:10px;color:var(--green);margin-top:3px">'+doneUCs+' done</div></div>'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px">'
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--blue)">'+avgProgress+'%</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
+    +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'risks\')">' 
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
+    +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick="navigate(\'blockers\')">' 
+    +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div>'
+    +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div>'
+    +'<div style="font-size:10px;color:var(--amber);margin-top:3px">click to view</div></div>'
+    +(function(){
+      var now=new Date();
+      var evts=(DATA.keyEvents||[]).filter(function(ev){return ev.date&&new Date(ev.date)>=now;});
+      evts.sort(function(a,b){return a.date.localeCompare(b.date);});
+      var nxt=evts[0];
+      if(!nxt) return '';
+      var dl=Math.round((new Date(nxt.date)-now)/(1000*60*60*24));
+      var card='<div class="card-accent f1" style="padding:16px 20px;min-width:220px;cursor:pointer" onclick="goTimeline()">';
+      card+='<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">&#128197; '+e(nxt.type||'UPCOMING')+'</div>';
+      card+='<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(nxt.date)+(nxt.title?' &mdash; '+e(nxt.title):'')+'</div>';
+      if(nxt.description) card+='<div style="font-size:12px;color:var(--text-muted);margin-top:3px">'+e(nxt.description)+'</div>';
+      card+='<div style="font-size:11px;color:var(--accent);margin-top:4px">'+dl+' days away &rarr;</div>';
+      card+='</div>';
+      return card;
+    })()
+    +'</div>';
+
+  var ucCards='<div><div class="sec-title">Use Cases</div><div class="gridA">'
+    +(DATA.useCases||[]).map(function(uc,idx){
+      var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card" style="padding:20px;cursor:pointer" onclick="goUC('+idx+')" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
+        +'<div class="row between center" style="gap:10px;margin-bottom:10px">'
+        +'<div class="row center g8">'
+        +'<div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--btn-primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:11px;color:var(--btn-primary-text);flex-shrink:0">'+e(uc.id)+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(uc.title)+'</div>'
+        +'</div>'+badge(uc.status)+'</div>'
+        +(uc.targetUsers?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">&#128100; '+e(uc.targetUsers)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
+        +pb(uc.progress)
+        +'<div class="row between" style="margin-top:6px">'
+        +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted)">&#128221; '+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted)">&#9881; scope</span>':'')+'</div>'
+        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span></div>'
+        +'</div>';
+    }).join('')
+    +'</div></div>';
+
+  var riskSection='';
+  if(currentRole!=='viewer'||(currentUser&&!currentUser.assignedCustomers.length)){
+    var risks=(DATA.blockers||[]).filter(function(b){return b.status==='At Risk'||b.status==='Blocked'||b.status==='Not Started';});
+    // Add open risks
+    var openRisks=(DATA.risks||[]).filter(function(r){return r.status==='Open';});
+    if(risks.length){
+      riskSection='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="goRisks()">View risks &rarr;</span></div>'
+        +'<div class="col g8">'
+        +risks.map(function(b){
+          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" onclick="navigate(\'blockers\')">' 
+            +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
+            +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
+            +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'
+            +badge(b.status)+'<span style="font-size:11px;color:var(--accent)">&#8594;</span></div>';
+        }).join('')+'</div></div>';
+    }
+  }
+
+  var phasesData=DATA.phases||[];
+  var now=new Date();
+  var phases='<div>'
+    +'<div class="row between center" style="margin-bottom:14px">'
+    +'<div class="sec-title" style="margin-bottom:0">Phases</div>'
+    +(canEdit()?'<button class="btn-ghost btn-sm" onclick="goTimeline()">Edit phases &rarr;</button>':'')
+    +'</div>'
+    +'<div class="grid3">'
+    +(phasesData.length?phasesData.map(function(ph,i){
+      var icons=['🏗','⚙️','🚀'];
+      var active=ph.status==='active';
+      var dl=ph.endDate?Math.round((new Date(ph.endDate)-now)/(1000*60*60*24)):null;
+      return '<div class="card" style="padding:20px'+(active?';border-left:3px solid var(--accent)':'')+'">'
+        +(active?'<div style="font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
+        +'<div style="font-size:20px;margin-bottom:8px">'+(icons[i]||'📋')+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:17px">'+e(ph.name)+'</div>'
+        +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+e(ph.days||'')+'</div>'
+        +(dl!==null?'<div style="font-size:11px;color:'+(dl>0?'var(--green)':'var(--red)')+';margin-top:3px">'+(dl>0?dl+' days left':Math.abs(dl)+' days ago')+'</div>':'')
+        +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+e(ph.milestone||'')+'</div></div>';
+    }).join(''):'')
+    +'</div></div>';
+
+  return '<div class="col g24">'+heroBanner+stats+ucCards+riskSection+phases+'</div>';
+}
+
+/* ═══════════════════════════════════════════════════
+   USE CASES
+═══════════════════════════════════════════════════ */
+var ucTab={};
+
+
+function renderUCFlowchartsTab(uc,idx){
+  var linked=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx===idx;});
+  var all=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx!==idx;});
+  return '<div class="col g16">'
+    +'<div class="row between center">'
+    +'<div style="font-size:13px;color:var(--text-muted)">Flowcharts linked to this use case</div>'
+    +(canEdit()?'<div class="row g8">'
+      +'<button class="btn-ghost btn-sm" onclick="linkFCtoUC('+idx+')">&#128279; Link Existing</button>'
+      +'<button class="btn-primary btn-sm" onclick="newFCforUC('+idx+')">+ New Flowchart</button>'
+      +'</div>':'')
+    +'</div>'
+    +(linked.length
+      ?'<div class="col g10">'+linked.map(function(x){
+          return '<div class="card row center g14" style="padding:16px 20px;cursor:pointer" onclick="openFC('+x.fi+')">'
+            +'<div style="font-size:28px">&#9875;</div>'
+            +'<div style="flex:1">'
+            +'<div style="font-weight:700;font-size:15px">'+e(x.fc.name)+'</div>'
+            +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+(x.fc.nodes||[]).length+' nodes &middot; '+(x.fc.edges||[]).length+' connections</div>'
+            +'</div>'
+            +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();unlinkFCfromUC('+x.fi+','+idx+')">&#128279;&#10005; Unlink</button>':'')
+            +'<button class="btn-ghost btn-sm" onclick="event.stopPropagation();openFC('+x.fi+')">Open &#8599;</button>'
+            +'</div>';
+        }).join('')+'</div>'
+      :'<div class="card-el" style="padding:32px;text-align:center;color:var(--text-muted)">'
+        +'<div style="font-size:32px;margin-bottom:8px">&#9875;</div>'
+        +'<div style="font-size:14px;font-weight:600;margin-bottom:4px">No flowcharts yet</div>'
+        +'<div style="font-size:12px">Create a new one or link an existing flowchart</div>'
+        +'</div>')
+    +'</div>';
+}
+function newFCforUC(idx){
+  // Create a new flowchart pre-linked to this UC
+  var uc=DATA.useCases[idx];
+  var ucOpts='<option value="">— None —</option>'+(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'"'+(i===idx?' selected':'')+'>'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
+  showModal('<div class="modal"><h3>New Flowchart for '+e(uc.id)+'</h3>'
+    +'<div class="form-group"><label>Name</label><input id="fc-name" value="'+e(uc.id)+' — Process Flow"></div>'
+    +'<div class="form-group"><label>Swim lanes</label><input id="fc-lanes" value="Channel,Agentforce,Data 360,Data"></div>'
+    +'<div class="form-group"><label>Linked Use Case</label><select id="fc-uc">'+ucOpts+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="createFC()">Create</button></div></div>');
+}
+function linkFCtoUC(ucIdx){
+  var unlinked=(DATA.flowcharts||[]).map(function(fc,fi){return {fc:fc,fi:fi};}).filter(function(x){return x.fc.ucIdx!==ucIdx;});
+  if(!unlinked.length){alert('No other flowcharts to link. Create a new one first.');return;}
+  showModal('<div class="modal"><h3>Link Flowchart to Use Case</h3>'
+    +'<div class="form-group"><label>Select Flowchart</label><select id="lk-fc">'
+    +unlinked.map(function(x){return '<option value="'+x.fi+'">'+e(x.fc.name)+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveLinkFCtoUC('+ucIdx+')">Link</button></div></div>');
+}
+function saveLinkFCtoUC(ucIdx){
+  var fi=parseInt(document.getElementById('lk-fc').value);
+  DATA.flowcharts[fi].ucIdx=ucIdx;
+  closeModal(); ucTab[ucIdx]='flowcharts'; navigate('uc-'+ucIdx); autoSave();
+}
+function unlinkFCfromUC(fi,ucIdx){
+  if(confirm('Unlink this flowchart from the use case? The flowchart itself is kept.'))  {
+    DATA.flowcharts[fi].ucIdx=null;
+    navigate('uc-'+ucIdx); autoSave();
+  }
+}
+function rUseCasesList(){
+  return '<div class="col g16">'
+    +'<div class="row between center" style="margin-bottom:4px">'
+    +'<div><div class="label">Committed Deliverables</div><h1 style="font-size:26px;font-weight:800">Use Cases</h1></div>'
+    +(canEdit()?'<button class="btn-primary" onclick="addUC()">+ Add Use Case</button>':'')
+    +'</div><div class="gridA">'
+    +(DATA.useCases||[]).map(function(uc,idx){
+      var ns=(uc.jobStories||[]).length, hs=uc.scope&&(uc.scope.agentRole||uc.scope.channels);
+      return '<div class="card-el" style="padding:0;overflow:hidden;cursor:pointer" onclick="goUC('+idx+')">'
+        +'<div style="background:var(--btn-primary);padding:16px 18px">'
+        +'<div class="row between center" style="gap:8px">'
+        +'<div class="row center g8">'
+        +'<div style="width:34px;height:34px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff">'+e(uc.title)+'</div>'
+        +'</div>'+badge(uc.status)+'</div>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px">'+e(uc.subtitle)+'</div>'
+        +'</div>'
+        +'<div style="height:3px;background:rgba(0,0,0,.08)"><div style="height:3px;background:rgba(255,255,255,.4);width:'+uc.progress+'%"></div></div>'
+        +'<div style="padding:16px 18px">'
+        +(uc.targetUsers?'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">&#128100; <strong>Users:</strong> '+e(uc.targetUsers)+'</div>':'')
+        +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
+        +'<div class="row between center">'
+        +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')+'</div>'
+        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span>'
+        +'</div></div></div>';
+    }).join('')+'</div></div>';
+}
+
+function rUseCasePage(idx){
+  var uc=(DATA.useCases||[])[idx];
+  if(!uc) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Use case not found.</div>';
+  var tab=ucTab[idx]||'overview';
+  var ucFlowcharts=(DATA.flowcharts||[]).filter(function(fc){return fc.ucIdx===idx;});
+  var tabs=[{id:'overview',label:'Overview'},{id:'jobstories',label:'Job Stories'},{id:'scope',label:'Agent Scope'},{id:'flowcharts',label:'Flowcharts'+(ucFlowcharts.length?' ('+ucFlowcharts.length+')':'')}];
+  var tabBar='<div class="row" style="gap:0;border-bottom:2px solid var(--border);margin-bottom:22px">'
+    +tabs.map(function(t){var a=tab===t.id;
+      return '<button onclick="setUCTab('+idx+',\''+t.id+'\')" style="padding:10px 22px;font-size:13px;font-weight:'+(a?'700':'400')+';font-family:var(--font-head);background:transparent;border:none;border-bottom:'+(a?'2px solid var(--accent)':'2px solid transparent')+';color:'+(a?'var(--accent)':'var(--text-muted)')+';cursor:pointer;margin-bottom:-2px">'+t.label+'</button>';
+    }).join('')+'</div>';
+  var prev=idx>0?idx-1:null, next=idx<(DATA.useCases||[]).length-1?idx+1:null;
+  var content=tab==='overview'?renderUCOverviewTab(uc,idx):tab==='jobstories'?renderUCJobStoriesTab(uc,idx):tab==='flowcharts'?renderUCFlowchartsTab(uc,idx):renderUCScopeTab(uc,idx);
+  return '<div class="col g0">'
+    +'<div class="row center g8" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">'
+    +'<span style="cursor:pointer;color:var(--accent)" onclick="navigate(\'usecases\')">Use Cases</span>'
+    +'<span>&#8250;</span><span style="color:var(--text)">'+e(uc.id)+' — '+e(uc.title)+'</span></div>'
+    +'<div style="background:var(--btn-primary);border-radius:var(--radius) var(--radius) 0 0;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+    +'<div class="row center g14">'
+    +'<div style="width:48px;height:48px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:15px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
+    +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:20px;color:#fff">'+e(uc.title)+'</div>'
+    +'<div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:2px">'+e(uc.subtitle)+'</div></div>'
+    +'</div>'
+    +'<div class="row center g10">'+badge(uc.status)
+    +(canEdit()?'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editUC('+idx+')">&#9998; Edit</button>'
+      +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteUC('+idx+')">&#10005;</button>':'')
+    +'</div></div>'
+    +'<div style="height:5px;background:rgba(0,0,0,.1)"><div style="height:5px;background:rgba(255,255,255,.55);width:'+uc.progress+'%"></div></div>'
+    +(canEdit()?'<div style="background:var(--bg-light);padding:10px 20px;border:1px solid var(--border);border-top:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+      +'<span style="font-size:12px;color:var(--text-muted)">Progress:</span>'
+      +'<input type="range" min="0" max="100" value="'+uc.progress+'" oninput="DATA.useCases['+idx+'].progress=this.value;this.nextSibling.textContent=this.value+\'%\';autoSave()" style="width:140px;accent-color:var(--accent)">'
+      +'<span style="font-size:13px;color:var(--accent);font-weight:700;min-width:36px">'+uc.progress+'%</span>'
+      +'<span style="font-size:11px;color:var(--text-muted)">avg of milestones</span>'
+      +'<select onchange="DATA.useCases['+idx+'].status=this.value;autoSave()" style="width:auto">'
+      +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')
+      +'</select></div>':'')
+    +'<div style="background:var(--card-bg);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:24px">'
+    +tabBar+content+'</div>'
+    +'<div class="row between" style="margin-top:20px">'
+    +(prev!==null?'<button class="btn-ghost" onclick="goUC('+prev+')">&larr; '+(DATA.useCases[prev].id)+' '+e(DATA.useCases[prev].title)+'</button>':'<div></div>')
+    +(next!==null?'<button class="btn-ghost" onclick="goUC('+next+')">'+(DATA.useCases[next].id)+' '+e(DATA.useCases[next].title)+' &rarr;</button>':'<div></div>')
+    +'</div></div>';
+}
+
+function rUseCases(){ return rUseCasesList(); }
+function setUCTab(idx,tab){ ucTab[idx]=tab; navigate('uc-'+idx); }
+
+/* ── UC Overview Tab ── */
+function renderUCOverviewTab(uc,idx){
+  var canE=canEdit();
+  function infoCard(title,value){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+      +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
+      +'<div class="rich-view" style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6">'+value+'</div></div>';
+  }
+  // Sort milestones by date for display
+  var sortedMils=(uc.milestones||[]).map(function(m,i){return {m:m,i:i};}).sort(function(a,b){
+    if(!a.m.date&&!b.m.date) return 0; if(!a.m.date) return 1; if(!b.m.date) return -1;
+    return a.m.date.localeCompare(b.m.date);
+  });
+  var mils=sortedMils.map(function(item,si){
+    var m=item.m, mi=item.i;
+    var last=si===sortedMils.length-1;
+    var pct=m.progress||0;
+    var dotColor=pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--border)';
+    var dotFill=pct>=100?'var(--green)':pct>0?'rgba(240,168,67,.3)':'var(--bg)';
+    return '<div class="row g14" style="align-items:flex-start">'
+      +'<div class="col center">'
+      +'<div style="width:14px;height:14px;border-radius:50%;border:2px solid '+dotColor+';background:'+dotFill+';flex-shrink:0;margin-top:3px"></div>'
+      +(!last?'<div class="tl-line"></div>':'')+'</div>'
+      +'<div style="padding-bottom:'+(last?0:16)+'px;flex:1">'
+      +'<div class="row center g8 wrap" style="margin-bottom:4px">'
+      +'<span style="font-size:13px;font-weight:600;color:'+(pct>=100?'var(--text-muted)':'var(--text-dim)')+';text-decoration:'+(pct>=100?'line-through':'none')+'">'+e(m.label)+'</span>'
+      +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
+      +(canE?'<button class="btn-icon" style="font-size:11px" onclick="editMilestone('+idx+','+mi+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteMilestone('+idx+','+mi+')">&#10005;</button>':'')
+      +'</div>'
+      // Progress bar + date row
+      +'<div class="row center g8" style="margin-bottom:4px">'
+      +'<div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:5px;background:'+(pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--accent)')+';width:'+pct+'%;transition:width .5s"></div></div>'
+      +'<span style="font-size:11px;font-weight:700;color:'+(pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--text-muted)')+';min-width:32px;text-align:right">'+pct+'%</span>'
+      +(m.date?'<span style="font-size:11px;color:var(--text-muted);flex-shrink:0">&#128197; '+e(m.date)+'</span>':'')
+      +'</div>'
+      // Assignees
+      +(m.assignees&&m.assignees.length?'<div class="row g4" style="flex-wrap:wrap">'
+        +m.assignees.map(function(a){return '<span style="font-size:10px;padding:1px 7px;background:var(--bg-light);border:1px solid var(--border);border-radius:10px;color:var(--text-muted)">'+e(a)+'</span>';}).join('')
+        +'</div>':'')
+      +'</div></div>';
+  }).join('');
+  return '<div>'
+    +'<div class="grid2" style="gap:14px;margin-bottom:16px">'
+    +infoCard('Use Case', '<strong>'+e(uc.title)+'</strong>'+(uc.description?'<div class="rich-view" style="margin-top:6px;font-weight:400">'+richDisplay(uc.description)+'</div>':''))
+    +infoCard('Business Priority', richDisplay(uc.businessPriority||'—'))
+    +infoCard('Target Users', e(uc.targetUsers||'—'))
+    +infoCard('Expected Outcomes', richDisplay(uc.expectedOutcomes||'—'))
+    +'</div>'
+    +(canE?'<div style="margin-bottom:16px"><button class="btn-primary btn-sm" onclick="editUCOverview('+idx+')">&#9998; Edit Overview</button></div>':'')
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">Milestones</div>'
+    +(mils||'<div style="font-size:13px;color:var(--text-muted)">No milestones yet.</div>')
+    +(canE?'<button class="btn-ghost" style="margin-top:12px;font-size:12px" onclick="addMilestone('+idx+')">+ Add Milestone</button>':'')
+    +'</div></div>';
+}
+
+
+/* ── UC Job Stories Tab ── */
+
+var JS_STATUS_COLORS={'Active':'b-blue','In Progress':'b-amber','Accepted':'b-green','Paused':'b-slate','Declined':'b-red','Done':'b-green'};
+function jsStatusBadge(status){
+  var s=status||'Active';
+  return '<span class="badge '+(JS_STATUS_COLORS[s]||'b-slate')+'" style="font-size:10px">'+e(s)+'</span>';
+}
+function setJSStatus(ucIdx,ji,status){
+  if(DATA.useCases[ucIdx]&&DATA.useCases[ucIdx].jobStories[ji]){
+    DATA.useCases[ucIdx].jobStories[ji].status=status;
+    autoSave();
+    // Re-render to update badge
+    navigate('uc-'+ucIdx);
+  }
+}
+
+function renderUCJobStoriesTab(uc,idx){
+  var stories=uc.jobStories||[];
+  return '<div>'
+    +'<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-bottom:16px;padding:10px 14px;background:var(--bg-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent)">'
+    +'"When (situation/context), I want (motivation/action), so that (outcome/benefit)."</div>'
+    +(stories.length?'<div class="overflow-x"><table><thead><tr>'
+      +'<th style="width:32px">#</th><th>Job Story</th><th>Pain Points</th><th>Desired Outcomes</th><th>Initial KPIs</th><th style="min-width:100px">Status</th>'
+      +(canEdit()?'<th></th>':'')
+      +'</tr></thead><tbody>'
+      +stories.map(function(js,ji){
+        return '<tr><td style="text-align:center;font-weight:700;color:var(--accent)">'+(ji+1)+'</td>'
+          +'<td style="min-width:240px;line-height:1.6"><div class="rich-view">'+richDisplay(js.story||'')+'</div></td>'
+          +'<td style="min-width:150px"><div class="rich-view" style="font-size:12px;line-height:1.5">'+richDisplay(js.painPoints||'')+'</div></td>'
+          +'<td style="min-width:140px;font-size:12px"><div class="rich-view">'+richDisplay(js.desiredOutcomes||'')+'</div></td>'
+          +'<td style="min-width:120px;font-size:12px">'
+          +'<div class="row wrap g4" style="margin-bottom:4px">'
+          +(js.kpiLinks&&js.kpiLinks.length?(js.kpiLinks.map(function(ki){var kp=(DATA.kpis||[])[ki];return kp?'<span class="badge b-blue" style="font-size:9px;cursor:pointer" onclick="goKpis()">'+e(kp.label)+'</span>':'';}).join('')):'')+'</div>'
+          +(js.kpis?'<div style="white-space:pre-line;color:var(--text-muted)">'+e(js.kpis)+'</div>':'')+'</td>'
+          +'<td>'+jsStatusBadge(js.status)+(canEdit()?'<select onchange="setJSStatus('+idx+','+ji+',this.value)" style="width:auto;font-size:11px;margin-top:4px">'+['Active', 'In Progress', 'Accepted', 'Paused', 'Declined', 'Done'].map(function(s){return '<option'+(s===(js.status||'Active')?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')+'</td>'
+          +(canEdit()?'<td><div class="row g4">'
+            +'<button class="btn-icon" style="font-size:11px" onclick="editJobStory('+idx+','+ji+')">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteJobStory('+idx+','+ji+')">&#10005;</button>'
+            +'</div></td>':'')
+          +'</tr>';
+      }).join('')+'</tbody></table></div>'
+      :'<div style="padding:24px;text-align:center;color:var(--text-muted);background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm)">No job stories yet.</div>')
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:14px" onclick="addJobStory('+idx+')">+ Add Job Story</button>':'')
+    +'</div>';
+}
+
+/* ── UC Scope Tab ── */
+function renderUCScopeTab(uc,idx){
+  var sc=uc.scope||{}, flows=sc.relatedFlows||[];
+  function scard(title,content,fullWidth){
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden'+(fullWidth?';grid-column:1/-1':'')+'">'
+      +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">'+title+'</div>'
+      +'<div class="rich-view" style="padding:14px;font-size:13px;color:var(--text-muted);line-height:1.7">'+content+'</div></div>';
+  }
+  return '<div class="col g12">'
+    +'<div class="grid2" style="gap:12px">'
+    +scard('Use Case','<strong style="color:var(--text)">'+e(uc.title)+'</strong>'+(uc.description?'<div class="rich-view" style="margin-top:6px">'+richDisplay(uc.description)+'</div>':''))
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Functional Scope</div>'
+    +'<div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">In Scope</div>'
+    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(sc.functionalScopeIn||'—')+'</div></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">Out of Scope</div>'
+    +'<div style="font-size:13px;color:var(--text-muted);line-height:1.6">'+e(sc.functionalScopeOut||'—')+'</div></div>'
+    +'</div></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
+    +scard('Agent Role',richDisplay(sc.agentRole)||'—')
+    +scard('Channel(s)',e(sc.channels||'—'))
+    +scard('Current Process',richDisplay(sc.currentProcess)||'—')
+    +'</div>'
+    +'<div class="grid2" style="gap:12px">'
+    +scard('Data',richDisplay(sc.data)||'—')
+    +scard('Actions',richDisplay(sc.actions)||'—')
+    +'</div>'
+    +scard('Guardrails Summary',richDisplay(sc.guardrails)||'—',true)
+    +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="background:var(--accent);padding:7px 14px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.08em;text-transform:uppercase">Related Flows</div>'
+    +'<div style="padding:14px">'
+    +(flows.length?flows.map(function(f,fi){
+        return '<div class="row center g10" style="padding:8px 0;border-bottom:1px solid var(--border)">'
+          +'<span style="font-size:16px">&#9875;</span><span style="font-size:13px;flex:1;color:var(--text-dim)">'+e(f.name)+'</span>'
+          +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="editLinkedFlow('+idx+','+fi+')">&#9998;</button>'
+            +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteLinkedFlow('+idx+','+fi+')">&#10005;</button>':'')
+          +'</div>';
+      }).join(''):'<div style="font-size:13px;color:var(--text-muted)">No flows linked yet.</div>')
+    +(canEdit()?'<div class="row g8" style="margin-top:12px">'
+      +'<button class="btn-ghost btn-sm" onclick="addLinkedFlow('+idx+')">+ Link Flow</button>'
+      +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">Open Flowchart Builder</button>'
+      +'</div>':'')
+    +'</div></div>'
+    +(canEdit()?'<div><button class="btn-primary btn-sm" onclick="editUCScope('+idx+')">&#9998; Edit Agent Scope</button></div>':'')
+    +'</div>';
+}
+
+/* ── UC CRUD ── */
+function addUC(){
+  showModal('<div class="modal"><h3>Add Use Case</h3>'
+    +'<div class="form-row"><div class="form-group"><label>ID (auto-generated)</label><input id="m-id" value="'+'UC'+((DATA.useCases||[]).length+1)+'"></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></div></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
+    +'<div class="form-group"><label>Subtitle</label><input id="m-sub"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="0"></div>'
+    +'<div class="form-group"><label>Target Users</label><input id="m-tusers"></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="m-desc" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Business Priority</label><input id="m-bprio"></div>'
+    +'<div class="form-group"><label>Expected Outcomes</label><textarea id="m-outcomes" rows="2"></textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAddUC()">Add</button></div></div>');
+}
+function saveAddUC(){
+  DATA.useCases.push({id:document.getElementById('m-id').value,title:document.getElementById('m-title').value,
+    subtitle:document.getElementById('m-sub').value,description:document.getElementById('m-desc').value,
+    status:document.getElementById('m-status').value,progress:parseInt(document.getElementById('m-prog').value)||0,
+    businessPriority:document.getElementById('m-bprio').value,targetUsers:document.getElementById('m-tusers').value,
+    expectedOutcomes:document.getElementById('m-outcomes').value,jobStories:[],
+    scope:{agentRole:'',channels:'',currentProcess:'',functionalScopeIn:'',functionalScopeOut:'',data:'',actions:'',guardrails:'',relatedFlows:[]},
+    milestones:[]});
+  closeModal();navigate('usecases');autoSave();
+}
+function editUC(idx){
+  var uc=DATA.useCases[idx];
+  showModal('<div class="modal"><h3>Edit Use Case</h3>'
+    +'<div class="form-row"><div class="form-group"><label>ID</label><input id="m-id" value="'+e(uc.id)+'"></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Planning','In Progress','Done','Blocked'].map(function(s){return '<option'+(s===uc.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(uc.title)+'"></div>'
+    +'<div class="form-group"><label>Subtitle</label><input id="m-sub" value="'+e(uc.subtitle||'')+'"></div>'
+    +'<div class="form-group"><label>Progress %</label><input id="m-prog" type="number" value="'+uc.progress+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditUC('+idx+')">Save</button></div></div>');
+}
+function saveEditUC(idx){
+  var uc=DATA.useCases[idx];
+  uc.id=document.getElementById('m-id').value; uc.title=document.getElementById('m-title').value;
+  uc.subtitle=document.getElementById('m-sub').value; uc.status=document.getElementById('m-status').value;
+  uc.progress=parseInt(document.getElementById('m-prog').value)||0;
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function editUCOverview(idx){
+  var uc=DATA.useCases[idx];
+  showModal('<div class="modal"><h3>Edit Overview</h3>'
+    +'<div class="form-group"><label>Description</label>'+richField('m-desc',uc.description||'',3)+'</div>'
+    +'<div class="form-group"><label>Business Priority</label><input id="m-bprio" value="'+e(uc.businessPriority||'')+'"></div>'
+    +'<div class="form-group"><label>Target Users</label><input id="m-tusers" value="'+e(uc.targetUsers||'')+'"></div>'
+    +'<div class="form-group"><label>Expected Outcomes</label>'+richField('m-outcomes',uc.expectedOutcomes||'',2)+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCOverview('+idx+')">Save</button></div></div>');
+}
+function saveUCOverview(idx){
+  var uc=DATA.useCases[idx];
+  uc.description=richGetVal('m-desc')||document.getElementById('m-desc')&&document.getElementById('m-desc').value||'';
+  uc.businessPriority=document.getElementById('m-bprio').value;
+  uc.targetUsers=document.getElementById('m-tusers').value;
+  uc.expectedOutcomes=richGetVal('m-outcomes')||document.getElementById('m-outcomes')&&document.getElementById('m-outcomes').value||'';
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function editUCScope(idx){
+  var sc=DATA.useCases[idx].scope||{};
+  showModal('<div class="modal modal-lg"><h3>Edit Agent Scope</h3>'
+    +'<div class="form-group"><label>Agent Role</label>'+richField('sc-role',sc.agentRole||'',2)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Channel(s)</label><input id="sc-chan" value="'+e(sc.channels||'')+'"></div>'
+    +'<div class="form-group"><label>In Scope</label><input id="sc-in" value="'+e(sc.functionalScopeIn||'')+'"></div></div>'
+    +'<div class="form-group"><label>Out of Scope</label><input id="sc-out" value="'+e(sc.functionalScopeOut||'')+'"></div>'
+    +'<div class="form-group"><label>Current Process</label>'+richField('sc-proc',sc.currentProcess||'',3)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Data</label><textarea id="sc-data" rows="4">'+e(sc.data||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Actions</label><textarea id="sc-acts" rows="4">'+e(sc.actions||'')+'</textarea></div></div>'
+    +'<div class="form-group"><label>Guardrails</label>'+richField('sc-guard',sc.guardrails||'',5)+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveUCScope('+idx+')">Save</button></div></div>');
+}
+function saveUCScope(idx){
+  if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
+  var sc=DATA.useCases[idx].scope;
+  sc.agentRole=richGetVal('sc-role'); sc.channels=document.getElementById('sc-chan').value;
+  sc.functionalScopeIn=document.getElementById('sc-in').value; sc.functionalScopeOut=document.getElementById('sc-out').value;
+  sc.currentProcess=richGetVal('sc-proc'); sc.data=richGetVal('sc-data');
+  sc.actions=richGetVal('sc-acts'); sc.guardrails=richGetVal('sc-guard');
+  closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
+}
+function deleteUC(idx){if(confirm('Delete this use case?')){DATA.useCases.splice(idx,1);navigate('usecases');autoSave();}}
+function milModal(title, vals, saveFn){
+  var teamNames=(DATA.team||[]).map(function(t){return t.name;});
+  var assignees=vals.assignees||[];
+  showModal('<div class="modal"><h3>'+title+'</h3>'
+    +'<div class="form-group"><label>Label</label><input id="m-lbl" value="'+e(vals.label||'')+'" placeholder="Milestone description"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Due Date</label><input id="m-date" type="date" value="'+e(vals.date||'')+'"></div>'
+    +'<div class="form-group"><label>Progress (%)</label>'
+    +'<div class="row center g8" style="margin-top:6px">'
+    +'<input type="range" id="m-prog" min="0" max="100" value="'+e(vals.progress||0)+'" oninput="document.getElementById(\'m-prog-val\').textContent=this.value+\'%\'" style="flex:1;accent-color:var(--accent)">'
+    +'<span id="m-prog-val" style="font-size:13px;font-weight:700;color:var(--accent);min-width:40px">'+e(vals.progress||0)+'%</span>'
+    +'</div></div></div>'
+    +(teamNames.length?'<div class="form-group"><label>Assigned To</label>'
+      +'<div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){
+        var sel=assignees.indexOf(n)!==-1;
+        return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;transition:all .15s">'
+          +'<input type="checkbox" class="m-assignee" value="'+e(n)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(n)+'</label>';
+      }).join('')
+      +'</div></div>':'')
+    +'<div class="form-row" style="align-items:center;gap:12px;margin-top:4px">'
+    +'<div class="form-group row center g8" style="margin-bottom:0"><input type="checkbox" id="m-risk"'+(vals.atRisk?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="m-risk" style="display:inline;margin:0">At Risk</label></div>'
+    +'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+saveFn+'">Save</button></div></div>');
+}
+function getMilFormVals(){
+  var assignees=[]; document.querySelectorAll('.m-assignee:checked').forEach(function(cb){assignees.push(cb.value);});
+  return {label:document.getElementById('m-lbl').value,date:document.getElementById('m-date').value,
+    progress:parseInt(document.getElementById('m-prog').value)||0,
+    atRisk:document.getElementById('m-risk').checked,assignees:assignees};
+}
+function addMilestone(idx){
+  milModal('Add Milestone',{progress:0},'saveMilestone('+idx+')');
+}
+function saveMilestone(idx){
+  var v=getMilFormVals();
+  v.done=v.progress>=100;
+  DATA.useCases[idx].milestones.push(v);
+  sortMilestones(idx);
+  recalcUCProgress(idx);
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function editMilestone(idx,mi){
+  var m=DATA.useCases[idx].milestones[mi];
+  milModal('Edit Milestone',m,'saveEditMilestone('+idx+','+mi+')');
+}
+function saveEditMilestone(idx,mi){
+  var v=getMilFormVals();
+  v.done=v.progress>=100;
+  Object.assign(DATA.useCases[idx].milestones[mi],v);
+  sortMilestones(idx);
+  recalcUCProgress(idx);
+  closeModal();navigate('uc-'+idx);autoSave();
+}
+function deleteMilestone(idx,mi){
+  DATA.useCases[idx].milestones.splice(mi,1);
+  recalcUCProgress(idx);
+  navigate('uc-'+idx);autoSave();
+}
+function toggleMil(idx,mi,v){
+  DATA.useCases[idx].milestones[mi].done=v;
+  DATA.useCases[idx].milestones[mi].progress=v?100:0;
+  recalcUCProgress(idx);
+  autoSave();
+}
+function sortMilestones(idx){
+  DATA.useCases[idx].milestones.sort(function(a,b){
+    if(!a.date&&!b.date) return 0;
+    if(!a.date) return 1;
+    if(!b.date) return -1;
+    return a.date.localeCompare(b.date);
+  });
+}
+function recalcUCProgress(idx){
+  var mils=DATA.useCases[idx].milestones||[];
+  if(!mils.length) return;
+  var avg=Math.round(mils.reduce(function(s,m){return s+(m.progress||0);},0)/mils.length);
+  DATA.useCases[idx].progress=avg;
+}
+
+function addJobStory(idx){
+  showModal('<div class="modal"><h3>Add Job Story</h3>'
+    +'<div class="form-group"><label>Job Story</label>'+richField('js-story','',3)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label>'+richField('js-pain','',3)+'</div>'
+    +'<div class="form-group"><label>Desired Outcomes</label>'+richField('js-out','',3)+'</div></div>'
+    +'<div class="form-group"><label>Link to Project KPIs</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +(DATA.kpis||[]).map(function(kp,ki){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="js-kpi-link" value="'+ki+'" style="width:auto;accent-color:var(--accent)">'+e(kp.label)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Additional KPI notes (free text)</label><input id="js-kpi" placeholder="e.g. Time saved, Avg handling time"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+',-1)">Add</button></div></div>');
+}
+function editJobStory(idx,ji){
+  var js=(DATA.useCases[idx].jobStories||[])[ji]||{};
+  showModal('<div class="modal"><h3>Edit Job Story</h3>'
+    +'<div class="form-group"><label>Job Story</label>'+richField('js-story',js.story||'',3)+'</div>'
+    +'<div class="form-row"><div class="form-group"><label>Pain Points</label>'+richField('js-pain',js.painPoints||'',3)+'</div>'
+    +'<div class="form-group"><label>Desired Outcomes</label>'+richField('js-out',js.desiredOutcomes||'',3)+'</div></div>'
+    +'<div class="form-group"><label>Link to Project KPIs</label>'
+    +'<div class="row wrap g6" style="margin-top:6px">'
+    +(DATA.kpis||[]).map(function(kp,ki){var linked=(js.kpiLinks||[]).indexOf(ki)!==-1;return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid '+(linked?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="js-kpi-link" value="'+ki+'"'+(linked?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(kp.label)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Additional KPI notes (free text)</label><input id="js-kpi" value="'+e(js.kpis||'')+'" placeholder="e.g. Time saved, Avg handling time"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveJobStory('+idx+','+ji+')">Save</button></div></div>');
+}
+function saveJobStory(idx,ji){
+  if(!DATA.useCases[idx].jobStories) DATA.useCases[idx].jobStories=[];
+  var kpiLinks=[]; document.querySelectorAll('.js-kpi-link:checked').forEach(function(cb){kpiLinks.push(parseInt(cb.value));});
+  var statusEl=document.getElementById('js-status');
+  var obj={story:richGetVal('js-story'),painPoints:richGetVal('js-pain'),
+    desiredOutcomes:richGetVal('js-out'),kpis:document.getElementById('js-kpi').value,kpiLinks:kpiLinks,
+    status:statusEl?statusEl.value:'Active'};
+  if(ji===-1) DATA.useCases[idx].jobStories.push(obj); else DATA.useCases[idx].jobStories[ji]=obj;
+  // Update reverse links on KPIs
+  syncKpiLinks();
+  closeModal();ucTab[idx]='jobstories';navigate('uc-'+idx);autoSave();
+}
+function deleteJobStory(idx,ji){if(confirm('Delete?')){DATA.useCases[idx].jobStories.splice(ji,1);navigate('uc-'+idx);autoSave();}}
+function addLinkedFlow(idx){
+  var opts=(DATA.flowcharts||[]).map(function(f){return '<option>'+e(f.name)+'</option>';}).join('');
+  showModal('<div class="modal"><h3>Link Flowchart</h3>'
+    +(opts?'<div class="form-group"><label>Select flowchart</label><select id="lf-sel">'+opts+'</select></div>':'')
+    +'<div class="form-group"><label>Or enter custom name</label><input id="lf-name"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +(opts?'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',true)">Link Selected</button>':'')
+    +'<button class="btn-primary" onclick="saveLinkedFlow('+idx+',false)">Link Custom</button></div></div>');
+}
+function saveLinkedFlow(idx,useSelect){
+  if(!DATA.useCases[idx].scope) DATA.useCases[idx].scope={relatedFlows:[]};
+  if(!DATA.useCases[idx].scope.relatedFlows) DATA.useCases[idx].scope.relatedFlows=[];
+  var sel=document.getElementById('lf-sel'), nm=document.getElementById('lf-name');
+  var name=(useSelect&&sel)?sel.value:(nm?nm.value:'');
+  if(name) DATA.useCases[idx].scope.relatedFlows.push({name:name});
+  closeModal();ucTab[idx]='scope';navigate('uc-'+idx);autoSave();
+}
+function editLinkedFlow(idx,fi){
+  var f=DATA.useCases[idx].scope.relatedFlows[fi];
+  showModal('<div class="modal"><h3>Edit Flow Link</h3>'
+    +'<div class="form-group"><label>Name</label><input id="lf-name" value="'+e(f.name)+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditLinkedFlow('+idx+','+fi+')">Save</button></div></div>');
+}
+function saveEditLinkedFlow(idx,fi){DATA.useCases[idx].scope.relatedFlows[fi].name=document.getElementById('lf-name').value;closeModal();navigate('uc-'+idx);autoSave();}
+function deleteLinkedFlow(idx,fi){if(confirm('Remove?')){DATA.useCases[idx].scope.relatedFlows.splice(fi,1);navigate('uc-'+idx);autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   TIMELINE
+═══════════════════════════════════════════════════ */
+function rTimeline(){
+  var phases=DATA.phases||[];
+  var events=(DATA.keyEvents||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  var now=new Date();
+  var viewMode=window._tlView||'list';
+  var showCadences=window._tlCadences!==false;
+
+  function daysLeft(ds){if(!ds)return null;var d=new Date(ds);return Math.round((d-now)/(1000*60*60*24));}
+  function fmtDl(dl){if(dl===null)return '';if(dl>0)return '<span style="color:var(--green)">'+dl+' days left</span>';if(dl===0)return '<span style="color:var(--amber)">Today</span>';return '<span style="color:var(--red)">'+Math.abs(dl)+' days ago</span>';}
+
+  // ── Phase cards ──
+  var phHtml='<div class="grid3" style="margin-bottom:24px">'
+    +(phases.length?phases.map(function(ph,i){
+      var active=ph.status==='active';
+      var dl=daysLeft(ph.endDate);
+      var icons=['🏗','⚙️','🚀'];
+      return '<div class="card" style="padding:22px'+(active?';border-left:3px solid var(--accent)':'')+'">'
+        +(active?'<div style="font-size:10px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;font-weight:700">&#9679; CURRENT</div>':'')
+        +'<div style="font-size:20px;margin-bottom:8px">'+(icons[i]||'📋')+'</div>'
+        +'<div style="font-family:var(--font-head);font-weight:700;font-size:18px">'+e(ph.name)+'</div>'
+        +'<div style="font-size:12px;color:var(--accent);margin-top:5px">'+e(ph.days||'')+'</div>'
+        +(dl!==null?'<div style="font-size:11px;margin-top:3px">'+fmtDl(dl)+'</div>':'')
+        +'<div style="font-size:13px;color:var(--text-muted);margin-top:8px">'+e(ph.milestone||'')+'</div>'
+        +(canEdit()?'<div class="row g6" style="margin-top:12px"><button class="btn-icon" style="font-size:12px" onclick="editPhase('+i+')">&#9998; Edit</button><button class="btn-icon" style="color:#e85d5d;font-size:12px" onclick="deletePhase('+i+')">&#10005;</button></div>':'')
+        +'</div>';
+    }).join(''):'<div class="card" style="padding:20px;color:var(--text-muted)">No phases yet.</div>')
+    +'</div>';
+
+  // ── Event section header ──
+  // ── Add Phase button in phases section
+  var addPhaseBtn=canEdit()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick="addPhase()">+ Add Phase</button>':'';
+  phHtml=phHtml.replace('</div>',addPhaseBtn+'</div>');
+
+  var evtHeader='<div class="row between center" style="margin-bottom:16px">'
+    +'<div class="sec-title" style="margin-bottom:0">Key Events &amp; Milestones</div>'
+    +'<div class="row g8">'
+    +'<button class="btn-ghost btn-sm" onclick="setTLList()" style="'+(viewMode==='list'?'border-color:var(--accent);color:var(--accent)':'')+'">&#9776; List</button>'
+    +'<button class="btn-ghost btn-sm" onclick="setTLGantt()" style="'+(viewMode==='gantt'?'border-color:var(--accent);color:var(--accent)':'')+'">&#9646; Bar</button>'
+    +'<button class="btn-ghost btn-sm" onclick="toggleCadences()" style="'+(showCadences?'border-color:var(--accent);color:var(--accent)':'')+'">&#9702; Cadences</button>'
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addEvent()">+ Add Event</button>':'')
+    +'</div></div>';
+
+  var evtHtml='';
+
+  if(viewMode==='gantt'&&events.length){
+    // ── Gantt / Bar view ──
+    // Collect milestone dates from all UCs
+    var ucMilDates=[];
+    (DATA.useCases||[]).forEach(function(uc){(uc.milestones||[]).forEach(function(m){if(m.date&&/^\d{4}-/.test(m.date))ucMilDates.push({date:m.date,label:m.label,ucTitle:uc.title,ucId:uc.id,pct:m.progress||0,assignees:m.assignees||[],atRisk:m.atRisk});});});
+    var allDates=events.map(function(ev){return ev.date;}).concat(ucMilDates.map(function(m){return m.date;})).filter(Boolean).sort();
+
+    // Anchor range to project phases if available
+    var phDates=(DATA.phases||[]).filter(function(p){return p.startDate||p.endDate;});
+    var phStart=phDates.length?phDates.map(function(p){return p.startDate;}).filter(Boolean).sort()[0]:null;
+    var phEnd=phDates.length?phDates.map(function(p){return p.endDate;}).filter(Boolean).sort().pop():null;
+
+    // Use project start/end as hard boundaries, events extend inside
+    var anchorStart=phStart||(allDates[0]||new Date().toISOString().slice(0,10));
+    var anchorEnd=phEnd||(allDates[allDates.length-1]||new Date().toISOString().slice(0,10));
+
+    var minD=new Date(anchorStart); minD.setDate(1);
+    var maxD=new Date(anchorEnd); maxD.setMonth(maxD.getMonth()+1); maxD.setDate(0);
+    var totalMs=maxD-minD||1;
+    function pct(ds){return Math.max(0,Math.min(100,((new Date(ds)-minD)/totalMs)*100));}
+
+    // Month header
+    var months=[]; var d=new Date(minD);
+    while(d<=maxD){months.push(new Date(d));d.setMonth(d.getMonth()+1);}
+    var todayPct=Math.max(0,Math.min(100,((now-minD)/totalMs*100)));
+
+    // Phase background bands (rendered behind everything)
+    var phaseBands='';
+    (DATA.phases||[]).forEach(function(ph){
+      if(!ph.startDate||!ph.endDate) return;
+      var x1=pct(ph.startDate), x2=pct(ph.endDate);
+      var w=x2-x1;
+      if(w<=0) return;
+      var phColors={active:'rgba(0,112,210,.10)',upcoming:'rgba(128,128,128,.06)',done:'rgba(46,132,74,.08)'};
+      var col=phColors[ph.status]||phColors.upcoming;
+      phaseBands+='<div style="position:absolute;left:'+x1+'%;width:'+w+'%;top:0;bottom:0;background:'+col+';border-left:2px solid '+(ph.status==='active'?'var(--accent)':'rgba(128,128,128,.2)')+';" title="'+e(ph.name)+'">'
+        +'<div style="font-size:9px;font-weight:700;color:'+(ph.status==='active'?'var(--accent)':'var(--text-muted)')+';padding:2px 4px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden">'+e(ph.name)+'</div>'
+        +'</div>';
+    });
+
+    // Past shading (grey overlay from start to today)
+    var pastShade=todayPct>0?'<div style="position:absolute;left:0;width:'+todayPct+'%;top:0;bottom:0;background:rgba(0,0,0,.06);pointer-events:none"></div>':'';
+
+    var monthBar='<div style="position:relative;margin-bottom:2px;padding-left:100px">'
+      // Phase label strip above months
+      +(phaseBands?'<div style="position:relative;height:18px;margin-bottom:2px">'+phaseBands+'</div>':'')
+      +'<div style="display:flex">'
+      +months.map(function(m){
+        var w=((new Date(m.getFullYear(),m.getMonth()+1,0)-new Date(m.getFullYear(),m.getMonth(),1))/totalMs*100).toFixed(1);
+        var isPast=new Date(m.getFullYear(),m.getMonth()+1,0)<now;
+        var isCurrent=m.getFullYear()===now.getFullYear()&&m.getMonth()===now.getMonth();
+        return '<div style="flex:0 0 '+w+'%;font-size:10px;color:'+(isPast?'var(--text-muted)':isCurrent?'var(--accent)':'var(--text)')+';font-weight:'+(isCurrent?'800':'600')+';text-align:center;letter-spacing:.06em;text-transform:uppercase;overflow:hidden;padding:2px 0;border-left:1px solid var(--border)">'+m.toLocaleDateString('en',{month:'short',year:'2-digit'})+'</div>';
+      }).join('')+'</div></div>';
+
+    // Group events by type
+    var typeColors={Executive:'var(--accent)',Workshop:'var(--blue)',Deadline:'var(--red)',Milestone:'var(--green)',Review:'var(--amber)',Other:'var(--text-muted)'};
+    var typeOrder=['Executive','Milestone','Deadline','Workshop','Review','Other'];
+    var grouped={};
+    events.forEach(function(ev){var t=ev.type||'Other';if(!grouped[t])grouped[t]=[];grouped[t].push(ev);});
+
+    // Add meeting cadences as rows if enabled
+    var cadenceRows='';
+    if(showCadences){
+      var meetings=DATA.meetings||[];
+      meetings.forEach(function(mt){
+        // Generate recurring dots based on frequency
+        var freqDays={'Weekly':7,'Bi-weekly':14,'Monthly':30,'Ad hoc':null}[mt.freq];
+        if(!freqDays) return;
+        var dots='';
+        var d=new Date(minD);
+        while(d<=maxD){
+          var p=((d-minD)/totalMs*100).toFixed(1);
+          dots+='<div title="'+e(mt.name)+'" style="position:absolute;left:'+p+'%;transform:translateX(-50%);top:4px">'
+            +'<div style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);opacity:.7"></div></div>';
+          d=new Date(d.getTime()+freqDays*86400000);
+        }
+        cadenceRows+='<div class="row center" style="margin-bottom:20px">'
+          +'<div style="width:100px;flex-shrink:0;font-size:10px;color:var(--text-muted);text-align:right;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e(mt.name)+'">'+e(mt.name)+'</div>'
+          +'<div style="flex:1;height:16px;background:var(--bg-light);border-radius:3px;position:relative;overflow:visible">'
+          +'<div style="position:absolute;left:'+todayPct+'%;top:-2px;bottom:-2px;width:2px;background:var(--red);opacity:.4"></div>'
+          +dots+'</div></div>';
+      });
+    }
+
+    var rows=typeOrder.filter(function(t){return grouped[t]&&grouped[t].length;}).map(function(t){
+      var col=typeColors[t]||'var(--text-muted)';
+      var bars=grouped[t].map(function(ev,ei){
+        var p=pct(ev.date).toFixed(1);
+        return '<div title="'+e(ev.title)+' — '+e(ev.date)+'" style="position:absolute;left:'+p+'%;transform:translateX(-50%);top:4px">'
+          +'<div style="width:12px;height:12px;border-radius:50%;background:'+col+';border:2px solid var(--card-bg);cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2)" onclick="editEvent('+(DATA.keyEvents||[]).indexOf(ev)+')"></div>'
+          +'<div style="position:absolute;left:50%;transform:translateX(-50%);top:18px;white-space:nowrap;font-size:10px;color:var(--text-muted);max-width:80px;overflow:hidden;text-overflow:ellipsis;text-align:center">'+e(ev.title)+'</div>'
+          +'</div>';
+      }).join('');
+      return '<div class="row center" style="margin-bottom:28px">'
+        +'<div style="width:100px;flex-shrink:0;font-size:11px;font-weight:700;color:'+col+';text-transform:uppercase;letter-spacing:.06em;text-align:right;padding-right:12px">'+e(t)+'</div>'
+        +'<div style="flex:1;height:20px;background:var(--bg-light);border-radius:3px;position:relative;overflow:visible">'
+        // Today line
+        +'<div style="position:absolute;left:'+todayPct+'%;top:-4px;bottom:-4px;width:2px;background:var(--red);opacity:.6;z-index:1"></div>'
+        +bars
+        +'</div></div>';
+    }).join('');
+    evtHtml='<div class="card" style="padding:20px;overflow-x:auto">'
+      +'<div style="min-width:600px">'
+      +monthBar+rows
+      // UC milestone rows
+      +(ucMilDates.length?'<div style="height:1px;background:var(--border);margin:8px 0 10px 100px"></div>'
+        +'<div style="padding-left:100px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">UC Milestones</div>'
+        +(function(){
+            var ucGroups={};
+            ucMilDates.forEach(function(m){ if(!ucGroups[m.ucId]) ucGroups[m.ucId]={title:m.ucTitle,id:m.ucId,mils:[]}; ucGroups[m.ucId].mils.push(m); });
+            return Object.keys(ucGroups).map(function(uid2){
+              var grp=ucGroups[uid2];
+              var dots=grp.mils.map(function(m){
+                var p=pct(m.date).toFixed(1);
+                var col=m.pct>=100?'var(--green)':m.atRisk?'var(--red)':'var(--accent)';
+                return '<div title="'+e(m.label)+' ('+m.pct+'%)" style="position:absolute;left:'+p+'%;transform:translateX(-50%);top:0px">'
+                  +'<div style="width:12px;height:12px;border-radius:50%;background:'+col+';border:2px solid var(--card-bg);cursor:pointer" onclick="goUC('+(DATA.useCases||[]).findIndex(function(u){return u.id===uid2;})+')"></div>'
+                  +'<div style="position:absolute;left:50%;transform:translateX(-50%);top:16px;white-space:nowrap;font-size:9px;color:var(--text-muted);max-width:70px;overflow:hidden;text-overflow:ellipsis;text-align:center">'+e(m.label)+'</div>'
+                  +'</div>';
+              }).join('');
+              return '<div class="row center" style="margin-bottom:24px">'
+                +'<div style="width:100px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);text-align:right;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e(grp.title)+'">'+e(grp.id)+'</div>'
+                +'<div style="flex:1;height:16px;background:var(--bg-light);border-radius:3px;position:relative;overflow:visible">'
+                +'<div style="position:absolute;left:'+todayPct+'%;top:-2px;bottom:-2px;width:2px;background:var(--red);opacity:.5"></div>'
+                +dots+'</div></div>';
+            }).join('');
+          })()
+        :'')
+      +(showCadences&&cadenceRows?'<div style="padding-left:100px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 6px">Cadences</div>'+cadenceRows:'')
+      +'<div style="padding-left:100px;font-size:11px;color:var(--red);margin-top:4px">&#9650; Today</div>'
+      +'</div></div>';
+  } else {
+    // ── List view ──
+    evtHtml=events.length
+      ?'<div class="col g8">'+events.map(function(ev,ei){
+        var dl=daysLeft(ev.date); var realIdx=(DATA.keyEvents||[]).indexOf(ev);
+        return '<div class="card row center" style="padding:14px 18px;gap:14px;'+(ev.urgent?'border-color:rgba(232,93,93,.3)':'')+'">'
+          +'<div style="flex-shrink:0;text-align:center;min-width:64px">'
+          +'<div style="font-size:12px;font-weight:700;font-family:var(--font-head);color:'+(ev.urgent?'var(--red)':'var(--accent)')+'">'+e(ev.date||'')+'</div>'
+          +(dl!==null?'<div style="font-size:10px;margin-top:2px">'+fmtDl(dl)+'</div>':'')
+          +'</div>'
+          +'<div style="flex:1">'
+          +'<div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(ev.title)+'</div>'
+          +(ev.description?'<div style="font-size:12px;color:var(--text-muted);margin-top:3px">'+e(ev.description)+'</div>':'')
+          +'</div>'
+          +'<span class="badge '+(ev.urgent?'b-red':'b-blue')+'">'+e(ev.type||'Event')+'</span>'
+          +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editEvent('+realIdx+')">&#9998;</button><button class="btn-icon" style="color:#e85d5d" onclick="deleteEvent('+realIdx+')">&#10005;</button></div>':'')
+          +'</div>';
+      }).join('')+'</div>'
+      :'<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)">No events yet.</div>';
+  // UC Milestones in list view
+  var listMils=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.milestones||[]).forEach(function(m){
+      if(m.date) listMils.push({m:m,ucId:uc.id,ucTitle:uc.title,ui:ui});
+    });
+  });
+  listMils.sort(function(a,b){return (a.m.date||'').localeCompare(b.m.date||'');});
+  if(listMils.length){
+    evtHtml+='<div style="margin-top:20px"><div class="sec-title">UC Milestones</div>'
+      +'<div class="col g8">'
+      +listMils.map(function(x){
+        var m=x.m;
+        var dl=daysLeft(m.date);
+        var pct2=m.progress||0;
+        var col=pct2>=100?'var(--green)':m.atRisk?'var(--red)':'var(--accent)';
+        return '<div class="card row center" style="padding:10px 16px;gap:14px;cursor:pointer;'+(m.atRisk?'border-color:rgba(232,93,93,.25)':'')+'" onclick="goUC('+x.ui+')">'
+          +'<div style="flex-shrink:0;text-align:center;min-width:52px">'
+          +'<div style="font-size:11px;font-weight:700;color:'+col+'">'+e(m.date||'')+'</div>'
+          +(dl!==null?'<div style="font-size:10px;margin-top:1px">'+fmtDl(dl)+'</div>':'')
+          +'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(m.label)+'</div>'
+          +'<div class="row center g8" style="margin-top:4px">'
+          +'<span style="font-size:11px;color:var(--accent);font-weight:700">'+e(x.ucId)+'</span>'
+          +(m.assignees&&m.assignees.length?'<span style="font-size:11px;color:var(--text-muted)">'+m.assignees.join(', ')+'</span>':'')
+          +'</div>'
+          +'</div>'
+          +'<div style="min-width:80px">'
+          +'<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:5px;background:'+col+';width:'+pct2+'%"></div></div>'
+          +'<div style="font-size:11px;font-weight:700;color:'+col+';text-align:right;margin-top:2px">'+pct2+'%</div>'
+          +'</div>'
+          +(m.atRisk?'<span class="badge b-red" style="font-size:9px">AT RISK</span>':'')
+          +'</div>';
+      }).join('')+'</div></div>';
+  }
+
+  // Cadences in list view
+  if(showCadences&&(DATA.meetings||[]).length){
+    evtHtml+='<div style="margin-top:20px"><div class="sec-title">Meeting Cadences</div>'
+      +'<div class="col g8">'
+      +(DATA.meetings||[]).map(function(mt){
+        return '<div class="card row center" style="padding:10px 16px;gap:12px">'
+          +'<span class="badge b-blue">'+e(mt.freq)+'</span>'
+          +'<span style="font-size:13px;font-weight:600">'+e(mt.name)+'</span>'
+          +'<span style="font-size:12px;color:var(--text-muted);flex:1">'+e(mt.participants)+'</span>'
+          +'</div>';
+      }).join('')
+      +'</div></div>';
+  }
+  }
+
+  return '<div class="col g24">'
+    +'<div><div class="label">90-Day Roadmap</div><h1 style="font-size:26px;font-weight:800">Timeline</h1></div>'
+    +phHtml+evtHeader+evtHtml+'</div>';
+}
+function setTLView(v){ window._tlView=v; navigate('timeline'); }
+function setTLList(){ setTLView('list'); }
+function toggleCadences(){ window._tlCadences=(window._tlCadences===false?true:false); navigate('timeline'); }
+function setTLGantt(){ setTLView('gantt'); }
+function addEvent(){
+  showModal('<div class="modal"><h3>Add Key Event</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Title</label><input id="ev-title"></div>'
+    +'<div class="form-group"><label>Date</label><input id="ev-date" type="date"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Type</label><select id="ev-type"><option>Executive</option><option>Milestone</option><option>Deadline</option><option>Workshop</option><option>Review</option><option>Other</option></select></div>'
+    +'<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="ev-urgent" style="width:auto;accent-color:var(--accent)"><label for="ev-urgent" style="display:inline;margin:0">Mark as urgent</label></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ev-desc" rows="2"></textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEvent(-1)">Add</button></div></div>');
+}
+function editEvent(idx){
+  var ev=(DATA.keyEvents||[])[idx]; if(!ev) return;
+  showModal('<div class="modal"><h3>Edit Event</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Title</label><input id="ev-title" value="'+e(ev.title||'')+'"></div>'
+    +'<div class="form-group"><label>Date</label><input id="ev-date" type="date" value="'+e(ev.date||'')+'"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Type</label><select id="ev-type">'
+    +['Executive','Milestone','Deadline','Workshop','Review','Other'].map(function(t){return '<option'+(t===ev.type?' selected':'')+'>'+t+'</option>';}).join('')+'</select></div>'
+    +'<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="ev-urgent"'+(ev.urgent?' checked':'')+' style="width:auto;accent-color:var(--accent)"><label for="ev-urgent" style="display:inline;margin:0">Urgent</label></div></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="ev-desc" rows="2">'+e(ev.description||'')+'</textarea></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEvent('+idx+')">Save</button></div></div>');
+}
+function saveEvent(idx){
+  if(!DATA.keyEvents) DATA.keyEvents=[];
+  var obj={id:'EVT'+(Date.now()),title:document.getElementById('ev-title').value,date:document.getElementById('ev-date').value,type:document.getElementById('ev-type').value,urgent:document.getElementById('ev-urgent').checked,description:document.getElementById('ev-desc').value};
+  if(idx===-1) DATA.keyEvents.push(obj); else DATA.keyEvents[idx]=obj;
+  closeModal();navigate('timeline');autoSave();
+}
+function deleteEvent(idx){if(confirm('Delete event?')){DATA.keyEvents.splice(idx,1);navigate('timeline');autoSave();}}
+function addPhase(){
+  showModal('<div class="modal"><h3>Add Phase</h3>'
+    +'<div class="form-group"><label>Phase Name</label><input id="ph-name" placeholder="e.g. Optimization"></div>'
+    +'<div class="form-group"><label>Label (e.g. 91–120 days)</label><input id="ph-days"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Start Date</label><input id="ph-start" type="date"></div>'
+    +'<div class="form-group"><label>End Date</label><input id="ph-end" type="date"></div></div>'
+    +'<div class="form-group"><label>Milestone Description</label><textarea id="ph-ms" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Status</label><select id="ph-status"><option>upcoming</option><option>active</option><option>done</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveNewPhase()">Add</button></div></div>');
+}
+function saveNewPhase(){
+  if(!DATA.phases) DATA.phases=[];
+  DATA.phases.push({name:document.getElementById('ph-name').value,days:document.getElementById('ph-days').value,startDate:document.getElementById('ph-start').value,endDate:document.getElementById('ph-end').value,milestone:document.getElementById('ph-ms').value,status:document.getElementById('ph-status').value});
+  closeModal();navigate('timeline');autoSave();
+}
+function deletePhase(idx){if(confirm('Delete phase?')){DATA.phases.splice(idx,1);navigate('timeline');autoSave();}}
+function editPhase(idx){
+  var ph=(DATA.phases||[])[idx]; if(!ph) return;
+  showModal('<div class="modal"><h3>Edit Phase</h3>'
+    +'<div class="form-group"><label>Phase Name</label><input id="ph-name" value="'+e(ph.name||'')+'"></div>'
+    +'<div class="form-group"><label>Label (e.g. 0–30 days)</label><input id="ph-days" value="'+e(ph.days||'')+'"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Start Date</label><input id="ph-start" type="date" value="'+e(ph.startDate||'')+'"></div>'
+    +'<div class="form-group"><label>End Date</label><input id="ph-end" type="date" value="'+e(ph.endDate||'')+'"></div></div>'
+    +'<div class="form-group"><label>Milestone Description</label><textarea id="ph-ms" rows="2">'+e(ph.milestone||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Status</label><select id="ph-status">'
+    +['active','upcoming','done'].map(function(s){return '<option'+(s===ph.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="savePhase('+idx+')">Save</button></div></div>');
+}
+function savePhase(idx){
+  if(!DATA.phases||!DATA.phases[idx]) return;
+  var ph=DATA.phases[idx];
+  ph.name=document.getElementById('ph-name').value; ph.days=document.getElementById('ph-days').value;
+  ph.startDate=document.getElementById('ph-start').value; ph.endDate=document.getElementById('ph-end').value;
+  ph.milestone=document.getElementById('ph-ms').value; ph.status=document.getElementById('ph-status').value;
+  closeModal();navigate('timeline');autoSave();
+}
+
+/* ═══════════════════════════════════════════════════
+   TEAM
+═══════════════════════════════════════════════════ */
+function rTeam(){
+  var sfT=(DATA.team||[]).filter(function(t){return t.company==='Salesforce';});
+  var cusT=(DATA.team||[]).filter(function(t){return t.company!=='Salesforce';});
+  function mc(m){
+    var ri=DATA.team.indexOf(m);
+    return '<div class="card row center g12" style="padding:12px 16px">'
+      +av(m.name,m.company)
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-family:var(--font-head);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.name)+'</div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(m.role)+'</div>'
+      +'</div>'
+      +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editTeamMember('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteTeamMember('+ri+')">&#10005;</button></div>':'')
+      +'</div>';
+  }
+  function sponsorCard(s,si,isSF){
+    return '<div class="row center g12" style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px">'
+      +av(s.name,isSF?'Salesforce':CUS().name)
+      +'<div style="flex:1"><div style="font-family:var(--font-head);font-weight:700;font-size:14px">'+e(s.name)+'</div>'
+      +'<div style="font-size:12px;color:var(--accent)">'+e(s.title)+'</div>'
+      +(s.company?'<div style="font-size:11px;color:var(--text-muted)">'+e(s.company)+'</div>':'')+'</div>'
+      +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editExecSponsor('+si+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteExecSponsor('+si+')">&#10005;</button></div>':'')
+      +'</div>';
+  }
+  var allSponsors=(DATA.execSponsors||[]);
+  var sfSponsors=allSponsors.filter(function(s){return s.company==='Salesforce';});
+  var cusSponsors=allSponsors.filter(function(s){return s.company!=='Salesforce';});
+  return '<div class="col g24">'
+    +'<div><div class="label">People</div><h1 style="font-size:26px;font-weight:800">Team</h1>'
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:10px" onclick="addTeamMember()">+ Add Member</button>':'')+'</div>'
+    +'<div class="card-accent" style="padding:24px">'
+    +'<div class="row between center" style="margin-bottom:16px">'
+    +'<div style="font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Executive Sponsors</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" onclick="addExecSponsor()">+ Add Sponsor</button>':'')+'</div>'
+    +(allSponsors.length?'<div class="grid2" style="gap:12px">'
+      +(sfSponsors.length?'<div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Salesforce</div>'
+        +'<div class="col g8">'+sfSponsors.map(function(s){return sponsorCard(s,allSponsors.indexOf(s),true);}).join('')+'</div></div>':'')
+      +(cusSponsors.length?'<div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">'+e(CUS().name)+'</div>'
+        +'<div class="col g8">'+cusSponsors.map(function(s){return sponsorCard(s,allSponsors.indexOf(s),false);}).join('')+'</div></div>':'')
+      +'</div>'
+      :'<div style="font-size:13px;color:rgba(255,255,255,.5)">No sponsors added yet.</div>')
+    +'</div>'
+    +'<div class="grid2">'
+    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a9eff;margin-bottom:12px">Salesforce</h2>'
+    +'<div class="col g10">'+sfT.map(mc).join('')+'</div></div>'
+    +'<div><h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">'+e(CUS().name)+'</h2>'
+    +'<div class="col g10">'+cusT.map(mc).join('')+'</div></div>'
+    +'</div></div>';
+}
+function addTeamMember(){
+  showModal('<div class="modal"><h3>Add Team Member</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" placeholder="Full name"></div>'
+    +'<div class="form-group"><label>Role</label><input id="m-role" placeholder="Job title / role"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveTeamMember(-1)">Add</button></div></div>');
+}
+function editTeamMember(idx){
+  var m=DATA.team[idx];
+  showModal('<div class="modal"><h3>Edit Team Member</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(m.name)+'"></div>'
+    +'<div class="form-group"><label>Role</label><input id="m-role" value="'+e(m.role)+'"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(m.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(m.company!=='Salesforce'?' selected':'')+'>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveTeamMember('+idx+')">Save</button></div></div>');
+}
+function saveTeamMember(idx){
+  var obj={name:document.getElementById('m-name').value,role:document.getElementById('m-role').value,company:document.getElementById('m-co').value};
+  if(idx===-1) DATA.team.push(obj); else DATA.team[idx]=obj;
+  closeModal();navigate('team');autoSave();
+}
+function deleteTeamMember(idx){if(confirm('Remove?')){DATA.team.splice(idx,1);navigate('team');autoSave();}}
+function addExecSponsor(){
+  showModal('<div class="modal"><h3>Add Executive Sponsor</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option>Salesforce</option><option>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor(-1)">Add</button></div></div>');
+}
+function editExecSponsor(idx){
+  var s=DATA.execSponsors[idx];
+  showModal('<div class="modal"><h3>Edit Sponsor</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(s.name)+'"></div>'
+    +'<div class="form-group"><label>Title</label><input id="m-title" value="'+e(s.title)+'"></div>'
+    +'<div class="form-group"><label>Company</label><select id="m-co"><option'+(s.company==='Salesforce'?' selected':'')+'>Salesforce</option><option'+(s.company!=='Salesforce'?' selected':'')+'>'+e(CUS().name)+'</option></select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveExecSponsor('+idx+')">Save</button></div></div>');
+}
+function saveExecSponsor(idx){
+  if(!DATA.execSponsors) DATA.execSponsors=[];
+  var obj={name:document.getElementById('m-name').value,title:document.getElementById('m-title').value,company:document.getElementById('m-co').value};
+  if(idx===-1) DATA.execSponsors.push(obj); else DATA.execSponsors[idx]=obj;
+  closeModal();navigate('team');autoSave();
+}
+function deleteExecSponsor(idx){if(confirm('Remove?')){DATA.execSponsors.splice(idx,1);navigate('team');autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   RACI
+═══════════════════════════════════════════════════ */
+function getRaciCols(){
+  // Build columns from project team — each person is a column
+  var team=DATA.team||[];
+  if(!team.length) return [];
+  return team.map(function(m){
+    // Use initials as key for storage (first 2 chars of first name + last initial)
+    var parts=m.name.split(' ');
+    var key=parts.map(function(p){return p[0]||'';}).join('').slice(0,3).toUpperCase();
+    return {key:key, name:m.name, role:m.role, company:m.company, isCus:m.company!==(DATA.team||[]).find(function(t){return t.company==='Salesforce';})?true:false};
+  });
+}
+function raciVal(row, key){
+  // Support both new format (row.values[key]) and old format (row[key])
+  if(row.values) return row.values[key]||'';
+  return row[key]||'';
+}
+function setRaciVal(ri, key, val){
+  if(!DATA.raci[ri].values) {
+    // Migrate old format to new
+    DATA.raci[ri].values={};
+    ['M','F','J','R','K','B'].forEach(function(k){ if(DATA.raci[ri][k]) DATA.raci[ri].values[k]=DATA.raci[ri][k]; });
+  }
+  DATA.raci[ri].values[key]=val;
+}
+/* ═══════════════════════════════════════════════════
+   RISKS
+   Fields: id, title, category, probability (1-5),
+           impact (1-5), status, owner, mitigation,
+           linkedUC (optional)
+═══════════════════════════════════════════════════ */
+function riskScore(r){ return (r.probability||1)*(r.impact||1); }
+function riskLevel(score){
+  if(score>=15) return {label:'Critical',color:'#c23934',bg:'rgba(194,57,52,.12)'};
+  if(score>=9)  return {label:'High',    color:'#dd7a01',bg:'rgba(221,122,1,.12)'};
+  if(score>=4)  return {label:'Medium',  color:'#0070d2',bg:'rgba(0,112,210,.1)'};
+  return              {label:'Low',     color:'#2e844a',bg:'rgba(46,132,74,.1)'};
+}
+
+function rRisks(){
+  var risks=DATA.risks||[];
+  var canE=canEdit();
+
+  // Sort by score descending
+  var sorted=risks.slice().sort(function(a,b){return riskScore(b)-riskScore(a);});
+
+  // Summary stats
+  var counts={Critical:0,High:0,Medium:0,Low:0};
+  sorted.forEach(function(r){ counts[riskLevel(riskScore(r)).label]++; });
+
+  var statsBar='<div class="row g12" style="margin-bottom:24px;flex-wrap:wrap">'
+    +[['Critical','#c23934'],['High','#dd7a01'],['Medium','#0070d2'],['Low','#2e844a']].map(function(x){
+      return '<div class="card row center g12" style="padding:14px 18px;min-width:120px;border-left:3px solid '+x[1]+'">'
+        +'<div><div style="font-size:22px;font-weight:800;font-family:var(--font-head);color:'+x[1]+'">'+counts[x[0]]+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">'+x[0]+'</div></div>'
+        +'</div>';
+    }).join('')+'</div>';
+
+  // Risk matrix (5x5 grid)
+  var matrixCells='';
+  for(var imp=5;imp>=1;imp--){
+    matrixCells+='<div style="display:contents">';
+    matrixCells+='<div style="display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;color:var(--text-muted);font-weight:600">'+imp+'</div>';
+    for(var prob=1;prob<=5;prob++){
+      var s=prob*imp, lv=riskLevel(s);
+      var cellRisks=sorted.filter(function(r){return (r.probability||1)===prob&&(r.impact||1)===imp;});
+      matrixCells+='<div style="background:'+lv.bg+';border:1px solid '+lv.color+'30;border-radius:4px;padding:4px;min-height:44px;cursor:'+(canE?'pointer':'default')+';position:relative" '
+        +(canE?'onclick="addRiskAt('+prob+','+imp+')" title="Add risk (P'+prob+' × I'+imp+'='+s+')"':'')+' >'
+        +cellRisks.map(function(r){
+          var ri=(DATA.risks||[]).indexOf(r);
+          return '<div style="font-size:10px;background:'+lv.color+';color:#fff;border-radius:3px;padding:2px 5px;margin:1px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" '
+            +'onclick="event.stopPropagation();editRisk('+ri+')" title="'+e(r.title)+'">'+e(r.title)+'</div>';
+        }).join('')
+        +'</div>';
+    }
+    matrixCells+='</div>';
+  }
+
+  var matrix='<div style="margin-bottom:24px">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">Risk Matrix — Probability × Impact</div>'
+    +'<div style="display:grid;grid-template-columns:28px repeat(5,1fr);gap:4px">'
+    // Column headers
+    +'<div></div>'
+    +[1,2,3,4,5].map(function(p){return '<div style="text-align:center;font-size:11px;color:var(--text-muted);font-weight:600;padding-bottom:4px">P'+p+'</div>';}).join('')
+    +matrixCells
+    +'</div>'
+    +'<div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">'
+    +'<span style="font-size:11px;color:var(--text-muted)">Legend:</span>'
+    +[['Low','#2e844a','1–3'],['Medium','#0070d2','4–8'],['High','#dd7a01','9–14'],['Critical','#c23934','15–25']].map(function(x){
+      return '<span style="font-size:11px;background:'+x[1]+'20;color:'+x[1]+';border:1px solid '+x[1]+'50;border-radius:3px;padding:2px 8px">'+x[0]+' ('+x[2]+')</span>';
+    }).join('')
+    +'</div></div>';
+
+  // List view
+  var list=sorted.length?sorted.map(function(r){
+    var ri=(DATA.risks||[]).indexOf(r);
+    var sc=riskScore(r), lv=riskLevel(sc);
+    var uc=r.linkedUC!==undefined&&r.linkedUC!==''?(DATA.useCases||[])[r.linkedUC]:null;
+    return '<div class="card" style="padding:16px 20px;border-left:3px solid '+lv.color+'">'
+      +'<div class="row between wrap" style="gap:12px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+lv.bg+';color:'+lv.color+'">'+lv.label+' ('+sc+')</span>'
+      +(r.category?'<span class="badge b-slate" style="font-size:10px">'+e(r.category)+'</span>':'')
+      +(uc?'<span class="badge b-blue" style="font-size:10px;cursor:pointer" onclick="goUC('+r.linkedUC+')">'+e(uc.id)+'</span>':'')
+      +'</div>'
+      +'<div style="font-size:15px;font-weight:700;color:var(--text-dim)">'+e(r.title)+'</div>'
+      +(r.mitigation?'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">&#128737; '+e(r.mitigation)+'</div>':'')
+      +(r.owner?'<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Owner: '+e(r.owner)+'</div>':'')
+      +'</div>'
+      +'<div class="col g8" style="align-items:flex-end;flex-shrink:0">'
+      +'<div class="row g8" style="font-size:12px;color:var(--text-muted)">'
+      +'<div style="text-align:center"><div style="font-weight:700;font-size:16px;color:'+lv.color+'">'+( r.probability||1)+'</div><div>Prob.</div></div>'
+      +'<div style="font-size:16px;color:var(--text-muted)">×</div>'
+      +'<div style="text-align:center"><div style="font-weight:700;font-size:16px;color:'+lv.color+'">'+(r.impact||1)+'</div><div>Impact</div></div>'
+      +'</div>'
+      +(canE?'<div class="row g4"><button class="btn-icon" onclick="editRisk('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteRisk('+ri+')">&#10005;</button></div>':'')
+      +'</div></div></div>';
+  }).join('')
+    :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
+    +'<div style="font-size:40px;margin-bottom:12px">&#9650;</div>'
+    +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No risks logged yet</div>'
+    +'<div style="font-size:13px">Click the matrix to add risks or use + Add Risk</div>'
+    +(canE?'<div style="margin-top:16px"><button class="btn-primary" onclick="addRisk()">+ Add Risk</button></div>':'')
+    +'</div>';
+
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label" style="color:#c23934">&#9650;</div>'
+    +'<h1 style="font-size:26px;font-weight:800">Risk Register</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Click a matrix cell to add a risk at that score. Click a risk tile to edit it.</p></div>'
+    +(canE?'<button class="btn-primary" onclick="addRisk()">+ Add Risk</button>':'')
+    +'</div>'
+    +statsBar+matrix
+    +'<div><div class="sec-title">All Risks</div>'+list+'</div>'
+    +'</div>';
+}
+
+function riskModal(title, vals, saveFn){
+  var ucOpts='<option value="">— None —</option>'
+    +(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'"'+(vals.linkedUC===i?' selected':'')+'>'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
+  var pSlider=function(id,label,val){
+    return '<div class="form-group"><label>'+label+' ('+val+')</label>'
+      +'<input type="range" id="'+id+'" min="1" max="5" value="'+val+'" oninput="document.getElementById(\''+id+'-v\').textContent=this.value" style="width:100%;accent-color:var(--accent)">'
+      +'<div class="row between" style="font-size:10px;color:var(--text-muted);margin-top:2px"><span>Low (1)</span><span id="'+id+'-v" style="font-weight:700;color:var(--accent)">'+val+'</span><span>Critical (5)</span></div>'
+      +'</div>';
+  };
+  showModal('<div class="modal modal-lg"><h3>'+title+'</h3>'
+    +'<div class="form-group"><label>Risk Title</label><input id="rk-title" value="'+e(vals.title||'')+'" placeholder="e.g. Data access delayed"></div>'
+    +'<div class="form-row"><div class="form-group"><label>Category</label><select id="rk-cat">'
+    +['Technical','Organisational','Security','Compliance','Resource','External','Other'].map(function(x){return '<option'+(x===(vals.category||'Technical')?' selected':'')+'>'+x+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Owner</label><input id="rk-owner" value="'+e(vals.owner||'')+'"></div></div>'
+    +pSlider('rk-prob','Probability',vals.probability||1)
+    +pSlider('rk-imp','Impact',vals.impact||1)
+    +'<div class="form-group"><label>Status</label><select id="rk-status">'
+    +['Open','Mitigated','Accepted','Closed'].map(function(s){return '<option'+(s===(vals.status||'Open')?' selected':'')+'>'+s+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Mitigation Plan</label><textarea id="rk-mit" rows="2">'+e(vals.mitigation||'')+'</textarea></div>'
+    +'<div class="form-group"><label>Linked Use Case (optional)</label><select id="rk-uc">'+ucOpts+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+saveFn+'">Save</button></div></div>');
+}
+function getRiskFormVals(){
+  var ucEl=document.getElementById('rk-uc');
+  var ucVal=ucEl&&ucEl.value!==''?parseInt(ucEl.value):undefined;
+  return {
+    title:document.getElementById('rk-title').value,
+    category:document.getElementById('rk-cat').value,
+    owner:document.getElementById('rk-owner').value,
+    probability:parseInt(document.getElementById('rk-prob').value)||1,
+    impact:parseInt(document.getElementById('rk-imp').value)||1,
+    status:document.getElementById('rk-status').value,
+    mitigation:document.getElementById('rk-mit').value,
+    linkedUC:ucVal
+  };
+}
+function addRisk(){ riskModal('Add Risk',{probability:1,impact:1},'saveRisk(-1)'); }
+function addRiskAt(prob,imp){ riskModal('Add Risk at P'+prob+' × I'+imp,{probability:prob,impact:imp},'saveRisk(-1)'); }
+function editRisk(idx){ var r=(DATA.risks||[])[idx]; if(!r) return; riskModal('Edit Risk',r,'saveRisk('+idx+')'); }
+function saveRisk(idx){
+  if(!DATA.risks) DATA.risks=[];
+  var v=getRiskFormVals();
+  if(!v.title){alert('Please enter a risk title.');return;}
+  if(idx===-1){ v.id='R'+(DATA.risks.length+1); DATA.risks.push(v); }
+  else DATA.risks[idx]=Object.assign(DATA.risks[idx],v);
+  closeModal();navigate('risks');autoSave();
+}
+function deleteRisk(idx){if(confirm('Delete risk?')){DATA.risks.splice(idx,1);navigate('risks');autoSave();}}
+
+function rRaci(){
+  var cols=getRaciCols();
+  var vals=['R','A','C','I','—'];
+  var valColors={'R':'#4caf82','A':'var(--accent)','C':'#4a9eff','I':'var(--text-muted)','—':'var(--border)'};
+
+  if(!cols.length){
+    return '<div class="col g24"><div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1></div>'
+      +'<div class="card-el" style="padding:32px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:32px;margin-bottom:8px">&#9673;</div>'
+      +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No team members yet</div>'
+      +'<div style="font-size:13px">Add team members on the Team page first — each person becomes a RACI column.</div>'
+      +(canEdit()?'<div style="margin-top:16px"><button class="btn-primary" onclick="navigate(\'team\')">Go to Team &rarr;</button></div>':'')
+      +'</div></div>';
+  }
+
+  var rows=(DATA.raci||[]).map(function(row,ri){
+    var cells=cols.map(function(col){
+      var v=raciVal(row,col.key)||'—';
+      if(canEdit()){
+        var col2=valColors[v]||'var(--text-muted)';
+        return '<td style="text-align:center;padding:8px 6px"><select onchange="setRaciVal('+ri+',\''+col.key+'\',this.value);navigate(\'raci\');autoSave()" style="width:54px;padding:4px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:13px;color:'+col2+';">'
+          +vals.map(function(vv){return '<option style="color:'+(valColors[vv]||'inherit')+'"'+(vv===v?' selected':'')+'>'+vv+'</option>';}).join('')+'</select></td>';
+      }
+      return '<td style="text-align:center;padding:8px 6px"><span style="font-family:var(--font-head);font-weight:700;font-size:13px;color:'+(valColors[v]||'var(--text-muted)')+'">'+v+'</span></td>';
+    }).join('');
+    return '<tr><td style="min-width:220px;padding:8px 12px">'+e(row.a)
+      +(canEdit()?'<button class="btn-icon" style="margin-left:8px;font-size:11px" onclick="deleteRaciRow('+ri+')">&#10005;</button>':'')
+      +'</td>'+cells+'</tr>';
+  }).join('');
+
+  // Column headers with company colour differentiation
+  var headers=cols.map(function(col){
+    var sfColor='#4a9eff', cusColor='var(--accent)';
+    var color=col.company==='Salesforce'?sfColor:cusColor;
+    return '<th style="text-align:center;padding:8px 6px;min-width:64px">'
+      +'<div style="font-size:10px;font-weight:700;color:'+color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px" title="'+e(col.name)+' — '+e(col.role)+'">'+e(col.name.split(' ')[0])+'</div>'
+      +'<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">'+e(col.key)+'</div>'
+      +'</th>';
+  }).join('');
+
+  var legend=[['R','#4caf82','Responsible'],['A','var(--accent)','Accountable'],['C','#4a9eff','Consulted'],['I','var(--text-muted)','Informed']].map(function(x){
+    return '<div class="row center g6" style="font-size:13px;color:var(--text-muted)"><span style="font-family:var(--font-head);font-weight:700;color:'+x[1]+'">'+x[0]+'</span><span>'+x[2]+'</span></div>';
+  }).join('');
+
+  return '<div class="col g24">'
+    +'<div><div class="label">Responsibility Matrix</div><h1 style="font-size:26px;font-weight:800">RACI Matrix</h1>'
+    +'<div class="row wrap g16" style="margin-top:12px">'+legend+'</div>'
+    +(canEdit()?'<button class="btn-primary btn-sm" style="margin-top:12px" onclick="addRaciRow()">+ Add Activity</button>':'')+'</div>'
+    +'<div class="overflow-x"><table><thead><tr>'
+    +'<th style="min-width:220px;padding:8px 12px">Activity</th>'
+    +headers
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function addRaciRow(){
+  var cols=getRaciCols();
+  var selects=cols.map(function(col){
+    return '<div class="form-group"><label style="font-size:12px">'+e(col.name.split(' ')[0])+'<span style="color:var(--text-muted);font-size:10px"> ('+e(col.key)+')</span></label>'
+      +'<select id="rc-'+col.key+'" style="font-family:var(--font-head);font-weight:700">'
+      +['—','R','A','C','I'].map(function(v){return '<option'+(v==='—'?' selected':'')+'>'+v+'</option>';}).join('')
+      +'</select></div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>Add RACI Activity</h3>'
+    +'<div class="form-group"><label>Activity Name</label><input id="m-act" placeholder="e.g. Use case documentation"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:4px">'+selects+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveRaciRow()">Add</button></div></div>');
+}
+function saveRaciRow(){
+  var cols=getRaciCols();
+  var values={};
+  cols.forEach(function(col){ var el=document.getElementById('rc-'+col.key); if(el) values[col.key]=el.value; });
+  DATA.raci.push({a:document.getElementById('m-act').value, values:values});
+  closeModal();navigate('raci');autoSave();
+}
+function editRaciRow(ri){
+  var row=DATA.raci[ri]; if(!row) return;
+  var cols=getRaciCols();
+  var selects=cols.map(function(col){
+    var cur=raciVal(row,col.key)||'—';
+    return '<div class="form-group"><label style="font-size:12px">'+e(col.name.split(' ')[0])+'<span style="color:var(--text-muted);font-size:10px"> ('+e(col.key)+')</span></label>'
+      +'<select id="rc-'+col.key+'" style="font-family:var(--font-head);font-weight:700">'
+      +['—','R','A','C','I'].map(function(v){return '<option'+(v===cur?' selected':'')+'>'+v+'</option>';}).join('')
+      +'</select></div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>Edit Activity</h3>'
+    +'<div class="form-group"><label>Activity Name</label><input id="m-act" value="'+e(row.a||'')+'"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:4px">'+selects+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditRaciRow('+ri+')">Save</button></div></div>');
+}
+function saveEditRaciRow(ri){
+  var cols=getRaciCols();
+  var values={};
+  cols.forEach(function(col){ var el=document.getElementById('rc-'+col.key); if(el) values[col.key]=el.value; });
+  DATA.raci[ri].a=document.getElementById('m-act').value;
+  DATA.raci[ri].values=values;
+  closeModal();navigate('raci');autoSave();
+}
+function deleteRaciRow(idx){if(confirm('Delete?')){DATA.raci.splice(idx,1);navigate('raci');autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   BLOCKERS
+═══════════════════════════════════════════════════ */
+function rDecisions(){
+  return rBlockerSection('Decisions','Decision','var(--amber)','&#128203;',
+    (DATA.blockers||[]).filter(function(b){return b.type==='Decision';}));
+}
+function rBlockers(){
+  return rBlockerSection('Blockers','Blocker','var(--red)','&#9888;',
+    (DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}));
+}
+function rBlockerSection(pageTitle, addType, color, icon, items){
+  var canE=canEdit();
+  var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
+  var cards=items.map(function(item){
+    var ri=(DATA.blockers||[]).indexOf(item);
+    return '<div class="card" style="padding:16px 20px;'+(item.status==='At Risk'||item.status==='Blocked'?'border-color:rgba(232,93,93,.25)':'')+'">'
+      +'<div class="row wrap between" style="gap:12px">'
+      +'<div style="flex:1">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);background:var(--bg-light);padding:2px 8px;border-radius:4px">'+e(item.id)+'</span>'
+      +badge(item.status)+'</div>'
+      +'<div style="font-size:14px;color:var(--text-dim);line-height:1.5">'+e(item.item)+'</div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Owner: <span style="color:var(--text-soft)">'+e(item.owner)+'</span></div>'
+      +'</div>'
+      +'<div class="col g8" style="align-items:flex-end">'
+      +(canE?'<select onchange="DATA.blockers['+ri+'].status=this.value;navigate(\''+( addType==='Decision'?'decisions':'blockers')+'\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
+        +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')
+      +(canE?'<div class="row g4"><button class="btn-icon" onclick="editBlocker('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteBlocker('+ri+')">&#10005;</button></div>':'')
+      +'</div></div></div>';
+  }).join('');
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label" style="color:'+color+'">'+icon+'</div>'
+    +'<h1 style="font-size:26px;font-weight:800">'+pageTitle+'</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">'+(items.length)+' item'+(items.length!==1?'s':'')+' total</p></div>'
+    +(canE?'<button class="btn-primary" onclick="addBlocker(\''+addType+'\')">+ Add '+addType+'</button>':'')
+    +'</div>'
+    +(items.length?'<div class="col g10">'+cards+'</div>'
+      :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:40px;margin-bottom:12px">'+icon+'</div>'
+      +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No '+pageTitle.toLowerCase()+' yet</div>'
+      +'<div style="font-size:12px">'+('Decision'===addType?'Track decisions that need to be made':'Track items blocking progress')+'</div>'
+      +(canE?'<div style="margin-top:16px"><button class="btn-primary" onclick="addBlocker(\''+addType+'\')">+ Add '+addType+'</button></div>':'')
+      +'</div>')
+    +'</div>';
+}
+
+function addBlocker(type){
+  showModal('<div class="modal"><h3>Add '+type+'</h3>'
+    +'<div class="form-group"><label>ID</label><input id="m-id" placeholder="D6 or B3"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="m-item" rows="2"></textarea></div>'
+    +'<div class="form-group"><label>Owner</label><input id="m-owner"></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Open','In Progress','At Risk','Blocked','Not Started','Pending'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveBlocker(\''+type+'\')">Add</button></div></div>');
+}
+function saveBlocker(type){
+  if(!DATA.blockers) DATA.blockers=[];
+  DATA.blockers.push({id:document.getElementById('m-id').value,type:type,item:document.getElementById('m-item').value,owner:document.getElementById('m-owner').value,status:document.getElementById('m-status').value});
+  var tp=(DATA.blockers[idx]||{}).type;
+  closeModal();navigate(tp==='Blocker'?'blockers':'decisions');autoSave();
+}
+function editBlocker(idx){
+  var b=DATA.blockers[idx];
+  showModal('<div class="modal"><h3>Edit Item</h3>'
+    +'<div class="form-group"><label>ID</label><input id="m-id" value="'+e(b.id)+'"></div>'
+    +'<div class="form-group"><label>Description</label><textarea id="m-item" rows="2">'+e(b.item)+'</textarea></div>'
+    +'<div class="form-group"><label>Owner</label><input id="m-owner" value="'+e(b.owner)+'"></div>'
+    +'<div class="form-group"><label>Type</label><select id="m-type"><option'+(b.type==='Decision'?' selected':'')+'>Decision</option><option'+(b.type==='Blocker'?' selected':'')+'>Blocker</option></select></div>'
+    +'<div class="form-group"><label>Status</label><select id="m-status">'
+    +['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'].map(function(s){return '<option'+(s===b.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveEditBlocker('+idx+')">Save</button></div></div>');
+}
+function saveEditBlocker(idx){
+  var b=DATA.blockers[idx];
+  b.id=document.getElementById('m-id').value; b.item=document.getElementById('m-item').value;
+  b.owner=document.getElementById('m-owner').value; b.type=document.getElementById('m-type').value;
+  b.status=document.getElementById('m-status').value;
+  var tp=(DATA.blockers[idx]||{}).type;
+  closeModal();navigate(tp==='Blocker'?'blockers':'decisions');autoSave();
+}
+function deleteBlocker(idx){var tp=(DATA.blockers[idx]||{}).type;if(confirm('Delete?')){DATA.blockers.splice(idx,1);navigate(tp==='Blocker'?'blockers':'decisions');autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   MEETINGS
+═══════════════════════════════════════════════════ */
+function rMeetings(){
+  var allTeam=(DATA.team||[]).map(function(m){return m.name;});
+  var cards=(DATA.meetings||[]).map(function(m,i){
+    var agenda=m.agenda||[];
+    return '<div class="card-el" style="padding:0;overflow:hidden;margin-bottom:12px">'
+      +'<div style="background:var(--btn-primary);padding:14px 18px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff">'+e(m.name)+'</div>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">'+e(m.participants||'')+'</div></div>'
+      +'<span class="badge b-blue" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">'+e(m.freq)+'</span>'
+      +'</div>'
+      +'<div style="padding:16px 18px">'
+      +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px"><span style="color:var(--text-soft);font-weight:600">Purpose: </span>'+e(m.purpose)+'</div>'
+      // Agenda
+      +'<div style="margin-bottom:10px">'
+      +'<div class="row between center" style="margin-bottom:8px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Agenda</div>'
+      +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="addAgendaItem('+i+')">+ Item</button>':'')
+      +'</div>'
+      +(agenda.length?'<div class="col g4">'
+        +agenda.map(function(a,ai){
+          return '<div class="row center g8" style="padding:6px 10px;background:var(--bg-light);border-radius:var(--radius-sm)">'
+            +'<span style="font-size:13px;flex:1">'+e(a.text||a)+'</span>'
+            +(canEdit()?'<button class="btn-icon" style="font-size:11px" onclick="deleteAgendaItem('+i+','+ai+')">&#10005;</button>':'')
+            +'</div>';
+        }).join('')+'</div>'
+        :'<div style="font-size:12px;color:var(--text-muted);padding:6px 0">No agenda items yet.</div>')
+      +'</div>'
+      +(canEdit()?'<div class="row g8" style="padding-top:12px;border-top:1px solid var(--border)">'
+        +'<button class="btn-icon" onclick="editMeeting('+i+')">&#9998; Edit</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteMeeting('+i+')">&#10005;</button>'
+        +'</div>':'')
+      +'</div></div>';
+  }).join('');
+  return '<div class="col g24">'
+    +'<div class="row between center"><div><div class="label">Governance</div><h1 style="font-size:26px;font-weight:800">Meeting Cadences</h1></div>'
+    +(canEdit()?'<button class="btn-primary" onclick="addMeeting()">+ Add Meeting</button>':'')+'</div>'
+    +'<div class="col g0">'+cards+'</div></div>';
+}
+function addAgendaItem(mtgIdx){
+  showModal('<div class="modal"><h3>Add Agenda Item</h3>'
+    +'<div class="form-group"><label>Agenda Item</label><input id="ag-text" placeholder="e.g. Review blockers"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveAgendaItem('+mtgIdx+')">Add</button></div></div>');
+}
+function saveAgendaItem(mtgIdx){
+  if(!DATA.meetings[mtgIdx].agenda) DATA.meetings[mtgIdx].agenda=[];
+  DATA.meetings[mtgIdx].agenda.push({text:document.getElementById('ag-text').value});
+  closeModal();navigate('meetings');autoSave();
+}
+function deleteAgendaItem(mtgIdx,ai){DATA.meetings[mtgIdx].agenda.splice(ai,1);navigate('meetings');autoSave();}
+function addMeeting(){
+  var teamNames=(DATA.team||[]).map(function(m){return m.name;});
+  showModal('<div class="modal"><h3>Add Meeting</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name"></div>'
+    +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Ad hoc</option></select></div>'
+    +'<div class="form-group"><label>Participants</label><input id="m-part" placeholder="Names or select below"></div>'
+    +(teamNames.length?'<div class="form-group"><label>Add from team</label><div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="mt-pick" value="'+e(n)+'" style="width:auto;accent-color:var(--accent)" onchange="pickTeam()">'+e(n)+'</label>';}).join('')
+      +'</div></div>':'')
+    +'<div class="form-group"><label>Purpose</label><input id="m-pur"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveMeeting(-1)">Add</button></div></div>');
+}
+function pickTeam(){
+  var picked=[]; document.querySelectorAll('.mt-pick:checked').forEach(function(cb){picked.push(cb.value);});
+  var inp=document.getElementById('m-part'); if(inp) inp.value=picked.join(', ');
+}
+function editMeeting(idx){
+  var m=DATA.meetings[idx];
+  var teamNames=(DATA.team||[]).map(function(t){return t.name;});
+  showModal('<div class="modal"><h3>Edit Meeting</h3>'
+    +'<div class="form-group"><label>Name</label><input id="m-name" value="'+e(m.name)+'"></div>'
+    +'<div class="form-group"><label>Frequency</label><select id="m-freq"><option'+(m.freq==='Weekly'?' selected':'')+'>Weekly</option><option'+(m.freq==='Bi-weekly'?' selected':'')+'>Bi-weekly</option><option'+(m.freq==='Monthly'?' selected':'')+'>Monthly</option><option'+(m.freq==='Ad hoc'?' selected':'')+'>Ad hoc</option></select></div>'
+    +'<div class="form-group"><label>Participants</label><input id="m-part" value="'+e(m.participants||'')+'"></div>'
+    +(teamNames.length?'<div class="form-group"><label>Add from team</label><div class="row wrap g6" style="margin-top:6px">'
+      +teamNames.map(function(n){return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:20px"><input type="checkbox" class="mt-pick" value="'+e(n)+'" style="width:auto;accent-color:var(--accent)" onchange="pickTeam()">'+e(n)+'</label>';}).join('')
+      +'</div></div>':'')
+    +'<div class="form-group"><label>Purpose</label><input id="m-pur" value="'+e(m.purpose||'')+'"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveMeeting('+idx+')">Save</button></div></div>');
+}
+function saveMeeting(idx){
+  if(!DATA.meetings) DATA.meetings=[];
+  var obj={name:document.getElementById('m-name').value,freq:document.getElementById('m-freq').value,participants:document.getElementById('m-part').value,purpose:document.getElementById('m-pur').value,agenda:idx>=0&&DATA.meetings[idx]?DATA.meetings[idx].agenda||[]:[]};
+  if(idx===-1) DATA.meetings.push(obj); else DATA.meetings[idx]=Object.assign(DATA.meetings[idx],obj);
+  closeModal();navigate('meetings');autoSave();
+}
+function deleteMeeting(idx){if(confirm('Delete?')){DATA.meetings.splice(idx,1);navigate('meetings');autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   KPIs
+═══════════════════════════════════════════════════ */
+function rKpis(){
+  var kpis=DATA.kpis||[];
+  // Build reverse index: kpiIdx -> [{ucIdx, ucId, ucTitle, storyIdx, story, kpiNote}]
+  var kpiMap={};
+  kpis.forEach(function(_,ki){ kpiMap[ki]=[]; });
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      (js.kpiLinks||[]).forEach(function(ki){
+        if(!kpiMap[ki]) kpiMap[ki]=[];
+        kpiMap[ki].push({ucIdx:ui,ucId:uc.id,ucTitle:uc.title,storyIdx:ji,story:js.story,kpiNote:js.kpis||''});
+      });
+    });
+  });
+
+  var cards=kpis.map(function(kpi,i){
+    var links=kpiMap[i]||[];
+    return '<div class="card-el" style="padding:0;overflow:hidden;margin-bottom:16px">'
+      // Header
+      +'<div style="background:var(--btn-primary);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      +'<div>'
+      +'<div style="font-family:var(--font-head);font-weight:700;font-size:16px;color:#fff">'+e(kpi.label)+'</div>'
+      +(kpi.unit?'<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px">Unit: '+e(kpi.unit)+'</div>':'')
+      +'</div>'
+      +(canEdit()?'<div class="row g6">'
+        +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="editKpi('+i+')">&#9998;</button>'
+        +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:12px" onclick="linkKpiToStory('+i+')">&#128279; Link</button>'
+        +'<button class="btn-icon" style="background:rgba(232,93,93,.2);border-color:rgba(232,93,93,.5);color:#fff;font-size:12px" onclick="deleteKpi('+i+')">&#10005;</button>'
+        +'</div>':'')
+      +'</div>'
+      // Values row
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border)">'
+      +[['Baseline','baseline','var(--text-soft)'],['Current','current','var(--accent)'],['Target','target','var(--green)']].map(function(f){
+        return '<div style="background:var(--card-bg);padding:12px;text-align:center">'
+          +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">'+f[0]+'</div>'
+          +'<div style="font-size:20px;font-weight:800;font-family:var(--font-head);color:'+f[2]+'">'+e(kpi[f[1]]||'—')
+          +(kpi[f[1]]&&kpi[f[1]]!=='--'&&kpi[f[1]]!=='TBD'&&kpi.unit?'<span style="font-size:11px;margin-left:2px;color:var(--text-muted)">'+e(kpi.unit)+'</span>':'')
+          +'</div></div>';
+      }).join('')
+      +'</div>'
+      // Linked stories
+      +'<div style="padding:14px 18px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">'
+      +'Linked to '+links.length+' job '+(links.length===1?'story':'stories')
+      +(canEdit()&&links.length>1?'&nbsp;<button class="btn-icon" style="font-size:11px" onclick="mergeKpiLinks('+i+')" title="Merge linked stories into one">&#10697; Merge view</button>':'')
+      +'</div>'
+      +(links.length?'<div class="col g8">'
+        +links.map(function(lk,li){
+          return '<div class="card" style="padding:10px 14px;'+(lk.ucIdx!==undefined?'cursor:pointer':'')+';" '+(lk.ucIdx!==undefined?'onclick="goUC('+lk.ucIdx+')"':'')+' onmouseover="if(this.style)this.style.borderColor=\'var(--border-hover)\'" onmouseout="if(this.style)this.style.borderColor=\'\'">'
+            +'<div class="row between center" style="margin-bottom:4px">'
+            +'<div class="row center g8">'
+            +'<span class="badge b-blue" style="font-size:10px">'+e(lk.ucId)+'</span>'
+            +'<span style="font-size:12px;font-weight:600;color:var(--text-dim)">'+e(lk.ucTitle)+'</span>'
+            +'<span style="font-size:11px;color:var(--text-muted)">Story '+(lk.storyIdx+1)+'</span>'
+            +'</div>'
+            +(canEdit()?'<button class="btn-icon" style="font-size:11px;color:#e85d5d" onclick="event.stopPropagation();unlinkKpiStory('+i+','+lk.ucIdx+','+lk.storyIdx+')" title="Unlink">&#128279;&#10005;</button>':'')
+            +'</div>'
+            +'<div class="rich-view" style="font-size:12px;color:var(--text-muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+richDisplay(lk.story||'')+'</div>'
+            +(lk.kpiNote?'<div style="font-size:11px;color:var(--accent);margin-top:4px">&#128203; '+e(lk.kpiNote)+'</div>':'')
+            +'</div>';
+        }).join('')
+        +'</div>'
+        :'<div style="padding:10px 0;font-size:13px;color:var(--text-muted);font-style:italic">No stories linked yet.'
+          +(canEdit()?' <span style="cursor:pointer;color:var(--accent)" onclick="linkKpiToStory('+i+')">Link a story &rarr;</span>':'')+'</div>')
+      +'</div></div>';
+  }).join('');
+
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label">Metrics</div><h1 style="font-size:26px;font-weight:800">KPI Tracking</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Link KPIs to job stories to show impact across use cases</p></div>'
+    +'<div class="row g8">'
+    +(canEdit()?'<button class="btn-primary" onclick="addKpi()">+ Add KPI</button>':'')
+    +'</div></div>'
+    +cards+'</div>';
+}
+
+/* ── KPI ↔ Story link management ── */
+function syncKpiLinks(){
+  // No-op: links are stored on job stories (kpiLinks:[kpiIdx,...])
+  // rKpis() builds the reverse map dynamically on render
+}
+
+function linkKpiToStory(kpiIdx){
+  var options=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      var alreadyLinked=(js.kpiLinks||[]).indexOf(kpiIdx)!==-1;
+      options.push({ui:ui,ji:ji,ucId:uc.id,ucTitle:uc.title,story:js.story,linked:alreadyLinked});
+    });
+  });
+  if(!options.length){alert('No job stories exist yet. Add stories to a use case first.');return;}
+  var kpi=(DATA.kpis||[])[kpiIdx];
+  var rows=options.map(function(o,oi){
+    var borderCol=o.linked?'var(--accent)':'var(--border)';
+    var bgCol=o.linked?'rgba(0,112,210,.05)':'var(--bg)';
+    return '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid '+borderCol+';border-radius:var(--radius-sm);cursor:pointer;margin-bottom:6px;background:'+bgCol+'">'
+      +'<input type="checkbox" class="kl-pick" value="'+oi+'"'+(o.linked?' checked':'')+' style="width:auto;accent-color:var(--accent);margin-top:2px;flex-shrink:0">'
+      +'<div style="min-width:0"><span class="badge b-blue" style="font-size:10px;margin-right:4px">'+e(o.ucId)+'</span>'
+      +'<span style="font-size:12px;color:var(--text-dim);line-height:1.5">'+e((o.story||'').slice(0,120))+'</span></div>'
+      +'</label>';
+  }).join('');
+  // Store options for save
+  window._kpiLinkOpts=options;
+  showModal('<div class="modal modal-lg"><h3>Link stories to: <em>'+e(kpi.label)+'</em></h3>'
+    +'<p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Check all job stories that impact this KPI</p>'
+    +'<div style="max-height:340px;overflow-y:auto">'+rows+'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveLinkKpiStories('+kpiIdx+')">Save Links</button>'
+    +'</div></div>');
+}
+
+function saveLinkKpiStories(kpiIdx){
+  var opts=window._kpiLinkOpts||[];
+  var checked=[];
+  document.querySelectorAll('.kl-pick:checked').forEach(function(cb){checked.push(parseInt(cb.value));});
+  opts.forEach(function(o,oi){
+    var js=DATA.useCases[o.ui].jobStories[o.ji];
+    if(!js.kpiLinks) js.kpiLinks=[];
+    var hasLink=js.kpiLinks.indexOf(kpiIdx)!==-1;
+    var shouldLink=checked.indexOf(oi)!==-1;
+    if(shouldLink&&!hasLink) js.kpiLinks.push(kpiIdx);
+    if(!shouldLink&&hasLink) js.kpiLinks=js.kpiLinks.filter(function(k){return k!==kpiIdx;});
+  });
+  closeModal();navigate('kpis');autoSave();
+}
+
+function unlinkKpiStory(kpiIdx, ucIdx, storyIdx){
+  var js=(DATA.useCases[ucIdx]||{}).jobStories;
+  if(!js||!js[storyIdx]) return;
+  js[storyIdx].kpiLinks=(js[storyIdx].kpiLinks||[]).filter(function(k){return k!==kpiIdx;});
+  navigate('kpis');autoSave();
+}
+
+function mergeKpiLinks(kpiIdx){
+  var kpi=(DATA.kpis||[])[kpiIdx];
+  var links=[];
+  (DATA.useCases||[]).forEach(function(uc,ui){
+    (uc.jobStories||[]).forEach(function(js,ji){
+      if((js.kpiLinks||[]).indexOf(kpiIdx)!==-1) links.push({uc:uc,js:js,ui:ui,ji:ji});
+    });
+  });
+  var rows=links.map(function(lk){
+    return '<div class="card" style="padding:12px 16px;margin-bottom:10px">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span class="badge b-blue">'+e(lk.uc.id)+'</span>'
+      +'<span style="font-size:13px;font-weight:600">'+e(lk.uc.title)+'</span>'
+      +'<span style="font-size:11px;color:var(--text-muted)">Story '+(lk.ji+1)+'</span></div>'
+      +'<div class="rich-view" style="font-size:13px;color:var(--text-dim);line-height:1.5">'+richDisplay(lk.js.story||'')+'</div>'
+      +(lk.js.desiredOutcomes?'<div style="font-size:12px;color:var(--green);margin-top:6px">&#10003; '+e(lk.js.desiredOutcomes)+'</div>':'')
+      +(lk.js.kpis?'<div style="font-size:11px;color:var(--accent);margin-top:4px">&#128203; '+e(lk.js.kpis)+'</div>':'')
+      +'</div>';
+  }).join('');
+  showModal('<div class="modal modal-lg"><h3>All stories impacting: <em>'+e(kpi.label)+'</em></h3>'
+    +'<div style="max-height:400px;overflow-y:auto;margin-bottom:16px">'+rows+'</div>'
+    +'<div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Close</button></div></div>');
+}
+
+
+function addKpi(){
+  showModal('<div class="modal"><h3>Add KPI</h3>'
+    +'<div class="form-group"><label>KPI Name</label><input id="kp-label" placeholder="e.g. Policy Onboarding Time"></div>'
+    +'<div class="form-group"><label>Unit</label><input id="kp-unit" placeholder="e.g. min, %, /10"></div>'
+    +'<div class="form-row">'
+    +'<div class="form-group"><label>Baseline</label><input id="kp-base" value="--"></div>'
+    +'<div class="form-group"><label>Current</label><input id="kp-cur" value="--"></div>'
+    +'<div class="form-group"><label>Target</label><input id="kp-tgt" value="TBD"></div>'
+    +'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveKpi(-1)">Add</button></div></div>');
+}
+function editKpi(idx){
+  var kpi=(DATA.kpis||[])[idx];
+  showModal('<div class="modal"><h3>Edit KPI</h3>'
+    +'<div class="form-group"><label>KPI Name</label><input id="kp-label" value="'+e(kpi.label||'')+'"></div>'
+    +'<div class="form-group"><label>Unit</label><input id="kp-unit" value="'+e(kpi.unit||'')+'"></div>'
+    +'<div class="form-row">'
+    +'<div class="form-group"><label>Baseline</label><input id="kp-base" value="'+e(kpi.baseline||'--')+'"></div>'
+    +'<div class="form-group"><label>Current</label><input id="kp-cur" value="'+e(kpi.current||'--')+'"></div>'
+    +'<div class="form-group"><label>Target</label><input id="kp-tgt" value="'+e(kpi.target||'TBD')+'"></div>'
+    +'</div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveKpi('+idx+')">Save</button></div></div>');
+}
+function saveKpi(idx){
+  if(!DATA.kpis) DATA.kpis=[];
+  var existing=idx===-1?{}:(DATA.kpis[idx]||{});
+  var obj={label:document.getElementById('kp-label').value,unit:document.getElementById('kp-unit').value,baseline:document.getElementById('kp-base').value,current:document.getElementById('kp-cur').value,target:document.getElementById('kp-tgt').value,links:existing.links||[]};
+  if(idx===-1) DATA.kpis.push(obj); else DATA.kpis[idx]=obj;
+  closeModal();navigate('kpis');autoSave();
+}
+function deleteKpi(idx){if(confirm('Delete?')){DATA.kpis.splice(idx,1);navigate('kpis');autoSave();}}
+
+/* ═══════════════════════════════════════════════════
+   FLOWCHART
+═══════════════════════════════════════════════════ */
+
+function renameFC(idx){
+  var fc=DATA.flowcharts[idx]; if(!fc) return;
+  showModal('<div class="modal"><h3>Rename Flowchart</h3>'
+    +'<div class="form-group"><label>Name</label><input id="fc-rename-val" value="'+e(fc.name)+'" style="font-size:15px"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveRenameFC('+idx+')">Save</button></div></div>');
+  setTimeout(function(){ var inp=document.getElementById('fc-rename-val'); if(inp){inp.focus();inp.select();} },50);
+}
+function saveRenameFC(idx){
+  var val=document.getElementById('fc-rename-val').value.trim();
+  if(!val) return;
+  DATA.flowcharts[idx].name=val;
+  closeModal(); navigate('flowchart'); autoSave();
+}
+function renameFCCurrent(){
+  if(FC.currentChart===null) return;
+  renameFC(FC.currentChart);
+}
+function rFlowchart(){
+  var list=(DATA.flowcharts||[]).map(function(fc,i){
+    return '<div class="card row center g12" style="padding:12px 16px;cursor:pointer" onclick="openFC('+i+')">'
+      +'<span style="font-size:24px">&#9875;</span>'
+      +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+e(fc.name)+'</div>'
+      +'<div style="font-size:12px;color:var(--text-muted)">'+(fc.nodes||[]).length+' nodes &middot; '+(fc.edges||[]).length+' connections'
+      +(fc.ucIdx!==null&&fc.ucIdx!==undefined&&(DATA.useCases||[])[fc.ucIdx]?' &middot; <span style="color:var(--accent)">'+e((DATA.useCases[fc.ucIdx]||{}).id||'')+'</span>':'')
+      +'</div></div>'
+      +(canEdit()?'<button class="btn-icon" style="margin-right:4px" onclick="event.stopPropagation();renameFC('+i+')">&#9998;</button>':'')
+      +(canEdit()?'<button class="btn-icon" style="color:#e85d5d" onclick="event.stopPropagation();deleteFC('+i+')">&#10005;</button>':'')
+      +'</div>';
+  }).join('');
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label">Visual Tools</div><h1 style="font-size:26px;font-weight:800">Flowchart Builder</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">Build process flow diagrams with swim lanes</p></div>'
+    +(canEdit()?'<button class="btn-primary" onclick="newFC()">+ New Flowchart</button>':'')+'</div>'
+    +((DATA.flowcharts||[]).length?'<div><div class="sec-title">Saved Flowcharts</div><div class="col g10">'+list+'</div></div>'
+      :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:40px;margin-bottom:12px">&#9875;</div>'
+      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px">No flowcharts yet</div>'
+      +'<div style="font-size:13px">Click <strong>+ New Flowchart</strong> to start</div></div>')
+    +'</div>';
+}
+
+/* ═══════════════════════════════════════════════════
+   USERS PAGE
+═══════════════════════════════════════════════════ */
+
+/* ── File mapping — shown in superadmin Users page ── */
+function rFileMap(){
+  if(!isSuperAdmin()) return '';
+  ensureFileIds();
+  var realCus=CUSTOMERS.filter(function(cu){return cu.id!=='demo';});
+  if(!realCus.length){
+    return '<div class="card-accent" style="padding:16px 20px;margin-bottom:24px">'
+      +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">&#128274; Encrypted File Mapping</div>'
+      +'<div style="font-size:12px;color:var(--text-muted)">No customers loaded yet. Pull latest from GitHub or use Import / Restore.</div>'
+      +'</div>';
+  }
+  var rows=realCus.map(function(cu){
+    var fname=ghCusFile(cu.id);
+    var ghUrl='https://github.com/'+GH.owner+'/'+GH.repo+'/blob/'+GH.branch+'/'+encodeURIComponent(fname);
+    return '<tr>'
+      +'<td style="padding:10px 14px"><div style="font-weight:600">'+e(cu.logo||'&#127970;')+' '+e(cu.name)+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted)">id: '+e(cu.id)+'</div></td>'
+      +'<td style="padding:10px 14px"><code style="font-size:12px;color:var(--accent)">'+e(fname)+'</code><br>'
+        +'<a href="'+ghUrl+'" target="_blank" style="font-size:11px;color:var(--text-muted)">View on GitHub &#8599;</a></td>'
+      +'<td style="padding:10px 14px;font-family:monospace;font-size:11px;color:var(--text-muted)">'+e(cu.fileId||'—')+'</td>'
+      +'<td style="padding:10px 14px"><button class="btn-icon" onclick="rotateCusFileId(this.dataset.id)" data-id="'+cu.id+'" title="Generate new random filename">&#8635; Rotate</button></td>'
+      +'</tr>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:24px;overflow:hidden">'
+    +'<div style="padding:14px 18px;background:var(--btn-primary);display:flex;align-items:center;justify-content:space-between;gap:12px">'
+    +'<div><div style="font-weight:700;font-size:14px;color:#fff">&#128274; Encrypted File Mapping</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">Superadmin only — maps customers to anonymous encrypted filenames</div></div>'
+    +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:11px;flex-shrink:0" onclick="showRepoFiles()">&#128193; All files</button>'
+    +'</div>'
+    +'<div class="overflow-x"><table><thead><tr><th>Customer</th><th>GitHub File</th><th>File ID</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>'
+    +'<div style="padding:8px 18px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border);background:var(--bg-light)">'
+    +'&#128274; AES-GCM encrypted. Filename reveals nothing about the customer. &#8635; Rotate to generate a new random name.</div>'
+    +'</div>';
+}
+
+function rotateCusFileId(cusId){
+  if(!confirm('Generate a new random filename for this customer?\n\nNote: the old file will remain on GitHub until you manually delete it from the repo.')) return;
+  var cu=CUSTOMERS.find(function(c){return c.id===cusId;});
+  if(!cu) return;
+  cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+  navigate('users');
+  autoSave(); // will save to the new filename
+}
+function rUsers(){
+  if(!isSuperAdmin()) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Access denied.</div>';
+  var rows=Object.keys(USERS).map(function(u){
+    var usr=USERS[u];
+    return '<tr>'
+      +'<td style="font-weight:700">'+e(u)+'</td>'
+      +'<td>'+e(usr.name||'—')+'</td>'
+      +'<td>'+badge(usr.role==='superadmin'?'Done':usr.role==='project_admin'?'In Progress':'Planning')+'<span style="font-size:12px;color:var(--text-muted);margin-left:6px">'+e(usr.role)+'</span></td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedCustomers&&usr.assignedCustomers.length?usr.assignedCustomers.join(', '):'All')+'</td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+(usr.assignedProjects&&usr.assignedProjects.length?usr.assignedProjects.join(', '):'All')+'</td>'
+      +'<td><div class="row g4"><button class="btn-icon" onclick="editUser(\''+e(u)+'\')">&#9998;</button>'
+      +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteUser(\''+e(u)+'\')">&#10005;</button>':'')
+      +'</div></td></tr>';
+  }).join('');
+  return '<div class="col g24">'
+    +rFileMap()
+    +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
+    +'<button class="btn-primary" onclick="addUser()">+ Add User</button></div>'
+    +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
+    +'<thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Customer Scope</th><th>Project Scope</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div></div>'
+    +'<div class="card-accent" style="padding:16px 20px">'
+    +'<div style="font-size:12px;color:var(--text-muted);line-height:1.8">'
+    +'<strong style="color:var(--text)">superadmin</strong> — full access, GitHub, user management<br>'
+    +'<strong style="color:var(--text)">project_admin</strong> — edit assigned projects, no GitHub or user management<br>'
+    +'<strong style="color:var(--text)">viewer</strong> — read-only (can be scoped to customer or project)'
+    +'</div></div></div>';
+}
+function addUser(){ userModal('Add User','',{role:'viewer'},'saveAddUser()'); }
+function editUser(u){ userModal('Edit User — '+u, u, USERS[u]||{}, 'saveEditUser(\''+u+'\')'); }
+function userModal(title,username,usr,onSave){
+  var allProjects=[]; CUSTOMERS.forEach(function(c){(c.projects||[]).forEach(function(p){allProjects.push({cid:c.id,cname:c.name,pid:p.id,pname:p.name});});});
+  showModal('<div class="modal"><h3>'+title+'</h3>'
+    +'<div class="form-row"><div class="form-group"><label>Username</label><input id="u-uname" value="'+e(username)+'" placeholder="lowercase, no spaces"></div>'
+    +'<div class="form-group"><label>Display Name</label><input id="u-name" value="'+e(usr.name||'')+'"></div></div>'
+    +'<div class="form-row"><div class="form-group"><label>Role</label><select id="u-role">'
+    +['superadmin','project_admin','viewer'].map(function(r){return '<option'+(r===usr.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div>'
+    +'<div class="form-group"><label>Password '+(username?'(blank = keep)':'')+'</label><input type="password" id="u-pass"></div></div>'
+    +'<div class="form-group"><label>Customer Scope (empty = all)</label><div class="row wrap g6" style="margin-top:6px">'
+    +CUSTOMERS.map(function(c){var sel=(usr.assignedCustomers||[]).indexOf(c.id)!==-1;
+      return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-cus" value="'+e(c.id)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(c.name)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="form-group"><label>Project Scope (empty = all)</label><div class="row wrap g6" style="margin-top:6px">'
+    +allProjects.map(function(p){var sel=(usr.assignedProjects||[]).indexOf(p.pid)!==-1;
+      return '<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px"><input type="checkbox" class="u-prj" value="'+e(p.pid)+'"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(p.cname)+' / '+e(p.pname)+'</label>';}).join('')
+    +'</div></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="'+onSave+'">Save</button></div></div>');
+}
+async function saveUserFromForm(existingUsername){
+  var uname=(document.getElementById('u-uname').value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  var name=document.getElementById('u-name').value;
+  var role=document.getElementById('u-role').value;
+  var pass=document.getElementById('u-pass').value;
+  var cus=[]; document.querySelectorAll('.u-cus:checked').forEach(function(cb){cus.push(cb.value);});
+  var prjs=[]; document.querySelectorAll('.u-prj:checked').forEach(function(cb){prjs.push(cb.value);});
+  if(!uname){alert('Username required');return;}
+  var hash=existingUsername&&USERS[existingUsername]&&!pass?USERS[existingUsername].hash:(pass?await sha256(pass):null);
+  if(!hash){alert('Password required for new users');return;}
+  if(existingUsername&&existingUsername!==uname) delete USERS[existingUsername];
+  USERS[uname]={hash:hash,role:role,name:name,assignedCustomers:cus,assignedProjects:prjs};
+  closeModal();navigate('users');autoSave();
+}
+function saveAddUser(){ saveUserFromForm(null); }
+function saveEditUser(u){ saveUserFromForm(u); }
+function deleteUser(u){ if(confirm('Delete user '+u+'?')){ delete USERS[u]; navigate('users'); autoSave(); } }
+
+/* ════════════════════════════════════════════════════
+   FLOWCHART ENGINE — simple, stable, no crashes
+════════════════════════════════════════════════════ */
+var FC = { nodes:[], edges:[], lanes:[], svgW:1200, svgH:680, currentChart:null,
+  sel:null, dragNode:null, dragOx:0, dragOy:0, connectMode:false, connectFrom:null,
+  hoverNode:null, hoverEdge:null };
+
+function newFC(){
+  var ucOpts='<option value="">— None —</option>'+(DATA.useCases||[]).map(function(u,i){return '<option value="'+i+'">'+e(u.id)+' '+e(u.title)+'</option>';}).join('');
+  showModal('<div class="modal"><h3>New Flowchart</h3>'
+    +'<div class="form-group"><label>Name</label><input id="fc-name" placeholder="e.g. UC1 Process Flow"></div>'
+    +'<div class="form-group"><label>Swim lanes (comma-separated)</label><input id="fc-lanes" value="Channel,Agentforce,Data 360,Data"></div>'
+    +'<div class="form-group"><label>Link to Use Case (optional)</label><select id="fc-uc">'+ucOpts+'</select></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="createFC()">Create</button></div></div>');
+}
+function createFC(){
+  var name=document.getElementById('fc-name').value||'Untitled';
+  var laneNames=document.getElementById('fc-lanes').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var laneH=Math.floor(FC.svgH/Math.max(laneNames.length,1));
+  var lanes=laneNames.map(function(n,i){return {id:uid(),name:n,y:i*laneH,h:laneH};});
+  var ucSel=document.getElementById('fc-uc');
+  var ucIdx=ucSel&&ucSel.value!==''?parseInt(ucSel.value):null;
+  var chart={name:name,nodes:[],edges:[],lanes:lanes,ucIdx:ucIdx};
+  if(!DATA.flowcharts) DATA.flowcharts=[];
+  DATA.flowcharts.push(chart);
+  closeModal(); autoSave(); openFC(DATA.flowcharts.length-1);
+}
+function deleteFC(idx){ if(confirm('Delete?')){DATA.flowcharts.splice(idx,1);navigate('flowchart');autoSave();} }
+
+function openFC(idx){
+  var chart=DATA.flowcharts[idx];
+  FC.currentChart=idx; FC.nodes=chart.nodes; FC.edges=chart.edges; FC.lanes=chart.lanes||[];
+  FC.sel=null; FC.dragNode=null; FC.connectMode=false; FC.connectFrom=null;
+  document.getElementById('main-content').innerHTML=buildFCEditor(chart.name);
+  drawFC();
+  bindFC();
+}
+
+function buildFCEditor(name){
+  return '<div class="col" style="height:calc(100vh - 80px)">'
+    +'<div class="row center g12" style="padding:0 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">'
+    +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">&larr; Back</button>'
+    +(canEdit()?'<div style="flex:1;display:flex;align-items:center;gap:6px">'+'<span style="font-size:17px;font-weight:700">'+e(name)+'</span>'+'<button class="btn-icon" style="font-size:11px" onclick="renameFCCurrent()" title="Rename">&#9998;</button></div>':'<h2 style="font-size:17px;font-weight:700;flex:1">'+e(name)+'</h2>')
+    +(canEdit()?'<button class="btn-ghost btn-sm" id="fc-conn-btn" onclick="toggleConnect()">&#8594; Connect</button>'
+      +'<button class="btn-ghost btn-sm" onclick="fcDel()">&#10005; Delete</button>':'')
+    +'<button class="btn-primary btn-sm" onclick="saveFC()">&#10004; Save</button>'
+    +'</div>'
+    +(canEdit()?'<div class="row center g8" style="margin-bottom:12px;flex-wrap:wrap">'
+      +'<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Add:</span>'
+      +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'rect\')">&#9645; Process</button>'
+      +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'diamond\')">&#9671; Decision</button>'
+      +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'rounded\')">&#9711; Start/End</button>'
+      +'<button class="btn-ghost btn-sm" onclick="fcAdd(\'cylinder\')">&#9641; Database</button>'
+      +'<span id="fc-hint" style="font-size:11px;color:var(--text-muted);margin-left:8px">Click to select · Drag to move · Hover for edit button · Use &#8594; Connect to link nodes</span>'
+      +'</div>':'')
+    +'<div style="flex:1;overflow:auto;background:var(--bg-mid);border:1px solid var(--border);border-radius:var(--radius);position:relative" id="fc-wrap">'
+    +'<div id="fc-hover-tip" style="position:absolute;z-index:50;display:none;pointer-events:none"></div>'
+    +'<svg id="fc-svg" width="'+FC.svgW+'" height="'+FC.svgH+'" style="display:block;cursor:default">'
+    +'<defs><marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="var(--accent)"/></marker></defs>'
+    +'</svg></div></div>';
+}
+
+var LANE_COLS=['rgba(74,158,255,.08)','rgba(201,168,76,.07)','rgba(76,175,130,.07)','rgba(232,93,93,.07)'];
+var LANE_STROKES=['rgba(74,158,255,.3)','rgba(201,168,76,.3)','rgba(76,175,130,.3)','rgba(232,93,93,.3)'];
+
+var _drawFCScheduled=false;
+function drawFC(){
+  if(_drawFCScheduled) return;
+  _drawFCScheduled=true;
+  requestAnimationFrame(function(){
+    _drawFCScheduled=false;
+    _drawFCNow();
+  });
+}
+function _drawFCNow(){
+  var svg=document.getElementById('fc-svg'); if(!svg) return;
+  // Clear everything after defs
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+
+  // Lanes
+  FC.lanes.forEach(function(ln,li){
+    var r=mk('rect'); r.setAttribute('x','60'); r.setAttribute('y',ln.y); r.setAttribute('width',FC.svgW-60); r.setAttribute('height',ln.h);
+    r.setAttribute('fill',LANE_COLS[li%LANE_COLS.length]); r.setAttribute('stroke',LANE_STROKES[li%LANE_STROKES.length]); r.setAttribute('stroke-width','1'); svg.appendChild(r);
+    if(li>0){var sep=mk('line');sep.setAttribute('x1','60');sep.setAttribute('y1',ln.y);sep.setAttribute('x2',FC.svgW);sep.setAttribute('y2',ln.y);sep.setAttribute('stroke',LANE_STROKES[li%LANE_STROKES.length]);sep.setAttribute('stroke-width','1');svg.appendChild(sep);}
+    var t=mk('text'); t.setAttribute('x','30'); t.setAttribute('y',ln.y+ln.h/2); t.setAttribute('fill','var(--accent)'); t.setAttribute('font-size','11'); t.setAttribute('font-weight','700'); t.setAttribute('font-family','var(--font-head)'); t.setAttribute('text-anchor','middle'); t.setAttribute('transform','rotate(-90,30,'+(ln.y+ln.h/2)+')'); t.textContent=ln.name; svg.appendChild(t);
+  });
+
+  // Edges
+  FC.edges.forEach(function(ed){
+    var s=FC.nodes.find(function(n){return n.id===ed.from;}), t=FC.nodes.find(function(n){return n.id===ed.to;});
+    if(!s||!t) return;
+    var x1=s.x+s.w/2, y1=s.y+s.h/2, x2=t.x+t.w/2, y2=t.y+t.h/2;
+    var mx=(x1+x2)/2, my=(y1+y2)/2-Math.abs(x2-x1)*0.15;
+    var p=mk('path'); p.setAttribute('d','M'+x1+','+y1+' Q'+mx+','+my+' '+x2+','+y2);
+    p.setAttribute('fill','none'); p.setAttribute('stroke','var(--accent)'); p.setAttribute('stroke-width','1.8'); p.setAttribute('marker-end','url(#arr)');
+    p.setAttribute('data-eid',ed.id); p.style.cursor='pointer';
+    if(FC.sel===ed.id){p.setAttribute('stroke','var(--accent-light)');p.setAttribute('stroke-width','2.5');}
+    p.addEventListener('click',function(ev){ev.stopPropagation();FC.sel=ed.id;drawFC();});
+    svg.appendChild(p);
+    if(ed.label){var lt=mk('text');lt.setAttribute('x',mx);lt.setAttribute('y',my-6);lt.setAttribute('fill','var(--text-muted)');lt.setAttribute('font-size','11');lt.setAttribute('text-anchor','middle');lt.textContent=ed.label;svg.appendChild(lt);}
+  });
+
+  // Nodes
+  FC.nodes.forEach(function(nd){
+    var g=mk('g'); g.setAttribute('data-nid',nd.id); g.setAttribute('transform','translate('+nd.x+','+nd.y+')'); g.style.cursor='move';
+    var sel=FC.sel===nd.id;
+    var fill=nd.fill||'var(--bg-light)', stroke=sel?'var(--accent-light)':'var(--accent)', sw=sel?'3':'2';
+
+    if(nd.shape==='diamond'){
+      var hw=nd.w/2,hh=nd.h/2; var poly=mk('polygon'); poly.setAttribute('points',hw+',0 '+nd.w+','+hh+' '+hw+','+nd.h+' 0,'+hh); poly.setAttribute('fill',fill); poly.setAttribute('stroke',stroke); poly.setAttribute('stroke-width',sw); g.appendChild(poly);
+    } else if(nd.shape==='cylinder'){
+      var b=mk('rect'); b.setAttribute('x','0'); b.setAttribute('y','8'); b.setAttribute('width',nd.w); b.setAttribute('height',nd.h-16); b.setAttribute('fill',fill); b.setAttribute('stroke',stroke); b.setAttribute('stroke-width',sw); g.appendChild(b);
+      var top=mk('ellipse'); top.setAttribute('cx',nd.w/2); top.setAttribute('cy','8'); top.setAttribute('rx',nd.w/2); top.setAttribute('ry','8'); top.setAttribute('fill',fill); top.setAttribute('stroke',stroke); top.setAttribute('stroke-width',sw); g.appendChild(top);
+      var bot=mk('ellipse'); bot.setAttribute('cx',nd.w/2); bot.setAttribute('cy',nd.h-8); bot.setAttribute('rx',nd.w/2); bot.setAttribute('ry','8'); bot.setAttribute('fill',fill); bot.setAttribute('stroke',stroke); bot.setAttribute('stroke-width',sw); g.appendChild(bot);
+    } else if(nd.shape==='rounded'){
+      var rr=mk('rect'); rr.setAttribute('width',nd.w); rr.setAttribute('height',nd.h); rr.setAttribute('rx',nd.h/2); rr.setAttribute('fill',fill); rr.setAttribute('stroke',stroke); rr.setAttribute('stroke-width',sw); g.appendChild(rr);
+    } else {
+      var rct=mk('rect'); rct.setAttribute('width',nd.w); rct.setAttribute('height',nd.h); rct.setAttribute('rx','8'); rct.setAttribute('fill',fill); rct.setAttribute('stroke',stroke); rct.setAttribute('stroke-width',sw); g.appendChild(rct);
+    }
+
+    // Label — word-wrap
+    var words=(nd.label||'New').split(' '), lines2=[], cur='';
+    words.forEach(function(w){var tt=cur?cur+' '+w:w; if(tt.length*6.5>nd.w-12&&cur){lines2.push(cur);cur=w;}else cur=tt;}); if(cur) lines2.push(cur);
+    var lh=16, ty=(nd.h-lines2.length*lh)/2+lh/2;
+    lines2.forEach(function(ln,li){
+      var t=mk('text'); t.setAttribute('x',nd.w/2); t.setAttribute('y',ty+li*lh); t.setAttribute('fill',nd.textColor||'var(--text)'); t.setAttribute('font-size','12'); t.setAttribute('font-family','var(--font-body)'); t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle'); t.setAttribute('pointer-events','none'); t.textContent=ln; g.appendChild(t);
+    });
+
+    // Connect handles (port dots on selected node)
+    if(sel&&canEdit()){
+      [[nd.w/2,0],[nd.w,nd.h/2],[nd.w/2,nd.h],[0,nd.h/2]].forEach(function(pt){
+        var h=mk('circle');
+        // coords relative to the node's group
+        h.setAttribute('cx',pt[0]); h.setAttribute('cy',pt[1]); h.setAttribute('r','6');
+        h.setAttribute('fill','var(--accent)'); h.setAttribute('stroke','var(--bg)'); h.setAttribute('stroke-width','2');
+        h.style.cursor='crosshair'; h.setAttribute('data-handle',nd.id);
+        g.appendChild(h); // inside the group — coords already correct
+      });
+    }
+    svg.appendChild(g);
+  });
+}
+
+function mk(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
+
+var _fcPendingShape=null;
+
+function fcAdd(shape){ _fcPendingShape=shape; var h=document.getElementById('fc-hint'); if(h) h.textContent='Click on the canvas to place the '+shape; }
+
+function toggleConnect(){
+  FC.connectMode=!FC.connectMode; FC.connectFrom=null;
+  var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.background=FC.connectMode?'rgba(var(--accent-rgb,74,158,255),.15)':'';
+  var h=document.getElementById('fc-hint'); if(h) h.textContent=FC.connectMode?'Click the source node, then click the destination node':'Click canvas to place · Drag to move · Double-click to rename';
+}
+
+function fcDel(){
+  if(!FC.sel) return;
+  FC.nodes=FC.nodes.filter(function(n){return n.id!==FC.sel;});
+  FC.edges=FC.edges.filter(function(ed){return ed.id!==FC.sel&&ed.from!==FC.sel&&ed.to!==FC.sel;});
+  FC.sel=null; drawFC(); saveFCData();
+}
+
+function saveFCData(){
+  if(FC.currentChart===null) return;
+  DATA.flowcharts[FC.currentChart].nodes=FC.nodes;
+  DATA.flowcharts[FC.currentChart].edges=FC.edges;
+}
+
+function saveFC(){ saveFCData(); autoSave(); var btn=document.querySelector('#main-content .btn-primary'); if(btn){var ot=btn.textContent;btn.textContent='✓ Saved';setTimeout(function(){btn.textContent=ot;},1500);} }
+
+function bindFC(){
+  var svg=document.getElementById('fc-svg'); if(!svg) return;
+
+  // mousedown
+  svg.addEventListener('mousedown',function(ev){
+    if(!canEdit()) return;
+    var rect=svg.getBoundingClientRect();
+    var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+
+    // Check if clicked a port handle (connect dot)
+    var handle=ev.target.getAttribute&&ev.target.getAttribute('data-handle');
+    if(handle){
+      if(!FC.connectMode){
+        // Start connection from this node
+        FC.connectMode=true; FC.connectFrom=handle; FC.sel=handle;
+        var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.fontWeight='700';
+        var h=document.getElementById('fc-hint'); if(h) h.textContent='Now click the destination node to connect';
+      } else if(FC.connectFrom&&handle!==FC.connectFrom){
+        // Complete connection
+        var lbl=prompt('Edge label (optional — press Enter for none):','');
+        FC.edges.push({id:uid(),from:FC.connectFrom,to:handle,label:lbl||''});
+        FC.connectMode=false; FC.connectFrom=null;
+        var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.fontWeight='';
+        var h=document.getElementById('fc-hint'); if(h) h.textContent='Click canvas to place · Drag to move · Double-click to rename';
+        FC.sel=null; drawFC(); saveFCData();
+      }
+      ev.stopPropagation(); return;
+    }
+
+    // Find clicked node
+    var clickedNid=null;
+    // Iterate reverse (top-most first)
+    for(var i=FC.nodes.length-1;i>=0;i--){
+      var nd=FC.nodes[i];
+      if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){clickedNid=nd.id;break;}
+    }
+
+    if(clickedNid){
+      // In connect mode, clicking a node body (not a port handle) selects it as source
+      if(FC.connectMode&&!FC.connectFrom){
+        FC.connectFrom=clickedNid;
+        var h=document.getElementById('fc-hint'); if(h) h.textContent='Now click a port handle (dot) on the destination node';
+        FC.sel=clickedNid; drawFC(); return;
+      }
+      // Already have source — clicking destination node body also works
+      if(FC.connectMode&&FC.connectFrom&&clickedNid!==FC.connectFrom){
+        var lbl=prompt('Edge label (press Enter for none):','');
+        FC.edges.push({id:uid(),from:FC.connectFrom,to:clickedNid,label:lbl||''});
+        FC.connectMode=false; FC.connectFrom=null;
+        var btn=document.getElementById('fc-conn-btn'); if(btn) btn.style.fontWeight='';
+        var h=document.getElementById('fc-hint'); if(h) h.textContent='Click canvas to place · Drag to move · Double-click to rename';
+        FC.sel=null; drawFC(); saveFCData(); return;
+      }
+      // Start drag
+      var nd=FC.nodes.find(function(n){return n.id===clickedNid;});
+      FC.sel=clickedNid; FC.dragNode=nd; FC.dragOx=mx-nd.x; FC.dragOy=my-nd.y;
+      drawFC();
+    } else {
+      // Click on empty canvas
+      if(FC.connectMode){ FC.connectMode=false; FC.connectFrom=null; drawFC(); return; }
+      if(_fcPendingShape){
+        var w=_fcPendingShape==='diamond'?140:_fcPendingShape==='rounded'?130:_fcPendingShape==='cylinder'?110:140;
+        var h2=_fcPendingShape==='diamond'?80:_fcPendingShape==='cylinder'?80:60;
+        FC.nodes.push({id:uid(),shape:_fcPendingShape,x:Math.max(62,mx-w/2),y:Math.max(0,my-h2/2),w:w,h:h2,label:'New Step'});
+        _fcPendingShape=null; var hint=document.getElementById('fc-hint'); if(hint) hint.textContent='Click canvas to place · Drag to move · Double-click to rename';
+        FC.sel=FC.nodes[FC.nodes.length-1].id; drawFC(); saveFCData(); return;
+      }
+      FC.sel=null; drawFC();
+    }
+  });
+
+  // ── Mouse move: drag + hover tooltip ──
+  // Use pointermove on the wrap container so tip stays visible when mouse moves onto it
+  var _hoverTimer=null, _tipVisible=false;
+
+  svg.addEventListener('mousemove',function(ev){
+    var rect=svg.getBoundingClientRect();
+    var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+
+    // Drag
+    if(FC.dragNode){
+      FC.dragNode.x=Math.max(62,mx-FC.dragOx);
+      FC.dragNode.y=Math.max(0,my-FC.dragOy);
+      drawFC();
+      return;
+    }
+
+    // Hide tip while moving (will re-show after delay)
+    var tip=document.getElementById('fc-hover-tip');
+    if(!tip) return;
+
+    // Check nodes
+    var foundNode=null;
+    for(var i=FC.nodes.length-1;i>=0;i--){
+      var nd=FC.nodes[i];
+      if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){foundNode=i;break;}
+    }
+    // Check edges
+    var foundEdge=null;
+    if(foundNode===null){
+      for(var j=0;j<FC.edges.length;j++){
+        var ed=FC.edges[j];
+        var sn=FC.nodes.find(function(n){return n.id===ed.from;}),tn=FC.nodes.find(function(n){return n.id===ed.to;});
+        if(!sn||!tn) continue;
+        var emx=(sn.x+sn.w/2+tn.x+tn.w/2)/2,emy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
+        if(Math.abs(mx-emx)<30&&Math.abs(my-emy)<22){foundEdge=j;break;}
+      }
+    }
+
+    var same=(foundNode!==null&&FC.hoverNode===foundNode)||(foundEdge!==null&&FC.hoverEdge===foundEdge);
+    if(same&&_tipVisible) return; // already showing tip for this element
+
+    // Clear pending timer
+    clearTimeout(_hoverTimer);
+
+    // If moved off both node and edge — hide tip
+    if(foundNode===null&&foundEdge===null){
+      FC.hoverNode=null; FC.hoverEdge=null;
+      _tipVisible=false;
+      tip.style.display='none';
+      return;
+    }
+
+    // New element — schedule tip
+    FC.hoverNode=foundNode; FC.hoverEdge=foundEdge;
+    _hoverTimer=setTimeout(function(){
+      var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+      var svgRect=svg.getBoundingClientRect();
+      var wrapRect=wrap.getBoundingClientRect();
+      var offsetX=svgRect.left-wrapRect.left+wrap.scrollLeft;
+      var offsetY=svgRect.top-wrapRect.top+wrap.scrollTop;
+
+      if(foundNode!==null){
+        var nd=FC.nodes[foundNode]; if(!nd) return;
+        // Position tip at top-right of node
+        tip.style.left=(nd.x+nd.w+offsetX-4)+'px';
+        tip.style.top=(nd.y+offsetY-4)+'px';
+        tip.innerHTML='<button onclick="fcHoverEdit('+foundNode+',0)" '
+          +'style="background:var(--accent);color:#fff;border:none;border-radius:6px;'
+          +'padding:5px 11px;cursor:pointer;font-size:12px;font-weight:600;'
+          +'box-shadow:0 3px 12px rgba(0,0,0,.35);white-space:nowrap;'
+          +'display:flex;align-items:center;gap:5px">&#9998; Edit</button>';
+      } else {
+        var ed2=FC.edges[foundEdge]; if(!ed2) return;
+        var sn2=FC.nodes.find(function(n){return n.id===ed2.from;});
+        var tn2=FC.nodes.find(function(n){return n.id===ed2.to;});
+        if(!sn2||!tn2) return;
+        var ex=(sn2.x+sn2.w/2+tn2.x+tn2.w/2)/2,ey=(sn2.y+sn2.h/2+tn2.y+tn2.h/2)/2;
+        tip.style.left=(ex+offsetX-30)+'px';
+        tip.style.top=(ey+offsetY-18)+'px';
+        tip.innerHTML='<button onclick="fcHoverEdit('+foundEdge+',1)" '
+          +'style="background:var(--text-soft);color:#fff;border:none;border-radius:6px;'
+          +'padding:5px 11px;cursor:pointer;font-size:12px;font-weight:600;'
+          +'box-shadow:0 3px 12px rgba(0,0,0,.35);white-space:nowrap;'
+          +'display:flex;align-items:center;gap:5px">&#9998; Label</button>';
+      }
+      tip.style.cssText=tip.style.cssText; // force repaint
+      tip.style.position='absolute';
+      tip.style.zIndex='200';
+      tip.style.pointerEvents='auto';
+      tip.style.display='block';
+      _tipVisible=true;
+
+      // Keep tip visible when mouse enters it
+      tip.onmouseenter=function(){ clearTimeout(_hoverTimer); _tipVisible=true; };
+      tip.onmouseleave=function(){ _tipVisible=false; tip.style.display='none'; FC.hoverNode=null; FC.hoverEdge=null; };
+    }, 400);
+  });
+
+  svg.addEventListener('mouseup',function(){
+    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
+  });
+  svg.addEventListener('mouseleave',function(){
+    if(FC.dragNode){ saveFCData(); FC.dragNode=null; }
+    // Only hide tip if mouse didn't go to the tip itself
+    clearTimeout(_hoverTimer);
+    setTimeout(function(){
+      var tip=document.getElementById('fc-hover-tip');
+      if(tip&&!_tipVisible&&!window._fcTipLock){ tip.style.display='none'; FC.hoverNode=null; FC.hoverEdge=null; }
+    },50);
+  });
+}
+
+function fcHoverEdit(idx, isEdge){
+  var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
+  if(!isEdge){
+    var nd=FC.nodes[idx]; if(!nd) return;
+    // Show a small popover with: Rename + color swatches
+    var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+    // Position near top-right of node
+    var svg=document.getElementById('fc-svg'); if(!svg) return;
+    var sRect=svg.getBoundingClientRect(), wRect=wrap.getBoundingClientRect();
+    var ox=sRect.left-wRect.left+wrap.scrollLeft;
+    var oy=sRect.top-wRect.top+wrap.scrollTop;
+    var px=nd.x+nd.w+ox, py=nd.y+oy-4;
+    var tip2=document.getElementById('fc-hover-tip'); if(!tip2) return;
+    var COLORS=[['#e8f4fe','Sky'],['#d4edda','Mint'],['#fff3cd','Sand'],['#fde2e2','Rose'],['#e2d9f3','Lavender'],['#f3f3f3','White']];
+    var swatches=COLORS.map(function(col){
+      var active=nd.fill===col[0];
+      return '<div onclick="fcNodeColor('+idx+',\''+col[0]+'\')" title="'+col[1]+'" style="width:22px;height:22px;border-radius:50%;background:'+col[0]+';cursor:pointer;border:2px solid '+(active?'var(--accent)':'rgba(0,0,0,.15)')+';flex-shrink:0;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.2)\'" onmouseout="this.style.transform=\'\'"></div>';
+    }).join('');
+    tip2.innerHTML='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;box-shadow:0 4px 20px rgba(0,0,0,.25);min-width:160px">'
+      +'<button onclick="showFCRename(\'nodeX\','+idx+',\''+e(nd.label||'').replace(/'/g,'\\\'')+'\')'+(',')+''+(nd.x+nd.w/2)+','+(nd.y+nd.h/2)+')" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:8px;text-align:left">&#9998; Rename</button>'
+      +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Color</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+swatches+'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<input type="color" value="'+(nd.fill&&nd.fill[0]==='#'?nd.fill:'#e8f4fe')+'" onchange="fcNodeColor('+idx+',this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);border-radius:4px;cursor:pointer">'
+      +'<span style="font-size:11px;color:var(--text-muted)">Custom color</span>'
+      +'</div>'
+      +'</div>';
+    tip2.style.cssText='position:absolute;z-index:200;left:'+px+'px;top:'+py+'px;pointer-events:auto;display:block';
+    tip2.onmouseenter=function(){ window._fcTipLock=true; };
+    tip2.onmouseleave=function(){ window._fcTipLock=false; tip2.style.display='none'; };
+  } else {
+    var ed=FC.edges[idx]; if(!ed) return;
+    var sn=FC.nodes.find(function(n){return n.id===ed.from;});
+    var tn=FC.nodes.find(function(n){return n.id===ed.to;});
+    if(!sn||!tn) return;
+    var cx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, cy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
+    showFCRename('edge', idx, ed.label||'', cx, cy);
+  }
+}
+function fcNodeColor(ndIdx, color){
+  if(FC.nodes[ndIdx]) FC.nodes[ndIdx].fill=color;
+  var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
+  drawFC(); saveFCData();
+}
+function showFCRename(type, idx, current, cx, cy){
+  var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
+  var wRect=wrap.getBoundingClientRect();
+  var svgEl=document.getElementById('fc-svg'); if(!svgEl) return;
+  var sRect=svgEl.getBoundingClientRect();
+  // Position input over the element
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:absolute;z-index:999;top:'+(cy-16)+'px;left:'+(cx-80)+'px;width:160px';
+  var inp=document.createElement('input');
+  inp.value=current;
+  inp.style.cssText='width:100%;padding:6px 10px;font-size:13px;font-family:var(--font-body);border:2px solid var(--accent);border-radius:var(--radius-sm);background:var(--card-bg);color:var(--text);text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  overlay.appendChild(inp);
+  wrap.appendChild(overlay);
+  inp.focus(); inp.select();
+  function commit(){
+    var val=inp.value;
+    if(type==='node'||type==='nodeX') FC.nodes[idx].label=val;
+    else FC.edges[idx].label=val;
+    overlay.remove();
+    drawFC(); saveFCData();
+  }
+  inp.addEventListener('keydown',function(ev){
+    if(ev.key==='Enter'){commit();}
+    if(ev.key==='Escape'){overlay.remove();}
+  });
+  inp.addEventListener('blur',function(){ setTimeout(function(){if(document.body.contains(overlay))commit();},150); });
+}
+
+function initFC(){ /* called by navigate — no-op, openFC handles init */ }
+
+async function migrateToNewFormat(){
+  if(!GH.token){ showGhTokenModal(); return; }
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
+  setS('Migrating to encrypted files…','var(--amber)');
+  try {
+    ensureFileIds();
+    // Save each customer to its own encrypted file
+    var origIdx=currentCustomerIdx;
+    for(var i=0;i<CUSTOMERS.length;i++){
+      currentCustomerIdx=i; syncDATA();
+      var cus=CUS();
+      setS('Encrypting '+cus.name+'…','var(--amber)');
+      var key=await ghDeriveKey(cus.id);
+      var payload=JSON.stringify({customerData:cus},null,2);
+      var encrypted=await ghEncrypt(key,payload);
+      var fname=ghCusFile(cus.id);
+      var getR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname+'?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
+      var curSha=(getR.ok)?(await getR.json()).sha:null;
+      var body={message:'Migrate '+cus.name+' to encrypted file',content:encrypted,branch:GH.branch};
+      if(curSha) body.sha=curSha;
+      var putR=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,{method:'PUT',headers:ghApiHeaders(),body:JSON.stringify(body)});
+      if(!putR.ok) throw new Error('Failed to save '+cus.name);
+    }
+    currentCustomerIdx=origIdx; syncDATA();
+    // Save users.json with customer shells
+    await ghSaveUsers();
+    window._legacyDataLoaded=false;
+    window._migrationPrompted=true;
+    setS('✓ Migration complete! You can now delete data.json from GitHub.','var(--green)');
+    setTimeout(function(){setS('');},8000);
+  } catch(err){
+    console.error('Migration failed:',err);
+    setS('✗ Migration failed: '+err.message,'var(--red)');
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTO-SAVE — debounced commit after every mutation
+═══════════════════════════════════════════════════ */
+var _autoSaveTimer = null;
+function autoSave(){
+  if(!canEdit()) return;
+  var statusEl = document.getElementById('gh-status');
+  if(statusEl){ statusEl.textContent='Unsaved changes…'; statusEl.style.color='var(--amber)'; }
+  if(typeof GH==='undefined'||!GH.token) return; // no token = no auto-save
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function(){ ghSaveCustomer(true); }, 1800);
+}
+
+/* ═══════════════════════════════════════════════════
+   PASSWORD MANAGEMENT
+═══════════════════════════════════════════════════ */
+function showPasswordModal(){ navigate('users'); closeModal(); }
+async function savePasswords(){
+  navigate('users');
+}
+
+
+
+/* ═══════════════════════════════════════════════════
+   GITHUB SYNC  —  reads/writes data.json only
+   index.html is NEVER touched by saves
+   Repo: frakke11/BelfiusTracker
+═══════════════════════════════════════════════════ */
+var GH = {
+  owner:  'frakke11',
+  repo:   'BelfiusTracker',
+  branch: 'main',
+  file:   'data.json',
+  get token(){ return localStorage.getItem('belfius_gh_token')||''; },
+  set token(v){ localStorage.setItem('belfius_gh_token',v); },
+  sha: null
+};
+
+function ghApiHeaders(){
+  var h = {'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
+  if(GH.token) h['Authorization'] = 'token '+GH.token;
+  return h;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GITHUB SYNC — Per-customer encrypted files
+   users.json         → plain JSON { users: {...} }
+   data-{cusId}.json  → AES-GCM encrypted JSON (key derived from token)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Crypto helpers ── */
+async function ghDeriveKey(cusId){
+  // Key = PBKDF2(GH.token + '|' + cusId, fixed salt, 100k rounds)
+  var pwBytes = new TextEncoder().encode((GH.token||'notoken')+'|'+cusId);
+  var saltBytes = new TextEncoder().encode('SalesforceTrackerSalt2024');
+  var baseKey = await crypto.subtle.importKey('raw', pwBytes, 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:saltBytes, iterations:100000, hash:'SHA-256'},
+    baseKey,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function ghEncrypt(key, plaintext){
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var data = new TextEncoder().encode(plaintext);
+  var encrypted = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, data);
+  // Prepend IV to ciphertext, encode as base64 (chunk to avoid stack overflow on large data)
+  var combined = new Uint8Array(12 + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), 12);
+  var b64='', chunk=8192;
+  for(var i=0;i<combined.length;i+=chunk){
+    b64+=String.fromCharCode.apply(null, combined.subarray(i,i+chunk));
+  }
+  return btoa(b64);
+}
+async function ghDecrypt(key, b64){
+  // b64 may be: a base64 string of (IV+ciphertext), or raw binary bytes passed as string
+  var combined;
+  try {
+    combined = Uint8Array.from(atob(b64), function(ch){return ch.charCodeAt(0);});
+  } catch(e){
+    // Fallback: treat as raw binary string
+    combined = Uint8Array.from(b64, function(ch){return ch.charCodeAt(0);});
+  }
+  var iv = combined.slice(0, 12);
+  var data = combined.slice(12);
+  var decrypted = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, data);
+  return new TextDecoder().decode(decrypted);
+}
+
+/* ── File name helpers ── */
+function ghCusFile(cusId){
+  var cu=CUSTOMERS.find(function(c){return c.id===cusId;});
+  if(cu&&cu.fileId) return 'data-'+cu.fileId+'.json';
+  // Generate and persist a random fileId for new customers
+  if(cu){ cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); return 'data-'+cu.fileId+'.json'; }
+  return 'data-'+cusId+'.json'; // fallback
+}
+function ensureFileIds(){
+  // Ensure every customer has a fileId (called after loading data)
+  CUSTOMERS.forEach(function(cu){ if(!cu.fileId) cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); });
+}
+
+/* ── Load users.json (plain, just hashes) ── */
+
+/* ── Save users.json (plain) ── */
+async function ghSaveUsers(){
+  if(!GH.token) return;
+  // Save users + customer shells (id, name, logo, fileId) so app knows which files to load
+  var cusShells=CUSTOMERS.map(function(cu){return {id:cu.id,name:cu.name,logo:cu.logo,brandColor:cu.brandColor,fileId:cu.fileId};});
+  var payload=JSON.stringify({users:USERS,customerShells:cusShells}, null, 2);
+  // Get current SHA for users.json
+  var getRes=await fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json?ref='+GH.branch+'&nocache='+Date.now(),{headers:ghApiHeaders()});
+  var sha=(getRes.ok)?(await getRes.json()).sha:null;
+  await ghPutFile('users.json', payload, sha, 'Update users and customer index');
+}
+
+/* ── Load a single customer's encrypted file ── */
+async function ghLoadCustomer(cusId){
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
+  var fname=ghCusFile(cusId);
+  var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname
+         +'?ref='+GH.branch+'&nocache='+Date.now();
+  var res=await fetch(url,{headers:ghApiHeaders()});
+  if(res.status===404){ setS('No saved data for '+cusId+' yet','var(--amber)'); return; }
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  var json=await res.json();
+  // Store SHA per customer for updates
+  if(!GH._cusSha) GH._cusSha={};
+  GH._cusSha[cusId]=json.sha;
+  var b64content=json.content.replace(/\n/g,'');
+  // b64content is GitHub's base64 encoding of the file's raw bytes
+  // The file bytes could be: (a) our base64-encoded encrypted blob, or (b) raw binary encrypted blob
+  var fileBytes;
+  try { fileBytes = atob(b64content); } catch(e){ fileBytes = b64content; }
+  var raw;
+  try {
+    if(!GH.token) throw new Error('no token');
+    var key=await ghDeriveKey(cusId);
+    // Try treating fileBytes as our base64-encoded blob
+    raw=await ghDecrypt(key, fileBytes);
+  } catch(decErr){
+    // Fallback: try plain JSON
+    try {
+      raw=decodeURIComponent(escape(fileBytes));
+    } catch(e2){ throw new Error('Cannot read '+fname+': '+decErr.message); }
+  }
+  var loaded=JSON.parse(raw);
+  // Merge loaded customer data into CUSTOMERS array
+  if(loaded.customerData){
+    var ci=CUSTOMERS.findIndex(function(cu){return cu.id===cusId;});
+    if(ci!==-1) Object.assign(CUSTOMERS[ci], loaded.customerData);
+    ensureFileIds(); syncDATA();
+  }
+}
+
+/* ── Save current customer's encrypted file ── */
+async function ghSaveCustomer(silent){
+  if(!GH.token){ if(!silent) showGhTokenModal(); else showGhTokenModal(); return; }
+  var statusEl=document.getElementById('gh-status');
+  var btn=document.getElementById('gh-save-btn');
+  function setS(m,c){ if(statusEl){statusEl.textContent=m;statusEl.style.color=c||'var(--text-muted)';} }
+  if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
+  setS('Encrypting & saving…');
+  try {
+    var cus=CUS();
+    var key=await ghDeriveKey(cus.id);
+    var payload=JSON.stringify({customerData:cus}, null, 2);
+    var encrypted=await ghEncrypt(key, payload);
+    var fname=ghCusFile(cus.id);
+    // Get current SHA
+    var getUrl='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname
+               +'?ref='+GH.branch+'&nocache='+Date.now();
+    var getRes=await fetch(getUrl,{headers:ghApiHeaders()});
+    var curSha=(getRes.ok)?(await getRes.json()).sha:null;
+    var body={message:'Update '+cus.name+' data — '+new Date().toISOString().slice(0,16).replace('T',' '),
+              content:encrypted, branch:GH.branch};
+    if(curSha) body.sha=curSha;
+    var putRes=await fetch(
+      'https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,
+      {method:'PUT', headers:ghApiHeaders(), body:JSON.stringify(body)}
+    );
+    if(!putRes.ok){ var ej=await putRes.json().catch(function(){return {};}); throw new Error(ej.message||'PUT failed'); }
+    // Also save users
+    await ghSaveUsers();
+    if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
+    setS('✓ Encrypted & saved at '+new Date().toLocaleTimeString(),'var(--green)');
+    setTimeout(function(){setS('');},5000);
+  } catch(err){
+    console.error('Save failed:',err);
+    if(btn){ btn.textContent='☁ Save to GitHub'; btn.disabled=false; }
+    setS('✗ Save failed','var(--red)');
+    if(!silent) alert('Save failed:\n\n'+err.message);
+  }
+}
+
+/* ── Load all accessible customer files on login ── */
+async function ghLoadData(){
+  var statusEl=document.getElementById('gh-status');
+  function setS(m,col){ if(statusEl){statusEl.textContent=m;statusEl.style.color=col||'var(--text-muted)';} }
+  if(!GH.token){ setS('No token — data not synced','var(--amber)'); return; }
+  // If legacy data.json was already loaded at login, skip new format loading
+  // (user should save once to migrate to new per-customer format)
+  if(window._legacyDataLoaded){
+    setS('✓ Loaded (legacy format)','var(--amber)');
+    ensureFileIds(); syncDATA(); buildSidebar();
+    if(currentPage){ var mc2=document.getElementById('main-content'); if(mc2) mc2.innerHTML=renderPage(currentPage); }
+    // Prompt migration only once per session
+    if(!window._migrationPrompted){
+      window._migrationPrompted=true;
+      setTimeout(function(){
+        var s2=document.getElementById('gh-status');
+        if(s2) s2.innerHTML='&#9888; <a href="#" onclick="migrateToNewFormat()" style="color:var(--amber)">Click to migrate to encrypted files</a>';
+      },2000);
+    }
+    return;
+  }
+  setS('Syncing…');
+  try {
+    // Determine which customers to load
+    var cusToLoad=CUSTOMERS.filter(function(cu){
+      if(!currentUser||!currentUser.assignedCustomers||!currentUser.assignedCustomers.length) return true;
+      return currentUser.assignedCustomers.indexOf(cu.id)!==-1;
+    });
+    // If only demo placeholder, nothing to load
+    var realCus=cusToLoad.filter(function(cu){return cu.id!=='demo';});
+    if(!realCus.length){
+      setS('No customer data yet — add a customer to get started','var(--amber)');
+      return;
+    }
+    cusToLoad=realCus;
+    for(var i=0;i<cusToLoad.length;i++){
+      try { await ghLoadCustomer(cusToLoad[i].id); }
+      catch(e){ console.warn('Could not load '+cusToLoad[i].id+':',e); }
+    }
+    setS('✓ Synced — '+new Date().toLocaleTimeString(),'var(--green)');
+    setTimeout(function(){setS('');},4000);
+    syncDATA(); buildSidebar();
+    if(currentPage){ var mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderPage(currentPage); }
+  } catch(err){
+    console.warn('GitHub load failed:',err);
+    setS('⚠ Could not load — using defaults','var(--amber)');
+  }
+}
+
+/* ── Shared PUT helper ── */
+async function ghPutFile(fname, plainPayload, sha, msg){
+  var encoded=btoa(unescape(encodeURIComponent(plainPayload)));
+  var body={message:msg||'Update',content:encoded,branch:GH.branch};
+  if(sha) body.sha=sha;
+  return fetch('https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+fname,
+    {method:'PUT',headers:ghApiHeaders(),body:JSON.stringify(body)});
+}
+
+/* ── autoSave calls ghSaveCustomer now ── */
+
+/* ── Token modal ── */
+function showGhTokenModal(){
+  var existing=GH.token;
+  showModal('<div class="modal"><h3>&#128273; GitHub Token '+(existing?'(Change)':'Required')+'</h3>'
+    +(existing?'<div style="font-size:12px;color:var(--green);margin-bottom:12px;padding:6px 10px;background:rgba(46,132,74,.1);border-radius:4px;border:1px solid rgba(46,132,74,.2)">&#9679; Token currently set — enter a new one to replace it</div>':'')
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.7">'
+    +'A GitHub Personal Access Token with <strong>repo</strong> scope is required to load and save data.<br><br>'
+    +'<strong>Create one at:</strong> <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/tokens/new</a><br>'
+    +'Select expiry → tick <strong>repo</strong> → Generate → copy here.</p>'
+    +'<div class="form-group">'
+    +'<label>Personal Access Token</label>'
+    +'<input id="gh-tok-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off" style="font-family:monospace">'
+    +'</div>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-top:4px">'
+    +'&#128274; Stored only in your browser localStorage — never in the HTML or on any server.</p>'
+    +'<div class="modal-actions">'
+    +'<button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveGhToken()">Save &amp; Load Data</button>'
+    +'</div></div>');
+  setTimeout(function(){ var i=document.getElementById('gh-tok-input'); if(i) i.focus(); },50);
+}
+function saveGhToken(){
+  var t = (document.getElementById('gh-tok-input').value||'').trim();
+  if(!t){ alert('Please paste your token first.'); return; }
+  GH.token = t;
+  closeModal();
+  injectGhBar(true); // rebuild bar to show "clear token" + remove "set token"
+  // Auto-load data now that we have a token
+  ghLoadData();
+}
+async function showRepoFiles(){
+  if(!GH.token){ showGhTokenModal(); return; }
+  showModal('<div class="modal modal-lg"><h3>&#128193; GitHub Repo Files</h3>'
+    +'<div id="repo-files-list"><div style="text-align:center;padding:20px;color:var(--text-muted)">Loading…</div></div>'
+    +'<div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Close</button></div></div>');
+  try {
+    var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/?ref='+GH.branch+'&nocache='+Date.now();
+    var res=await fetch(url,{headers:ghApiHeaders()});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var files=await res.json();
+    // Build file mapping: encrypted files mapped to customer names
+    var fileMap={};
+    CUSTOMERS.forEach(function(cu){
+      if(cu.fileId) fileMap['data-'+cu.fileId+'.json']=cu;
+    });
+    var rows=files.sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(f){
+      var cu=fileMap[f.name];
+      var kb=(f.size/1024).toFixed(1);
+      var isCustomerFile=!!cu;
+      var isUsersFile=f.name==='users.json';
+      var isLegacy=f.name==='data.json';
+      var icon=isCustomerFile?'&#128274;':isUsersFile?'&#128100;':isLegacy?'&#9888;':'&#128196;';
+      var label=isCustomerFile?('<strong>'+e(cu.name)+'</strong> (encrypted)'):isUsersFile?'Users & customer index':isLegacy?'<span style="color:var(--amber)">Legacy data.json — safe to delete after migration</span>':'Other file';
+      var repoUrl='https://github.com/'+GH.owner+'/'+GH.repo+'/blob/'+GH.branch+'/'+encodeURIComponent(f.name);
+      return '<tr>'
+        +'<td style="padding:8px 12px;font-family:monospace;font-size:12px">'+icon+' '+e(f.name)+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text-muted)">'+label+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:right">'+kb+' KB</td>'
+        +'<td style="padding:8px 12px"><a href="'+repoUrl+'" target="_blank" style="font-size:11px;color:var(--accent)">GitHub &#8599;</a></td>'
+        +'</tr>';
+    }).join('');
+    var html='<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Repository: '
+      +'<a href="https://github.com/'+GH.owner+'/'+GH.repo+'" target="_blank" style="color:var(--accent)">'+GH.owner+'/'+GH.repo+'</a></p>'
+      +'<div class="overflow-x"><table>'
+      +'<thead><tr><th>File</th><th>Content</th><th style="text-align:right">Size</th><th></th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table></div>';
+    var el=document.getElementById('repo-files-list');
+    if(el) el.innerHTML=html;
+  } catch(err){
+    var el=document.getElementById('repo-files-list');
+    if(el) el.innerHTML='<div style="color:var(--red);padding:12px">Failed to load: '+e(err.message)+'</div>';
+  }
+}
+
+function clearGhToken(){
+  if(confirm('Remove saved GitHub token from this browser?')){
+    localStorage.removeItem('belfius_gh_token');
+    GH.token = '';
+    injectGhBar(true); // rebuild — shows "Set Token" button
+  }
+}
+
+/* ── Sidebar GitHub section ── */
+function injectGhBar(force){
+  var existing = document.getElementById('gh-bar');
+  if(existing && !force){ return; }
+  if(existing) existing.remove();
+  var sidebar = document.querySelector('.sidebar');
+  if(!sidebar) return;
+  var bar = document.createElement('div');
+  bar.id = 'gh-bar';
+  bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
+  var hasToken = !!GH.token;
+  bar.innerHTML =
+    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">&#128274; GitHub Sync</div>'
+    // Token status row
+    +(hasToken
+      ? '<div style="font-size:10px;color:rgba(255,255,255,.5);margin-bottom:8px;padding:4px 6px;background:rgba(255,255,255,.07);border-radius:4px;display:flex;align-items:center;gap:6px"><span style="color:var(--green)">&#9679;</span> Token set <button onclick="showGhTokenModal()" style="margin-left:auto;background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:10px;padding:0">&#9998; Change</button></div>'
+      : '<div style="margin-bottom:8px"><button class="btn-primary" style="width:100%;font-size:12px;padding:8px;background:rgba(255,165,0,.25);border:1px solid rgba(255,165,0,.5)" onclick="showGhTokenModal()">&#128273; Set GitHub Token</button><div style="font-size:10px;color:rgba(255,165,0,.8);margin-top:4px;text-align:center">Required to save &amp; load data</div></div>')
+    +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveCustomer()"'+(hasToken?'':' disabled title="Set token first"')+'>&#9729; Save to GitHub</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghPullLatest()">&#8635; Pull latest</button>'
+    +(hasToken?'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showRepoFiles()">&#128193; View Repo Files</button>':'')
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showImportModal()">&#128229; Import / Restore</button>'
+    +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="goUsers()">&#128100; Manage Users</button>'
+    +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
+    +(hasToken ? '<button onclick="clearGhToken()" class="btn-ghost" style="width:100%;font-size:10px;padding:3px;margin-top:4px;opacity:.45">&#10005; Clear token</button>' : '');
+  // Insert before the sign-out button
+  var signOut = sidebar.querySelector('.btn-ghost[onclick="logout()"]');
+  if(signOut) sidebar.insertBefore(bar, signOut);
+  else sidebar.appendChild(bar);
+}
+
+/* ── Pull latest — show token modal first if needed ── */
+function ghPullLatest(){
+  if(!GH.token){
+    showGhTokenModal();
+    return;
+  }
+  ghLoadData();
+}
