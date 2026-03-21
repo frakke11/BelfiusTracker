@@ -75,6 +75,7 @@ var currentRole = null;   // 'superadmin' | 'project_admin' | 'viewer'
 var currentUsername = null;
 var currentPage = 'overview';
 var currentTheme = 'default';
+var APP_VERSION = '1.4.0'; // Updated: 2026-03-21
 var currentCustomerIdx = 0;  // which customer is active
 var currentProjectIdx  = 0;  // which project is active within customer
 
@@ -252,6 +253,7 @@ async function doLogin(){
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   buildSidebar();
+  var vl=document.getElementById('app-version-lbl'); if(vl) vl.textContent=APP_VERSION;
   if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
   var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
   navigate('overview');
@@ -483,6 +485,7 @@ function switchCustomer(idx){
   }
   syncDATA();
   buildSidebar();
+  var vl=document.getElementById('app-version-lbl'); if(vl) vl.textContent=APP_VERSION;
   if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
   var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
   navigate('overview');
@@ -495,6 +498,7 @@ function switchProject(idx){
   }
   currentProjectIdx=idx; syncDATA(); ucTab={};
   buildSidebar();
+  var vl=document.getElementById('app-version-lbl'); if(vl) vl.textContent=APP_VERSION;
   if(currentTheme==='customer'||currentTheme==='customer-dark') applyCustomerTheme();
   var lbl=document.getElementById('tb-customer-label'); if(lbl) lbl.textContent=CUS().name||'Customer';
   navigate('overview');
@@ -1153,7 +1157,7 @@ function rUseCasesList(){
         +'<div class="row center g8">'
         +'<div style="width:34px;height:34px;border-radius:var(--radius-sm);background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:#fff;flex-shrink:0">'+e(uc.id)+'</div>'
         +'<div style="font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff">'+e(uc.title)+'</div>'
-        +'</div>'+badge(uc.status)+'</div>'
+        +'</div>'+badge(uc.status)+' '+ragBadge(ucH.rag,ucH.reasons,true)+'</div>'
         +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px">'+e(uc.subtitle)+'</div>'
         +'</div>'
         +'<div style="height:3px;background:rgba(0,0,0,.08)"><div style="height:3px;background:rgba(255,255,255,.4);width:'+uc.progress+'%"></div></div>'
@@ -1162,7 +1166,7 @@ function rUseCasesList(){
         +(uc.expectedOutcomes?'<div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+stripTags(uc.expectedOutcomes)+'</div>':'')
         +'<div class="row between center">'
         +'<div class="row g8">'+(ns?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">'+ns+' stories</span>':'')+(hs?'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-light);padding:2px 8px;border-radius:10px">scope &#10003;</span>':'')+'</div>'
-        +'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'% &rarr;</span>'
+        +'<div class="row center g6">'+(hasDeps?'<span style="font-size:10px;color:var(--text-muted)">&#9650; deps</span>':'')+'<span style="font-size:11px;color:var(--accent);font-weight:600">'+uc.progress+'%</span></div>'
         +'</div></div></div>';
     }).join('')+'</div></div>';
 }
@@ -2913,7 +2917,8 @@ function buildFCEditor(name){
     +'<div class="row center g12" style="padding:0 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">'
     +'<button class="btn-ghost btn-sm" onclick="navigate(\'flowchart\')">&larr; Back</button>'
     +(canEdit()?'<div style="flex:1;display:flex;align-items:center;gap:6px">'+'<span style="font-size:17px;font-weight:700">'+e(name)+'</span>'+'<button class="btn-icon" style="font-size:11px" onclick="renameFCCurrent()" title="Rename">&#9998;</button></div>':'<h2 style="font-size:17px;font-weight:700;flex:1">'+e(name)+'</h2>')
-    +(canEdit()?'<button class="btn-ghost btn-sm" id="fc-conn-btn" onclick="toggleConnect()">&#8594; Connect</button>'
+    +(canEdit()?'<button class="btn-ghost btn-sm" onclick="manageLanes()">&#9776; Lanes</button>'
+      +'<button class="btn-ghost btn-sm" id="fc-conn-btn" onclick="toggleConnect()">&#8594; Connect</button>'
       +'<button class="btn-ghost btn-sm" onclick="fcDel()">&#10005; Delete</button>':'')
     +'<button class="btn-primary btn-sm" onclick="saveFC()">&#10004; Save</button>'
     +'</div>'
@@ -3293,6 +3298,58 @@ function showFCRename(type, idx, current, cx, cy){
     if(ev.key==='Escape'){overlay.remove();}
   });
   inp.addEventListener('blur',function(){ setTimeout(function(){if(document.body.contains(overlay))commit();},150); });
+}
+
+
+/* ── Flowchart lane management ── */
+function manageLanes(){
+  var lanes=FC.lanes||[];
+  function laneRow(ln,li){
+    return '<div class="row center g8" style="padding:6px 0;border-bottom:1px solid var(--border)" id="lr-'+li+'">'
+      +'<span style="color:var(--text-muted);cursor:grab;font-size:14px">&#9868;</span>'
+      +'<input value="'+e(ln.name)+'" id="ln-name-'+li+'" style="flex:1;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--card-bg);color:var(--text)">'
+      +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteLane('+li+')">&#10005;</button>'
+      +'</div>';
+  }
+  var rows=lanes.map(laneRow).join('');
+  showModal('<div class="modal"><h3>&#9776; Manage Swim Lanes</h3>'
+    +'<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Rename, add or remove lanes. Changes resize all lanes equally.</p>'
+    +'<div id="lane-rows">'+rows+'</div>'
+    +'<button class="btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="addLaneRow()">+ Add Lane</button>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="saveLanes()">Apply</button></div></div>');
+}
+function addLaneRow(){
+  var container=document.getElementById('lane-rows'); if(!container) return;
+  var li=container.children.length;
+  var div=document.createElement('div');
+  div.className='row center g8';
+  div.style.cssText='padding:6px 0;border-bottom:1px solid var(--border)';
+  div.id='lr-'+li;
+  div.innerHTML='<span style="color:var(--text-muted);font-size:14px">&#9868;</span>'
+    +'<input value="New Lane" id="ln-name-'+li+'" style="flex:1;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--card-bg);color:var(--text)">'
+    +'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="this.parentNode.remove()">&#10005;</button>';
+  container.appendChild(div);
+}
+function deleteLane(li){
+  var row=document.getElementById('lr-'+li); if(row) row.remove();
+}
+function saveLanes(){
+  // Collect all remaining lane name inputs in DOM order
+  var container=document.getElementById('lane-rows'); if(!container) return;
+  var inputs=container.querySelectorAll('input[id^="ln-name-"]');
+  var names=[];
+  inputs.forEach(function(inp){ if(inp.value.trim()) names.push(inp.value.trim()); });
+  if(!names.length){ alert('Need at least one lane.'); return; }
+  // Redistribute heights evenly
+  var laneH=Math.floor(FC.svgH/names.length);
+  FC.lanes=names.map(function(n,i){
+    return {id:(FC.lanes[i]&&FC.lanes[i].id)||uid(), name:n, y:i*laneH, h:laneH};
+  });
+  if(FC.currentChart!==null){
+    DATA.flowcharts[FC.currentChart].lanes=FC.lanes;
+  }
+  closeModal(); drawFC(); saveFCData(); autoSave();
 }
 
 function initFC(){ /* called by navigate — no-op, openFC handles init */ }
@@ -3688,7 +3745,7 @@ function injectGhBar(force){
   bar.style.cssText = 'margin-top:auto;padding-top:12px;border-top:1px solid var(--sidebar-border);padding-left:2px;padding-right:2px';
   var hasToken = !!GH.token;
   bar.innerHTML =
-    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">&#128274; GitHub Sync</div>'
+    '<div style="font-size:10px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">&#128274; GitHub Sync &nbsp;<span style="opacity:.5;font-size:9px">v'+APP_VERSION+'</span></div>'
     // Token status row
     +(hasToken
       ? '<div style="font-size:10px;color:rgba(255,255,255,.5);margin-bottom:8px;padding:4px 6px;background:rgba(255,255,255,.07);border-radius:4px;display:flex;align-items:center;gap:6px"><span style="color:var(--green)">&#9679;</span> Token set <button onclick="showGhTokenModal()" style="margin-left:auto;background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:10px;padding:0">&#9998; Change</button></div>'
