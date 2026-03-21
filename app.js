@@ -534,9 +534,22 @@ function saveNewProject(){
   var id=name.toLowerCase().replace(/[^a-z0-9]/g,'-')+'-'+Date.now();
   var techs=[]; document.querySelectorAll('.np-tech:checked').forEach(function(cb){techs.push(cb.value);});
   var prj={id:id,name:name,description:document.getElementById('np-desc').value,technologies:techs,
-    useCases:[],blockers:[],risks:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
+    startDate:'',endDate:'',useCases:[],blockers:[],risks:[],kpis:[],team:[],raci:[],meetings:[],flowcharts:[],keyEvents:[],phases:[{name:'Foundation',days:'0–30 days',startDate:'',endDate:'',milestone:'',status:'active'},{name:'Realization',days:'31–60 days',startDate:'',endDate:'',milestone:'',status:'upcoming'},{name:'Deployment',days:'61–90 days',startDate:'',endDate:'',milestone:'',status:'upcoming'}],execSponsors:[]};
   CUS().projects.push(prj); currentProjectIdx=CUS().projects.length-1; syncDATA();
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
+}
+
+/* ── Project date bounds validation ── */
+function prjDateBounds(){
+  var prj=PRJ();
+  return {start:prj.startDate||null, end:prj.endDate||null};
+}
+function warnOutOfBounds(dateStr, fieldLabel){
+  var b=prjDateBounds();
+  if(!dateStr||(!b.start&&!b.end)) return false;
+  if(b.start&&dateStr<b.start){ alert(fieldLabel+' ('+dateStr+') is before the project start date ('+b.start+').'); return true; }
+  if(b.end&&dateStr>b.end){ alert(fieldLabel+' ('+dateStr+') is after the project end date ('+b.end+').'); return true; }
+  return false;
 }
 function editProject(){
   var prj=PRJ();
@@ -544,6 +557,8 @@ function editProject(){
   showModal('<div class="modal"><h3>Edit Project</h3>'
     +'<div class="form-group"><label>Project Name</label><input id="ep-name" value="'+e(prj.name||'')+'"></div>'
     +'<div class="form-group"><label>Description</label><textarea id="ep-desc" rows="2">'+e(prj.description||'')+'</textarea></div>'
+    +'<div class="form-row"><div class="form-group"><label>Project Start Date</label><input id="ep-start" type="date" value="'+e(prj.startDate||'')+'"></div>'
+    +'<div class="form-group"><label>Project End Date</label><input id="ep-end" type="date" value="'+e(prj.endDate||'')+'"></div></div>'
     +'<div class="form-group"><label>Technologies</label><div class="row wrap g8" style="margin-top:6px">'
     +techs.map(function(t){var sel=(prj.technologies||[]).indexOf(t)!==-1;
       return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid '+(sel?'var(--accent)':'var(--border)')+';border-radius:20px;margin:0"><input type="checkbox" value="'+e(t)+'" class="ep-tech"'+(sel?' checked':'')+' style="width:auto;accent-color:var(--accent)">'+e(t)+'</label>';}).join('')
@@ -555,6 +570,8 @@ function saveEditProject(){
   var prj=PRJ();
   prj.name=document.getElementById('ep-name').value;
   prj.description=document.getElementById('ep-desc').value;
+  prj.startDate=document.getElementById('ep-start').value;
+  prj.endDate=document.getElementById('ep-end').value;
   var techs=[]; document.querySelectorAll('.ep-tech:checked').forEach(function(cb){techs.push(cb.value);});
   prj.technologies=techs;
   closeModal(); buildSidebar(); navigate('overview'); autoSave();
@@ -631,6 +648,79 @@ function renderPage(page){
    OVERVIEW
 ═══════════════════════════════════════════════════ */
 /* ── Import data from pasted JSON (migration / recovery tool) ── */
+
+/* ═══════════════════════════════════════════════════
+   USER ACCOUNT REQUESTS
+   Stored in USERS._requests = [{name,email,username,reason,ts}]
+   Superadmin approves/declines from Users page.
+   Email via mailto: (opens user's mail client)
+═══════════════════════════════════════════════════ */
+function showRequestAccountModal(){
+  showModal('<div class="modal"><h3>&#128231; Request an Account</h3>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">Fill in your details. A Salesforce administrator will review your request and send you login credentials by email.</p>'
+    +'<div class="form-row"><div class="form-group"><label>Full Name</label><input id="req-name" placeholder="Your full name"></div>'
+    +'<div class="form-group"><label>Preferred Username</label><input id="req-user" placeholder="e.g. jsmith" style="text-transform:lowercase" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,\'\')"></div></div>'
+    +'<div class="form-group"><label>Email Address</label><input id="req-email" type="email" placeholder="you@company.com"></div>'
+    +'<div class="form-group"><label>Reason / Role (optional)</label><textarea id="req-reason" rows="2" placeholder="e.g. Belfius project manager — need read access"></textarea></div>'
+    +'<div id="req-msg" style="font-size:12px;min-height:18px;margin-top:4px"></div>'
+    +'<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn-primary" onclick="submitAccountRequest()">Send Request</button></div></div>');
+}
+function submitAccountRequest(){
+  var name=(document.getElementById('req-name').value||'').trim();
+  var user=(document.getElementById('req-user').value||'').trim();
+  var email=(document.getElementById('req-email').value||'').trim();
+  var reason=(document.getElementById('req-reason').value||'').trim();
+  var msg=document.getElementById('req-msg');
+  if(!name||!user||!email){ msg.textContent='Please fill in name, username and email.'; msg.style.color='var(--red)'; return; }
+  if(USERS[user]){ msg.textContent='Username "'+user+'" is already taken. Choose another.'; msg.style.color='var(--red)'; return; }
+  if(!USERS._requests) USERS._requests=[];
+  var dup=USERS._requests.find(function(r){return r.username===user||r.email===email;});
+  if(dup){ msg.textContent='A request with this username or email already exists.'; msg.style.color='var(--amber)'; return; }
+  USERS._requests.push({name:name,username:user,email:email,reason:reason,ts:new Date().toISOString(),status:'pending'});
+  // Save to GitHub (users.json)
+  ghSaveUsers();
+  msg.textContent='✓ Request submitted! An administrator will contact you at '+email+'.';
+  msg.style.color='var(--green)';
+  setTimeout(function(){ closeModal(); },2500);
+}
+function approveRequest(idx){
+  var req=(USERS._requests||[])[idx]; if(!req) return;
+  // Generate a temporary password
+  var tmpPwd=Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,5);
+  // Show temp password + open mailto
+  if(!confirm('Approve "'+req.name+'" ('+req.username+')?\n\nA temporary password will be generated: '+tmpPwd+'\n\nClick OK to approve and open your email client to notify them.')) return;
+  // Hash the password and create the user
+  sha256(tmpPwd).then(function(hash){
+    USERS[req.username]={hash:hash,role:'viewer',name:req.name,email:req.email,assignedCustomers:[],assignedProjects:[]};
+    USERS._requests[idx].status='approved';
+    ghSaveUsers();
+    navigate('users'); autoSave();
+    // Open mailto
+    var subject=encodeURIComponent('Your Agentforce Tracker account is ready');
+    var body=encodeURIComponent(
+      'Hi '+req.name+',\n\n'+
+      'Your account request has been approved.\n\n'+
+      'Login details:\n'+
+      'URL: '+window.location.href.split('?')[0]+'\n'+
+      'Username: '+req.username+'\n'+
+      'Temporary password: '+tmpPwd+'\n\n'+
+      'Please log in and change your password as soon as possible.\n\n'+
+      'Salesforce Agentforce Team'
+    );
+    window.open('mailto:'+encodeURIComponent(req.email)+'?subject='+subject+'&body='+body);
+  });
+}
+function declineRequest(idx){
+  var req=(USERS._requests||[])[idx]; if(!req) return;
+  if(!confirm('Decline request from "'+req.name+'" ('+req.username+')?')) return;
+  USERS._requests[idx].status='declined';
+  ghSaveUsers();
+  navigate('users');
+}
+function deleteRequest(idx){
+  if(confirm('Remove this request?')){ USERS._requests.splice(idx,1); ghSaveUsers(); navigate('users'); }
+}
 function showImportModal(){
   showModal('<div class="modal modal-lg"><h3>&#128229; Import / Restore Data</h3>'
     +'<p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px">'
@@ -787,6 +877,7 @@ function rOverview(){
     +'<div style="font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;font-weight:600">Salesforce Agentforce Program</div>'
     +'<h1 style="font-size:26px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:8px">'+e(prj.name||'Agentic Transformation')+'</h1>'
     +'<p style="font-size:13px;color:rgba(255,255,255,.8)">'+e(prj.description||'Salesforce Agentforce Team')+'</p>'
+    +(prj.startDate||prj.endDate?'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px">&#128197; '+(prj.startDate?prj.startDate:'?')+' &rarr; '+(prj.endDate?prj.endDate:'?')+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
     +(prj.technologies&&prj.technologies.length?prj.technologies:['Agentforce']).map(function(t){
       return '<span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.3)">'+e(t)+'</span>';
@@ -1680,14 +1771,10 @@ function rTimeline(){
     (DATA.useCases||[]).forEach(function(uc){(uc.milestones||[]).forEach(function(m){if(m.date&&/^\d{4}-/.test(m.date))ucMilDates.push({date:m.date,label:m.label,ucTitle:uc.title,ucId:uc.id,pct:m.progress||0,assignees:m.assignees||[],atRisk:m.atRisk});});});
     var allDates=events.map(function(ev){return ev.date;}).concat(ucMilDates.map(function(m){return m.date;})).filter(Boolean).sort();
 
-    // Anchor range to project phases if available
-    var phDates=(DATA.phases||[]).filter(function(p){return p.startDate||p.endDate;});
-    var phStart=phDates.length?phDates.map(function(p){return p.startDate;}).filter(Boolean).sort()[0]:null;
-    var phEnd=phDates.length?phDates.map(function(p){return p.endDate;}).filter(Boolean).sort().pop():null;
-
-    // Use project start/end as hard boundaries, events extend inside
-    var anchorStart=phStart||(allDates[0]||new Date().toISOString().slice(0,10));
-    var anchorEnd=phEnd||(allDates[allDates.length-1]||new Date().toISOString().slice(0,10));
+    // Use project start/end dates as hard boundaries
+    var prj2=PRJ();
+    var anchorStart=prj2.startDate||(DATA.phases||[]).map(function(p){return p.startDate;}).filter(Boolean).sort()[0]||(allDates[0]||new Date().toISOString().slice(0,10));
+    var anchorEnd=prj2.endDate||(DATA.phases||[]).map(function(p){return p.endDate;}).filter(Boolean).sort().pop()||(allDates[allDates.length-1]||new Date().toISOString().slice(0,10));
 
     var minD=new Date(anchorStart); minD.setDate(1);
     var maxD=new Date(anchorEnd); maxD.setMonth(maxD.getMonth()+1); maxD.setDate(0);
@@ -2245,7 +2332,28 @@ function saveRisk(idx){
 }
 function deleteRisk(idx){if(confirm('Delete risk?')){DATA.risks.splice(idx,1);navigate('risks');autoSave();}}
 
+function migrateRaci(){
+  // Detect old-format rows (have M/F/J/R/K/B keys directly) and convert
+  // to new values:{} format. Map old single-letter keys to team member names
+  // by position: M=index0, F=index1, J=index2, R=index3, K=index4, B=index5+
+  var cols=getRaciCols();
+  var oldKeys=['M','F','J','R','K','B'];
+  var migrated=0;
+  (DATA.raci||[]).forEach(function(row){
+    if(!row.values){
+      row.values={};
+      oldKeys.forEach(function(k,ki){
+        if(row[k]&&row[k]!=='—'&&cols[ki]){
+          row.values[cols[ki].key]=row[k];
+        }
+      });
+      migrated++;
+    }
+  });
+  if(migrated>0){ navigate('raci'); autoSave(); }
+}
 function rRaci(){
+  migrateRaci();
   var cols=getRaciCols();
   var vals=['R','A','C','I','—'];
   var valColors={'R':'#4caf82','A':'var(--accent)','C':'#4a9eff','I':'var(--text-muted)','—':'var(--border)'};
@@ -2828,8 +2936,36 @@ function rUsers(){
       +(u!=='superadmin'?'<button class="btn-icon" style="color:#e85d5d" onclick="deleteUser(\''+e(u)+'\')">&#10005;</button>':'')
       +'</div></td></tr>';
   }).join('');
+  // Pending requests panel
+  var pendingReqs=(USERS._requests||[]).filter(function(r){return r.status==='pending';});
+  var requestsPanel='';
+  if(pendingReqs.length||isSuperAdmin()){
+    var allReqs=USERS._requests||[];
+    var reqRows=allReqs.map(function(req,ri){
+      var isPending=req.status==='pending';
+      var statusCol=isPending?'var(--amber)':req.status==='approved'?'var(--green)':'var(--text-muted)';
+      return '<tr>'
+        +'<td style="padding:10px 14px"><div style="font-weight:600">'+e(req.name)+'</div><div style="font-size:11px;color:var(--text-muted)">@'+e(req.username)+'</div></td>'
+        +'<td style="padding:10px 14px"><a href="mailto:'+e(req.email)+'" style="color:var(--accent);font-size:13px">'+e(req.email)+'</a></td>'
+        +'<td style="padding:10px 14px;font-size:12px;color:var(--text-muted)">'+e(req.reason||'—')+'</td>'
+        +'<td style="padding:10px 14px;font-size:11px;color:'+statusCol+';font-weight:700;text-transform:uppercase">'+e(req.status)+'</td>'
+        +'<td style="padding:10px 14px">'
+        +(isPending?'<div class="row g6"><button class="btn-icon" style="color:var(--green)" onclick="approveRequest('+ri+')">&#10003; Approve</button>'
+          +'<button class="btn-icon" style="color:#e85d5d" onclick="declineRequest('+ri+')">&#10005; Decline</button></div>'
+          :'<button class="btn-icon" style="color:#e85d5d;font-size:11px" onclick="deleteRequest('+ri+')">&#10005; Remove</button>')
+        +'</td></tr>';
+    }).join('');
+    requestsPanel=allReqs.length?'<div class="card" style="overflow:hidden;margin-bottom:0">'
+      +'<div style="padding:12px 18px;background:var(--bg-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="font-weight:700;font-size:14px">&#128231; Account Requests '+(pendingReqs.length?'<span style="background:var(--amber);color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px">'+pendingReqs.length+' pending</span>':'')+'</div>'
+      +'</div>'
+      +'<div class="overflow-x"><table><thead><tr><th>Name</th><th>Email</th><th>Reason</th><th>Status</th><th></th></tr></thead>'
+      +'<tbody>'+reqRows+'</tbody></table></div></div>':'';
+  }
+
   return '<div class="col g24">'
     +rFileMap()
+    +requestsPanel
     +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
     +'<button class="btn-primary" onclick="addUser()">+ Add User</button></div>'
     +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
