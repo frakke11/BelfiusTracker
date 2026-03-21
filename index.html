@@ -2710,25 +2710,39 @@ function rFlowchart(){
 /* ── File mapping — shown in superadmin Users page ── */
 function rFileMap(){
   if(!isSuperAdmin()) return '';
-  var rows=CUSTOMERS.map(function(cu){
+  ensureFileIds();
+  var realCus=CUSTOMERS.filter(function(cu){return cu.id!=='demo';});
+  if(!realCus.length){
+    return '<div class="card-accent" style="padding:16px 20px;margin-bottom:24px">'
+      +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">&#128274; Encrypted File Mapping</div>'
+      +'<div style="font-size:12px;color:var(--text-muted)">No customers loaded yet. Pull latest from GitHub or use Import / Restore.</div>'
+      +'</div>';
+  }
+  var rows=realCus.map(function(cu){
     var fname=ghCusFile(cu.id);
+    var ghUrl='https://github.com/'+GH.owner+'/'+GH.repo+'/blob/'+GH.branch+'/'+encodeURIComponent(fname);
     return '<tr>'
-      +'<td style="padding:10px 14px"><div style="font-weight:600">'+e(cu.name)+'</div><div style="font-size:11px;color:var(--text-muted)">id: '+e(cu.id)+'</div></td>'
-      +'<td style="padding:10px 14px;font-family:monospace;font-size:12px;color:var(--accent)">'+e(fname)+'</td>'
-      +'<td style="padding:10px 14px;font-size:11px;color:var(--text-muted)">'+e(cu.fileId||'—')+'</td>'
-      +'<td style="padding:10px 14px">'
-        +'<button class="btn-icon btn-sm" onclick="rotateCusFileId(\''+cu.id+'\')" title="Regenerate random filename (old file stays on GitHub until manually deleted)">&#8635; Rotate</button>'
-      +'</td>'
+      +'<td style="padding:10px 14px"><div style="font-weight:600">'+e(cu.logo||'&#127970;')+' '+e(cu.name)+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted)">id: '+e(cu.id)+'</div></td>'
+      +'<td style="padding:10px 14px"><code style="font-size:12px;color:var(--accent)">'+e(fname)+'</code><br>'
+        +'<a href="'+ghUrl+'" target="_blank" style="font-size:11px;color:var(--text-muted)">View on GitHub &#8599;</a></td>'
+      +'<td style="padding:10px 14px;font-family:monospace;font-size:11px;color:var(--text-muted)">'+e(cu.fileId||'—')+'</td>'
+      +'<td style="padding:10px 14px"><button class="btn-icon" onclick="rotateCusFileId(this.dataset.id)" data-id="'+cu.id+'" title="Generate new random filename">&#8635; Rotate</button></td>'
       +'</tr>';
   }).join('');
   return '<div class="card" style="margin-bottom:24px;overflow:hidden">'
-    +'<div style="padding:14px 18px;background:var(--btn-primary)">'
-    +'<div style="font-weight:700;font-size:14px;color:#fff">&#128274; Encrypted File Mapping</div>'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">Only visible to superadmin — maps customer names to anonymous encrypted filenames</div>'
+    +'<div style="padding:14px 18px;background:var(--btn-primary);display:flex;align-items:center;justify-content:space-between;gap:12px">'
+    +'<div><div style="font-weight:700;font-size:14px;color:#fff">&#128274; Encrypted File Mapping</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">Superadmin only — maps customers to anonymous encrypted filenames</div></div>'
+    +'<button class="btn-icon" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;font-size:11px;flex-shrink:0" onclick="showRepoFiles()">&#128193; All files</button>'
     +'</div>'
-    +'<div class="overflow-x"><table><thead><tr><th>Customer</th><th>Filename</th><th>File ID</th><th></th></tr></thead>'
-    +'<tbody>'+rows+'</tbody></table></div></div>';
+    +'<div class="overflow-x"><table><thead><tr><th>Customer</th><th>GitHub File</th><th>File ID</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>'
+    +'<div style="padding:8px 18px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border);background:var(--bg-light)">'
+    +'&#128274; AES-GCM encrypted. Filename reveals nothing about the customer. &#8635; Rotate to generate a new random name.</div>'
+    +'</div>';
 }
+
 function rotateCusFileId(cusId){
   if(!confirm('Generate a new random filename for this customer?\n\nNote: the old file will remain on GitHub until you manually delete it from the repo.')) return;
   var cu=CUSTOMERS.find(function(c){return c.id===cusId;});
@@ -2752,6 +2766,7 @@ function rUsers(){
       +'</div></td></tr>';
   }).join('');
   return '<div class="col g24">'
+    +rFileMap()
     +'<div class="row between center"><div><div class="label">Access Control</div><h1 style="font-size:26px;font-weight:800">Users</h1></div>'
     +'<button class="btn-primary" onclick="addUser()">+ Add User</button></div>'
     +'<div class="card" style="padding:0;overflow:hidden"><div class="overflow-x"><table>'
@@ -3558,6 +3573,50 @@ function saveGhToken(){
   // Auto-load data now that we have a token
   ghLoadData();
 }
+async function showRepoFiles(){
+  if(!GH.token){ showGhTokenModal(); return; }
+  showModal('<div class="modal modal-lg"><h3>&#128193; GitHub Repo Files</h3>'
+    +'<div id="repo-files-list"><div style="text-align:center;padding:20px;color:var(--text-muted)">Loading…</div></div>'
+    +'<div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Close</button></div></div>');
+  try {
+    var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/?ref='+GH.branch+'&nocache='+Date.now();
+    var res=await fetch(url,{headers:ghApiHeaders()});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var files=await res.json();
+    // Build file mapping: encrypted files mapped to customer names
+    var fileMap={};
+    CUSTOMERS.forEach(function(cu){
+      if(cu.fileId) fileMap['data-'+cu.fileId+'.json']=cu;
+    });
+    var rows=files.sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(f){
+      var cu=fileMap[f.name];
+      var kb=(f.size/1024).toFixed(1);
+      var isCustomerFile=!!cu;
+      var isUsersFile=f.name==='users.json';
+      var isLegacy=f.name==='data.json';
+      var icon=isCustomerFile?'&#128274;':isUsersFile?'&#128100;':isLegacy?'&#9888;':'&#128196;';
+      var label=isCustomerFile?('<strong>'+e(cu.name)+'</strong> (encrypted)'):isUsersFile?'Users & customer index':isLegacy?'<span style="color:var(--amber)">Legacy data.json — safe to delete after migration</span>':'Other file';
+      var repoUrl='https://github.com/'+GH.owner+'/'+GH.repo+'/blob/'+GH.branch+'/'+encodeURIComponent(f.name);
+      return '<tr>'
+        +'<td style="padding:8px 12px;font-family:monospace;font-size:12px">'+icon+' '+e(f.name)+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text-muted)">'+label+'</td>'
+        +'<td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:right">'+kb+' KB</td>'
+        +'<td style="padding:8px 12px"><a href="'+repoUrl+'" target="_blank" style="font-size:11px;color:var(--accent)">GitHub &#8599;</a></td>'
+        +'</tr>';
+    }).join('');
+    var html='<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Repository: '
+      +'<a href="https://github.com/'+GH.owner+'/'+GH.repo+'" target="_blank" style="color:var(--accent)">'+GH.owner+'/'+GH.repo+'</a></p>'
+      +'<div class="overflow-x"><table>'
+      +'<thead><tr><th>File</th><th>Content</th><th style="text-align:right">Size</th><th></th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table></div>';
+    var el=document.getElementById('repo-files-list');
+    if(el) el.innerHTML=html;
+  } catch(err){
+    var el=document.getElementById('repo-files-list');
+    if(el) el.innerHTML='<div style="color:var(--red);padding:12px">Failed to load: '+e(err.message)+'</div>';
+  }
+}
+
 function clearGhToken(){
   if(confirm('Remove saved GitHub token from this browser?')){
     localStorage.removeItem('belfius_gh_token');
@@ -3585,6 +3644,7 @@ function injectGhBar(force){
       : '<div style="margin-bottom:8px"><button class="btn-primary" style="width:100%;font-size:12px;padding:8px;background:rgba(255,165,0,.25);border:1px solid rgba(255,165,0,.5)" onclick="showGhTokenModal()">&#128273; Set GitHub Token</button><div style="font-size:10px;color:rgba(255,165,0,.8);margin-top:4px;text-align:center">Required to save &amp; load data</div></div>')
     +'<button id="gh-save-btn" class="btn-primary" style="width:100%;font-size:12px;padding:9px" onclick="ghSaveCustomer()"'+(hasToken?'':' disabled title="Set token first"')+'>&#9729; Save to GitHub</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:6px" onclick="ghPullLatest()">&#8635; Pull latest</button>'
+    +(hasToken?'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showRepoFiles()">&#128193; View Repo Files</button>':'')
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="showImportModal()">&#128229; Import / Restore</button>'
     +'<button class="btn-ghost" style="width:100%;font-size:12px;padding:7px;margin-top:4px" onclick="goUsers()">&#128100; Manage Users</button>'
     +'<div id="gh-status" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:16px;line-height:1.4"></div>'
