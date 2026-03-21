@@ -703,6 +703,7 @@ var NAV_ITEMS=[
   {id:'timeline',   icon:'&#9711;',  label:'Timeline'},
   {id:'team',       icon:'&#9673;',  label:'Team'},
   {id:'raci',       icon:'&#9633;',  label:'RACI Matrix', sfOnly:true},
+  {id:'decisions',  icon:'&#128203;',label:'Decisions'},
   {id:'blockers',   icon:'&#9888;',  label:'Blockers'},
   {id:'meetings',   icon:'&#9702;',  label:'Cadences', sfOnly:true},
   {id:'kpis',       icon:'&#9650;',  label:'KPIs'},
@@ -992,7 +993,7 @@ function navigate(page){
 
 function renderPage(page){
   if(page.startsWith('uc-')){ return rUseCasePage(parseInt(page.replace('uc-',''))); }
-  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
+  var map={overview:rOverview,usecases:rUseCasesList,timeline:rTimeline,team:rTeam,raci:rRaci,decisions:rDecisions,blockers:rBlockers,meetings:rMeetings,kpis:rKpis,flowchart:rFlowchart,users:rUsers};
   return (map[page]||rOverview)();
 }
 
@@ -1103,11 +1104,11 @@ function rOverview(){
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--blue)">'+avgProgress+'%</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Avg Progress</div>'
     +'<div style="margin-top:6px">'+pb(avgProgress)+'</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'blockers\')">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(232,93,93,.3);cursor:pointer" onclick="navigate(\'blockers\')">' 
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--red)">'+atRisk+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">At Risk</div>'
     +'<div style="font-size:10px;color:var(--red);margin-top:3px">click to view</div></div>'
-    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick="navigate(\'blockers\')">'
+    +'<div class="card" style="padding:18px 20px;text-align:center;min-width:88px;border-color:rgba(240,168,67,.3);cursor:pointer" onclick="navigate(\'blockers\')">' 
     +'<div style="font-size:24px;font-weight:800;font-family:var(--font-head);color:var(--amber)">'+open+'</div>'
     +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">Open Items</div>'
     +'<div style="font-size:10px;color:var(--amber);margin-top:3px">click to view</div></div>'
@@ -1154,7 +1155,7 @@ function rOverview(){
       riskSection='<div><div class="sec-title">Active Risks &amp; Blockers <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--accent)" onclick="navigate(\'blockers\')">View all &rarr;</span></div>'
         +'<div class="col g8">'
         +risks.map(function(b){
-          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" onclick="navigate(\'blockers\')">'
+          return '<div class="card row center" style="padding:12px 16px;gap:12px;border-color:rgba(232,93,93,.2);cursor:pointer" onclick="navigate(\'blockers\')">' 
             +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);min-width:26px">'+b.id+'</span>'
             +'<span style="font-size:13px;color:var(--text-dim);flex:1">'+e(b.item)+'</span>'
             +'<span style="font-size:12px;color:var(--text-muted)">'+e(b.owner)+'</span>'
@@ -1769,24 +1770,53 @@ function rTimeline(){
     var ucMilDates=[];
     (DATA.useCases||[]).forEach(function(uc){(uc.milestones||[]).forEach(function(m){if(m.date&&/^\d{4}-/.test(m.date))ucMilDates.push({date:m.date,label:m.label,ucTitle:uc.title,ucId:uc.id,pct:m.progress||0,assignees:m.assignees||[],atRisk:m.atRisk});});});
     var allDates=events.map(function(ev){return ev.date;}).concat(ucMilDates.map(function(m){return m.date;})).filter(Boolean).sort();
-    var minD=new Date(allDates[0]||new Date());
-    var maxD=new Date(allDates[allDates.length-1]||new Date());
-    minD.setDate(1); // start of month
-    maxD.setMonth(maxD.getMonth()+1); maxD.setDate(0); // end of last month
+
+    // Anchor range to project phases if available
+    var phDates=(DATA.phases||[]).filter(function(p){return p.startDate||p.endDate;});
+    var phStart=phDates.length?phDates.map(function(p){return p.startDate;}).filter(Boolean).sort()[0]:null;
+    var phEnd=phDates.length?phDates.map(function(p){return p.endDate;}).filter(Boolean).sort().pop():null;
+
+    // Use project start/end as hard boundaries, events extend inside
+    var anchorStart=phStart||(allDates[0]||new Date().toISOString().slice(0,10));
+    var anchorEnd=phEnd||(allDates[allDates.length-1]||new Date().toISOString().slice(0,10));
+
+    var minD=new Date(anchorStart); minD.setDate(1);
+    var maxD=new Date(anchorEnd); maxD.setMonth(maxD.getMonth()+1); maxD.setDate(0);
     var totalMs=maxD-minD||1;
     function pct(ds){return Math.max(0,Math.min(100,((new Date(ds)-minD)/totalMs)*100));}
 
     // Month header
     var months=[]; var d=new Date(minD);
     while(d<=maxD){months.push(new Date(d));d.setMonth(d.getMonth()+1);}
-    var monthBar='<div style="display:flex;margin-bottom:4px;padding-left:100px">'
+    var todayPct=Math.max(0,Math.min(100,((now-minD)/totalMs*100)));
+
+    // Phase background bands (rendered behind everything)
+    var phaseBands='';
+    (DATA.phases||[]).forEach(function(ph){
+      if(!ph.startDate||!ph.endDate) return;
+      var x1=pct(ph.startDate), x2=pct(ph.endDate);
+      var w=x2-x1;
+      if(w<=0) return;
+      var phColors={active:'rgba(0,112,210,.10)',upcoming:'rgba(128,128,128,.06)',done:'rgba(46,132,74,.08)'};
+      var col=phColors[ph.status]||phColors.upcoming;
+      phaseBands+='<div style="position:absolute;left:'+x1+'%;width:'+w+'%;top:0;bottom:0;background:'+col+';border-left:2px solid '+(ph.status==='active'?'var(--accent)':'rgba(128,128,128,.2)')+';" title="'+e(ph.name)+'">'
+        +'<div style="font-size:9px;font-weight:700;color:'+(ph.status==='active'?'var(--accent)':'var(--text-muted)')+';padding:2px 4px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden">'+e(ph.name)+'</div>'
+        +'</div>';
+    });
+
+    // Past shading (grey overlay from start to today)
+    var pastShade=todayPct>0?'<div style="position:absolute;left:0;width:'+todayPct+'%;top:0;bottom:0;background:rgba(0,0,0,.06);pointer-events:none"></div>':'';
+
+    var monthBar='<div style="position:relative;margin-bottom:2px;padding-left:100px">'
+      // Phase label strip above months
+      +(phaseBands?'<div style="position:relative;height:18px;margin-bottom:2px">'+phaseBands+'</div>':'')
+      +'<div style="display:flex">'
       +months.map(function(m){
         var w=((new Date(m.getFullYear(),m.getMonth()+1,0)-new Date(m.getFullYear(),m.getMonth(),1))/totalMs*100).toFixed(1);
-        return '<div style="flex:0 0 '+w+'%;font-size:10px;color:var(--text-muted);font-weight:700;text-align:center;letter-spacing:.06em;text-transform:uppercase;overflow:hidden">'+m.toLocaleDateString('en',{month:'short',year:'2-digit'})+'</div>';
-      }).join('')+'</div>';
-
-    // Today line position
-    var todayPct=((now-minD)/totalMs*100).toFixed(1);
+        var isPast=new Date(m.getFullYear(),m.getMonth()+1,0)<now;
+        var isCurrent=m.getFullYear()===now.getFullYear()&&m.getMonth()===now.getMonth();
+        return '<div style="flex:0 0 '+w+'%;font-size:10px;color:'+(isPast?'var(--text-muted)':isCurrent?'var(--accent)':'var(--text)')+';font-weight:'+(isCurrent?'800':'600')+';text-align:center;letter-spacing:.06em;text-transform:uppercase;overflow:hidden;padding:2px 0;border-left:1px solid var(--border)">'+m.toLocaleDateString('en',{month:'short',year:'2-digit'})+'</div>';
+      }).join('')+'</div></div>';
 
     // Group events by type
     var typeColors={Executive:'var(--accent)',Workshop:'var(--blue)',Deadline:'var(--red)',Milestone:'var(--green)',Review:'var(--amber)',Other:'var(--text-muted)'};
@@ -2243,39 +2273,52 @@ function deleteRaciRow(idx){if(confirm('Delete?')){DATA.raci.splice(idx,1);navig
 /* ═══════════════════════════════════════════════════
    BLOCKERS
 ═══════════════════════════════════════════════════ */
+function rDecisions(){
+  return rBlockerSection('Decisions','Decision','var(--amber)','&#128203;',
+    (DATA.blockers||[]).filter(function(b){return b.type==='Decision';}));
+}
 function rBlockers(){
-  var canE=canEdit()||currentRole==='viewer';
+  return rBlockerSection('Blockers','Blocker','var(--red)','&#9888;',
+    (DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}));
+}
+function rBlockerSection(pageTitle, addType, color, icon, items){
+  var canE=canEdit();
   var opts=['Open','In Progress','At Risk','Blocked','Not Started','Pending','Done','Due end of March'];
-  function sec(title,items,color){
-    return '<div><div class="row center g12" style="margin-bottom:12px">'
-      +'<h2 style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:'+color+'">'+title+'</h2>'
-      +(canEdit()?'<button class="btn-primary btn-sm" onclick="addBlocker(\'Decision\')">+ Add</button>':'')
-      +'</div><div class="col g10">'
-      +items.map(function(item){
-        var ri=(DATA.blockers||[]).indexOf(item);
-        return '<div class="card" style="padding:16px 20px;'+(item.status==='At Risk'||item.status==='Blocked'?'border-color:rgba(232,93,93,.25)':'')+'">'
-          +'<div class="row wrap between" style="gap:12px">'
-          +'<div style="flex:1">'
-          +'<div class="row center g8" style="margin-bottom:6px">'
-          +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);background:var(--bg-light);padding:2px 8px;border-radius:4px">'+item.id+'</span>'
-          +badge(item.status)+'</div>'
-          +'<div style="font-size:14px;color:var(--text-dim);line-height:1.5">'+e(item.item)+'</div>'
-          +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Owner: <span style="color:var(--text-soft)">'+e(item.owner)+'</span></div>'
-          +'</div>'
-          +'<div class="col g8" style="align-items:flex-end">'
-          +(currentRole!=='viewer'||canEdit()?'<select onchange="DATA.blockers['+ri+'].status=this.value;navigate(\'blockers\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
-            +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')
-          +(canEdit()?'<div class="row g4"><button class="btn-icon" onclick="editBlocker('+ri+')">&#9998;</button>'
-            +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteBlocker('+ri+')">&#10005;</button></div>':'')
-          +'</div></div></div>';
-      }).join('')+'</div></div>';
-  }
-  return '<div class="col g28">'
-    +'<div><div class="label">Risk Register</div><h1 style="font-size:26px;font-weight:800">Open Decisions &amp; Blockers</h1></div>'
-    +sec('Decisions Required',(DATA.blockers||[]).filter(function(b){return b.type==='Decision';}),'var(--amber)')
-    +sec('Blockers',(DATA.blockers||[]).filter(function(b){return b.type==='Blocker';}),'var(--red)')
+  var cards=items.map(function(item){
+    var ri=(DATA.blockers||[]).indexOf(item);
+    return '<div class="card" style="padding:16px 20px;'+(item.status==='At Risk'||item.status==='Blocked'?'border-color:rgba(232,93,93,.25)':'')+'">'
+      +'<div class="row wrap between" style="gap:12px">'
+      +'<div style="flex:1">'
+      +'<div class="row center g8" style="margin-bottom:6px">'
+      +'<span style="font-size:11px;font-weight:800;font-family:var(--font-head);color:var(--accent);background:var(--bg-light);padding:2px 8px;border-radius:4px">'+e(item.id)+'</span>'
+      +badge(item.status)+'</div>'
+      +'<div style="font-size:14px;color:var(--text-dim);line-height:1.5">'+e(item.item)+'</div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Owner: <span style="color:var(--text-soft)">'+e(item.owner)+'</span></div>'
+      +'</div>'
+      +'<div class="col g8" style="align-items:flex-end">'
+      +(canE?'<select onchange="DATA.blockers['+ri+'].status=this.value;navigate(\''+( addType==='Decision'?'decisions':'blockers')+'\');autoSave()" style="width:auto;font-size:12px;padding:5px 10px">'
+        +opts.map(function(s){return '<option'+(s===item.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select>':'')
+      +(canE?'<div class="row g4"><button class="btn-icon" onclick="editBlocker('+ri+')">&#9998;</button>'
+        +'<button class="btn-icon" style="color:#e85d5d" onclick="deleteBlocker('+ri+')">&#10005;</button></div>':'')
+      +'</div></div></div>';
+  }).join('');
+  return '<div class="col g24">'
+    +'<div class="row between center wrap" style="gap:12px">'
+    +'<div><div class="label" style="color:'+color+'">'+icon+'</div>'
+    +'<h1 style="font-size:26px;font-weight:800">'+pageTitle+'</h1>'
+    +'<p style="font-size:13px;color:var(--text-muted);margin-top:4px">'+(items.length)+' item'+(items.length!==1?'s':'')+' total</p></div>'
+    +(canE?'<button class="btn-primary" onclick="addBlocker(\''+addType+'\')">+ Add '+addType+'</button>':'')
+    +'</div>'
+    +(items.length?'<div class="col g10">'+cards+'</div>'
+      :'<div class="card-el" style="padding:40px;text-align:center;color:var(--text-muted)">'
+      +'<div style="font-size:40px;margin-bottom:12px">'+icon+'</div>'
+      +'<div style="font-size:15px;font-weight:600;margin-bottom:6px">No '+pageTitle.toLowerCase()+' yet</div>'
+      +'<div style="font-size:12px">'+('Decision'===addType?'Track decisions that need to be made':'Track items blocking progress')+'</div>'
+      +(canE?'<div style="margin-top:16px"><button class="btn-primary" onclick="addBlocker(\''+addType+'\')">+ Add '+addType+'</button></div>':'')
+      +'</div>')
     +'</div>';
 }
+
 function addBlocker(type){
   showModal('<div class="modal"><h3>Add '+type+'</h3>'
     +'<div class="form-group"><label>ID</label><input id="m-id" placeholder="D6 or B3"></div>'
@@ -2289,7 +2332,8 @@ function addBlocker(type){
 function saveBlocker(type){
   if(!DATA.blockers) DATA.blockers=[];
   DATA.blockers.push({id:document.getElementById('m-id').value,type:type,item:document.getElementById('m-item').value,owner:document.getElementById('m-owner').value,status:document.getElementById('m-status').value});
-  closeModal();navigate('blockers');autoSave();
+  var tp=(DATA.blockers[idx]||{}).type;
+  closeModal();navigate(tp==='Blocker'?'blockers':'decisions');autoSave();
 }
 function editBlocker(idx){
   var b=DATA.blockers[idx];
@@ -2308,9 +2352,10 @@ function saveEditBlocker(idx){
   b.id=document.getElementById('m-id').value; b.item=document.getElementById('m-item').value;
   b.owner=document.getElementById('m-owner').value; b.type=document.getElementById('m-type').value;
   b.status=document.getElementById('m-status').value;
-  closeModal();navigate('blockers');autoSave();
+  var tp=(DATA.blockers[idx]||{}).type;
+  closeModal();navigate(tp==='Blocker'?'blockers':'decisions');autoSave();
 }
-function deleteBlocker(idx){if(confirm('Delete?')){DATA.blockers.splice(idx,1);navigate('blockers');autoSave();}}
+function deleteBlocker(idx){var tp=(DATA.blockers[idx]||{}).type;if(confirm('Delete?')){DATA.blockers.splice(idx,1);navigate(tp==='Blocker'?'blockers':'decisions');autoSave();}}
 
 /* ═══════════════════════════════════════════════════
    MEETINGS
@@ -2649,6 +2694,37 @@ function rFlowchart(){
 /* ═══════════════════════════════════════════════════
    USERS PAGE
 ═══════════════════════════════════════════════════ */
+
+/* ── File mapping — shown in superadmin Users page ── */
+function rFileMap(){
+  if(!isSuperAdmin()) return '';
+  var rows=CUSTOMERS.map(function(cu){
+    var fname=ghCusFile(cu.id);
+    return '<tr>'
+      +'<td style="padding:10px 14px"><div style="font-weight:600">'+e(cu.name)+'</div><div style="font-size:11px;color:var(--text-muted)">id: '+e(cu.id)+'</div></td>'
+      +'<td style="padding:10px 14px;font-family:monospace;font-size:12px;color:var(--accent)">'+e(fname)+'</td>'
+      +'<td style="padding:10px 14px;font-size:11px;color:var(--text-muted)">'+e(cu.fileId||'—')+'</td>'
+      +'<td style="padding:10px 14px">'
+        +'<button class="btn-icon btn-sm" onclick="rotateCusFileId(\''+cu.id+'\')" title="Regenerate random filename (old file stays on GitHub until manually deleted)">&#8635; Rotate</button>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:24px;overflow:hidden">'
+    +'<div style="padding:14px 18px;background:var(--btn-primary)">'
+    +'<div style="font-weight:700;font-size:14px;color:#fff">&#128274; Encrypted File Mapping</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:2px">Only visible to superadmin — maps customer names to anonymous encrypted filenames</div>'
+    +'</div>'
+    +'<div class="overflow-x"><table><thead><tr><th>Customer</th><th>Filename</th><th>File ID</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div></div>';
+}
+function rotateCusFileId(cusId){
+  if(!confirm('Generate a new random filename for this customer?\n\nNote: the old file will remain on GitHub until you manually delete it from the repo.')) return;
+  var cu=CUSTOMERS.find(function(c){return c.id===cusId;});
+  if(!cu) return;
+  cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+  navigate('users');
+  autoSave(); // will save to the new filename
+}
 function rUsers(){
   if(!isSuperAdmin()) return '<div style="padding:40px;text-align:center;color:var(--text-muted)">Access denied.</div>';
   var rows=Object.keys(USERS).map(function(u){
@@ -3237,7 +3313,17 @@ async function ghDecrypt(key, b64){
 }
 
 /* ── File name helpers ── */
-function ghCusFile(cusId){ return 'data-'+cusId+'.json'; }
+function ghCusFile(cusId){
+  var cu=CUSTOMERS.find(function(c){return c.id===cusId;});
+  if(cu&&cu.fileId) return 'data-'+cu.fileId+'.json';
+  // Generate and persist a random fileId for new customers
+  if(cu){ cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); return 'data-'+cu.fileId+'.json'; }
+  return 'data-'+cusId+'.json'; // fallback
+}
+function ensureFileIds(){
+  // Ensure every customer has a fileId (called after loading data)
+  CUSTOMERS.forEach(function(cu){ if(!cu.fileId) cu.fileId=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); });
+}
 
 /* ── Load users.json (plain, just hashes) ── */
 async function ghFetchUsers(){
@@ -3294,7 +3380,7 @@ async function ghLoadCustomer(cusId){
   if(loaded.customerData){
     var ci=CUSTOMERS.findIndex(function(cu){return cu.id===cusId;});
     if(ci!==-1) Object.assign(CUSTOMERS[ci], loaded.customerData);
-    syncDATA();
+    ensureFileIds(); syncDATA();
   }
 }
 
