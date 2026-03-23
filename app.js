@@ -3658,7 +3658,7 @@ function bindFC(){
     for(var i=FC.nodes.length-1;i>=0;i--){
       var nd=FC.nodes[i];
       if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){
-        showFCRename('node',i,nd.label||'',nd.x+nd.w/2,nd.y+nd.h/2);
+        showFCRename('node',i,nd.x+nd.w/2,nd.y+nd.h/2);
         ev.stopPropagation(); return;
       }
     }
@@ -3671,7 +3671,7 @@ function bindFC(){
         var ecx=(src.x+src.w/2+dst.x+dst.w/2)/2;
         var ecy=(src.y+src.h/2+dst.y+dst.h/2)/2;
         if(Math.abs(mx-ecx)<30&&Math.abs(my-ecy)<20){
-          showFCRename('edge',j,ed.label||'',ecx,ecy);
+          showFCRename('edge',j,ecx,ecy);
           ev.stopPropagation(); return;
         }
       }
@@ -3716,7 +3716,7 @@ function fcHoverEdit(idx, isEdge){
       return '<div onclick="fcNodeColor('+idx+',\''+col[0]+'\')" title="'+col[1]+'" style="width:22px;height:22px;border-radius:50%;background:'+col[0]+';cursor:pointer;border:2px solid '+(active?'var(--accent)':'rgba(0,0,0,.15)')+';flex-shrink:0;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.2)\'" onmouseout="this.style.transform=\'\'"></div>';
     }).join('');
     tip2.innerHTML='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;box-shadow:0 4px 20px rgba(0,0,0,.25);min-width:160px">'
-      +'<button onclick="showFCRename(\'nodeX\','+idx+',\''+e(nd.label||'').replace(/'/g,'\\\'')+'\')'+(',')+''+(nd.x+nd.w/2)+','+(nd.y+nd.h/2)+')" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:8px;text-align:left">&#9998; Rename</button>'
+      +'<button onclick="showFCRename(\'nodeX\','+idx+','+(nd.x+nd.w/2)+','+(nd.y+nd.h/2)+')" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:8px;text-align:left">&#9998; Rename</button>'
       +'<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Color</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+swatches+'</div>'
       +'<div style="display:flex;align-items:center;gap:6px">'
@@ -3733,7 +3733,7 @@ function fcHoverEdit(idx, isEdge){
     var tn=FC.nodes.find(function(n){return n.id===ed.to;});
     if(!sn||!tn) return;
     var cx=(sn.x+sn.w/2+tn.x+tn.w/2)/2, cy=(sn.y+sn.h/2+tn.y+tn.h/2)/2;
-    showFCRename('edge', idx, ed.label||'', cx, cy);
+    showFCRename('edge', idx, cx, cy);
   }
 }
 function fcNodeColor(ndIdx, color){
@@ -3741,7 +3741,11 @@ function fcNodeColor(ndIdx, color){
   var tip=document.getElementById('fc-hover-tip'); if(tip) tip.style.display='none';
   drawFC(); saveFCData(); fcMarkDirty();
 }
-function showFCRename(type, idx, current, cx, cy){
+function showFCRename(type, idx, cx, cy){
+  // Look up current label directly — avoids escaping issues in onclick strings
+  var current='';
+  if(type==='node'||type==='nodeX'){ var _nd=FC.nodes[idx]; current=(_nd&&_nd.label)||''; }
+  else { var _ed=FC.edges[idx]; current=(_ed&&_ed.label)||''; }
   var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
   var svgEl=document.getElementById('fc-svg'); if(!svgEl) return;
   var wRect=wrap.getBoundingClientRect();
