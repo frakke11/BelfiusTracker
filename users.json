@@ -6,17 +6,7 @@
       "name": "Super Admin",
       "assignedCustomers": [],
       "assignedProjects": []
-    },
-    "_requests": [
-      {
-        "name": "tet",
-        "username": "test",
-        "email": "test@test.com",
-        "reason": "test",
-        "ts": "2026-03-21T15:09:28.606Z",
-        "status": "declined"
-      }
-    ]
+    }
   },
   "customerShells": [
     {
