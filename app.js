@@ -3303,7 +3303,7 @@ function fcUndo(){
 function fcMarkDirty(){
   FC.dirty=true;
   var btn=document.getElementById('fc-save-btn');
-  if(btn){ btn.style.background='var(--red)'; btn.textContent='&#9729; Save*'; btn.title='Unsaved changes'; }
+  if(btn){ btn.style.background='var(--red)'; btn.innerHTML='&#9729; Save*'; btn.title='Unsaved changes'; }
   var lbl=document.getElementById('fc-dirty-lbl');
   if(lbl){ lbl.textContent='Unsaved changes'; lbl.style.color='var(--red)'; }
 }
@@ -3644,6 +3644,34 @@ function bindFC(){
 
   svg.addEventListener('mouseup',function(){
     if(FC.dragNode){ saveFCData(); fcMarkDirty(); FC.dragNode=null; }
+  });
+  // Double-click to rename node or edge
+  svg.addEventListener('dblclick',function(ev){
+    if(!canEdit()) return;
+    var rect=svg.getBoundingClientRect();
+    var mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    // Check nodes first (reverse order = topmost first)
+    for(var i=FC.nodes.length-1;i>=0;i--){
+      var nd=FC.nodes[i];
+      if(mx>=nd.x&&mx<=nd.x+nd.w&&my>=nd.y&&my<=nd.y+nd.h){
+        showFCRename('node',i,nd.label||'',nd.x+nd.w/2,nd.y+nd.h/2);
+        ev.stopPropagation(); return;
+      }
+    }
+    // Check edges (click near midpoint label area)
+    for(var j=0;j<FC.edges.length;j++){
+      var ed=FC.edges[j];
+      var src=FC.nodes.find(function(n){return n.id===ed.from;});
+      var dst=FC.nodes.find(function(n){return n.id===ed.to;});
+      if(src&&dst){
+        var ecx=(src.x+src.w/2+dst.x+dst.w/2)/2;
+        var ecy=(src.y+src.h/2+dst.y+dst.h/2)/2;
+        if(Math.abs(mx-ecx)<30&&Math.abs(my-ecy)<20){
+          showFCRename('edge',j,ed.label||'',ecx,ecy);
+          ev.stopPropagation(); return;
+        }
+      }
+    }
   });
   // Keyboard: Ctrl+Z = undo, Ctrl+S = save
   var _fcKeyHandler=function(ev){
