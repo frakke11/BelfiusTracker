@@ -10,11 +10,11 @@
   },
   "customerShells": [
     {
-      "id": "demo",
-      "name": "Demo Customer",
-      "logo": "🏢",
-      "brandColor": "#0070d2",
-      "fileId": "diiyv5tb9y2x6sxv"
+      "id": "belfius",
+      "name": "Belfius",
+      "logo": "⚡",
+      "brandColor": "#e80953",
+      "fileId": "d5csfnbrnp5ny5tw"
     }
   ]
 }
