@@ -225,8 +225,12 @@ async function doLogin(){
   if(!u||!p){ er.classList.remove('hidden'); er.textContent='Please enter username and password.'; return; }
   if(btn){ btn.textContent='Checking…'; btn.disabled=true; }
   // Try fetching latest user list from GitHub first
-  try { await ghFetchUsers(); } catch(e){}
+  try { await ghFetchUsers(); } catch(e){ console.warn('[Login] ghFetchUsers failed:',e); }
   var entry = USERS[u];
+  if(!entry && !GH.token){
+    if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
+    er.classList.remove('hidden'); er.textContent='Could not reach GitHub — no token set. Go to Settings after login to add your GitHub token.'; return;
+  }
   if(!entry){ 
     if(btn){ btn.textContent='Sign In →'; btn.disabled=false; }
     er.classList.remove('hidden'); er.textContent='Unknown username.'; return; 
@@ -265,7 +269,7 @@ async function ghFetchUsers(){
   // Try old combined data.json first (migration path)
   var url='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/data.json'
          +'?ref='+GH.branch+'&nocache='+Date.now();
-  var res=await fetch(url,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  var res=await fetch(url,{headers:ghApiHeaders()});
   if(res.ok){
     try{
       var json=await res.json();
@@ -284,7 +288,7 @@ async function ghFetchUsers(){
   // New format: try users.json
   var url2='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/users.json'
            +'?ref='+GH.branch+'&nocache='+Date.now();
-  var res2=await fetch(url2,{headers:{'Accept':'application/vnd.github.v3+json'}});
+  var res2=await fetch(url2,{headers:ghApiHeaders()});
   if(res2.ok){
     try{
       var json2=await res2.json();
@@ -3739,12 +3743,14 @@ function fcNodeColor(ndIdx, color){
 }
 function showFCRename(type, idx, current, cx, cy){
   var wrap=document.getElementById('fc-wrap'); if(!wrap) return;
-  var wRect=wrap.getBoundingClientRect();
   var svgEl=document.getElementById('fc-svg'); if(!svgEl) return;
+  var wRect=wrap.getBoundingClientRect();
   var sRect=svgEl.getBoundingClientRect();
-  // Position input over the element
+  // Convert SVG canvas coords to position relative to fc-wrap
+  var offsetX=sRect.left-wRect.left+wrap.scrollLeft;
+  var offsetY=sRect.top-wRect.top+wrap.scrollTop;
   var overlay=document.createElement('div');
-  overlay.style.cssText='position:absolute;z-index:999;top:'+(cy-16)+'px;left:'+(cx-80)+'px;width:160px';
+  overlay.style.cssText='position:absolute;z-index:999;top:'+(cy+offsetY-16)+'px;left:'+(cx+offsetX-80)+'px;width:160px';
   var inp=document.createElement('input');
   inp.value=current;
   inp.style.cssText='width:100%;padding:6px 10px;font-size:13px;font-family:var(--font-body);border:2px solid var(--accent);border-radius:var(--radius-sm);background:var(--card-bg);color:var(--text);text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3)';
